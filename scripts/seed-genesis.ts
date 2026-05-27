@@ -22,8 +22,8 @@ async function insertPerson(p: {
 }) {
   await db.execute({
     sql: `INSERT OR IGNORE INTO people (id,name,also_known_as,gender,testament,birth_year,death_year,description,tags,created_at)
-          VALUES (?,?,?,?,'OT',null,null,?,?,datetime('now'))`,
-    args: [id(p.key), p.name, p.alsoKnownAs ?? null, p.gender, p.description, JSON.stringify(p.tags)],
+          VALUES (?,?,?,?,'OT','','',?,?,datetime('now'))`,
+    args: [id(p.key), p.name, p.alsoKnownAs ?? '', p.gender, p.description, JSON.stringify(p.tags)],
   });
 }
 
@@ -31,7 +31,7 @@ async function insertRel(aKey: string, type: string, bKey: string, notes?: strin
   await db.execute({
     sql: `INSERT OR IGNORE INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
           VALUES (?,?,?,?,?,?,?,datetime('now'))`,
-    args: [crypto.randomUUID(), id(aKey), aKey, type, id(bKey), bKey, notes ?? null],
+    args: [crypto.randomUUID(), id(aKey), aKey, type, id(bKey), bKey, notes ?? ''],
   });
 }
 
@@ -39,7 +39,7 @@ async function insertRef(personKey: string, book: string, cs: number, vs: number
   await db.execute({
     sql: `INSERT OR IGNORE INTO scripture_refs (id,person_id,book,chapter_start,verse_start,chapter_end,verse_end,note,created_at)
           VALUES (?,?,?,?,?,?,?,?,datetime('now'))`,
-    args: [crypto.randomUUID(), id(personKey), book, cs, vs, ce ?? null, ve ?? null, note ?? null],
+    args: [crypto.randomUUID(), id(personKey), book, cs, vs, ce ?? cs, ve ?? vs, note ?? ''],
   });
 }
 
@@ -571,6 +571,10 @@ async function initSchema() {
 async function main() {
   console.log("Initializing schema...");
   await initSchema();
+  console.log("Clearing existing data...");
+  await db.execute("DELETE FROM scripture_refs");
+  await db.execute("DELETE FROM relationships");
+  await db.execute("DELETE FROM people");
   console.log("Seeding Genesis people...");
   await seedPeople();
   console.log("Seeding relationships...");
