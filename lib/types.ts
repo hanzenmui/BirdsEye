@@ -142,3 +142,20 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   ruler_of:      "Ruler of",
   other:         "Related to",
 };
+
+// Inverse labels for when the current person is person B in the relationship
+export const RELATIONSHIP_INVERSE_LABELS: Record<RelationshipType, string> = {
+  parent_of:     "Child of",
+  child_of:      "Parent of",
+  spouse_of:     "Spouse of",
+  sibling_of:    "Sibling of",
+  ancestor_of:   "Descendant of",
+  descendant_of: "Ancestor of",
+  mentor_of:     "Disciple of",
+  disciple_of:   "Mentor of",
+  ally_of:       "Ally of",
+  enemy_of:      "Enemy of",
+  servant_of:    "Master of",
+  ruler_of:      "Subject of",
+  other:         "Related to",
+};

@@ -4,7 +4,7 @@ import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
-import { BIBLE_BOOKS, RELATIONSHIP_LABELS } from "@/lib/types";
+import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS } from "@/lib/types";
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -342,7 +342,7 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
               const isA = r.personAId === person.id;
               const otherName = isA ? r.personBName : r.personAName;
               const otherId   = isA ? r.personBId   : r.personAId;
-              const label = RELATIONSHIP_LABELS[r.type];
+              const label = isA ? RELATIONSHIP_LABELS[r.type] : RELATIONSHIP_INVERSE_LABELS[r.type];
               return (
                 <div key={r.id} className="rel-item">
                   <span className="rel-type-label">{label}</span>
@@ -584,7 +584,7 @@ function TreeSection({ people, relationships, onSelect }: TreeSectionProps) {
 
   const grouped = rels.reduce<Record<string, { rel: Relationship; otherId: string; otherName: string }[]>>((acc, r) => {
     const isA = r.personAId === focalId;
-    const label = RELATIONSHIP_LABELS[r.type];
+    const label = isA ? RELATIONSHIP_LABELS[r.type] : RELATIONSHIP_INVERSE_LABELS[r.type];
     const otherId   = isA ? r.personBId   : r.personAId;
     const otherName = isA ? r.personBName : r.personAName;
     if (!acc[label]) acc[label] = [];
