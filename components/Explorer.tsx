@@ -215,18 +215,37 @@ interface AddRelProps {
   onSave: (r: Omit<Relationship, "id" | "createdAt">) => Promise<void>;
   onClose: () => void;
 }
+const INVERSE_TYPES: Partial<Record<RelationshipType, RelationshipType>> = {
+  child_of:      "parent_of",
+  descendant_of: "ancestor_of",
+  disciple_of:   "mentor_of",
+};
+
 function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
   const [type, setType] = useState<RelationshipType>("parent_of");
   const [personBId, setPersonBId] = useState("");
   const [notes, setNotes] = useState("");
 
   const others = people.filter(p => p.id !== focalPerson.id);
+  const personB = people.find(p => p.id === personBId);
+  const typeLabel = RELATIONSHIP_LABELS[type].toLowerCase();
+  const preview = personB
+    ? `${focalPerson.name} is ${typeLabel} ${personB.name}`
+    : `${focalPerson.name} is ${typeLabel} …`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!personBId) return;
-    const personB = people.find(p => p.id === personBId)!;
-    await onSave({ personAId: focalPerson.id, personAName: focalPerson.name, type, personBId, personBName: personB.name, notes });
+    if (!personBId || !personB) return;
+    const flip = type in INVERSE_TYPES;
+    const canonicalType = INVERSE_TYPES[type] ?? type;
+    await onSave({
+      personAId:   flip ? personBId        : focalPerson.id,
+      personAName: flip ? personB.name     : focalPerson.name,
+      type:        canonicalType,
+      personBId:   flip ? focalPerson.id   : personBId,
+      personBName: flip ? focalPerson.name : personB.name,
+      notes,
+    });
     onClose();
   };
 
@@ -241,8 +260,7 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
           <div className="modal-body">
             <div className="form-grid">
               <div className="form-group full" style={{ background: "var(--bg3)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{focalPerson.name}</span>
-                <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 8 }}>is the subject</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{preview}</span>
               </div>
               <div className="form-group">
                 <label className="form-label">Relationship Type</label>
