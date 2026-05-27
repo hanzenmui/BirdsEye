@@ -55,7 +55,7 @@ function genesis(key: string, name: string) {
 
 async function loadGenesisIds() {
   const rows = await db.execute("SELECT id, name, also_known_as FROM people");
-  for (const r of rows.rows as { id: string; name: string; also_known_as: string }[]) {
+  for (const r of rows.rows as unknown as { id: string; name: string; also_known_as: string }[]) {
     // Map by lowercase name and also_known_as
     const key = r.name.toLowerCase().replace(/\s+/g, "_");
     ids[key] = r.id;
@@ -69,7 +69,7 @@ async function getPersonId(name: string): Promise<string | null> {
     sql: "SELECT id FROM people WHERE name = ? OR also_known_as LIKE ? LIMIT 1",
     args: [name, `%${name}%`],
   });
-  return (row.rows[0] as { id: string } | undefined)?.id ?? null;
+  return (row.rows[0] as unknown as { id: string } | undefined)?.id ?? null;
 }
 
 // For cross-book relationships, link by name
@@ -340,9 +340,9 @@ async function main() {
   const rc = await db.execute("SELECT COUNT(*) as c FROM relationships");
   const sc = await db.execute("SELECT COUNT(*) as c FROM scripture_refs");
   console.log(`\n✓ Exodus seed complete.`);
-  console.log(`  Total people now: ${(pc.rows[0] as { c: number }).c}`);
-  console.log(`  Total relationships now: ${(rc.rows[0] as { c: number }).c}`);
-  console.log(`  Total scripture refs now: ${(sc.rows[0] as { c: number }).c}`);
+  console.log(`  Total people now: ${(pc.rows[0] as unknown as { c: number }).c}`);
+  console.log(`  Total relationships now: ${(rc.rows[0] as unknown as { c: number }).c}`);
+  console.log(`  Total scripture refs now: ${(sc.rows[0] as unknown as { c: number }).c}`);
   process.exit(0);
 }
 

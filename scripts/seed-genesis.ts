@@ -626,9 +626,9 @@ async function main() {
   const rc = await db.execute("SELECT COUNT(*) as c FROM relationships");
   const sc = await db.execute("SELECT COUNT(*) as c FROM scripture_refs");
   console.log(`\n✓ Genesis seed complete.`);
-  console.log(`  People: ${(pc.rows[0] as {c:number}).c}`);
-  console.log(`  Relationships: ${(rc.rows[0] as {c:number}).c}`);
-  console.log(`  Scripture refs: ${(sc.rows[0] as {c:number}).c}`);
+  console.log(`  People: ${(pc.rows[0] as unknown as {c:number}).c}`);
+  console.log(`  Relationships: ${(rc.rows[0] as unknown as {c:number}).c}`);
+  console.log(`  Scripture refs: ${(sc.rows[0] as unknown as {c:number}).c}`);
   process.exit(0);
 }
 
