@@ -44,7 +44,7 @@ function makeLocalDb(path: string): DbClient {
 
 function makeTursoDb(): DbClient {
   const client = createClient({
-    url: process.env.TURSO_URL!,
+    url: process.env.TURSO_DATABASE_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN!,
   });
   return {
@@ -70,7 +70,8 @@ function makeTursoDb(): DbClient {
 let _db: DbClient | null = null;
 export function getDb(): DbClient {
   if (!_db) {
-    _db = process.env.DB_MODE === "turso"
+    const useTurso = process.env.DB_MODE === "turso" || !!process.env.TURSO_DATABASE_URL;
+    _db = useTurso
       ? makeTursoDb()
       : makeLocalDb(process.env.SQLITE_PATH ?? "./data/birdseye.db");
     _db.init().catch(console.error);

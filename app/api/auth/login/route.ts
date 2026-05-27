@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }
   const { passcode } = await req.json();
-  const expected = Buffer.from(process.env.AUTH_PASSCODE ?? "");
+  const expected = Buffer.from(process.env.ADMIN_PASSCODE ?? "");
   const provided = Buffer.from(passcode ?? "");
   const valid = expected.length === provided.length && timingSafeEqual(expected, provided);
   if (!valid) {
