@@ -9,10 +9,20 @@ export function usePeople() {
 
   const load = useCallback(async () => {
     const gen = ++genRef.current;
-    const res = await fetch("/api/people");
-    if (!res.ok) { if (res.status === 401) window.location.href = "/login"; return; }
-    const data = await res.json();
-    if (gen === genRef.current) { setPeople(data); setLoading(false); }
+    try {
+      const res = await fetch("/api/people");
+      if (!res.ok) {
+        if (res.status === 401) { window.location.href = "/login"; return; }
+        console.error("Failed to load people:", res.status);
+        if (gen === genRef.current) setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (gen === genRef.current) { setPeople(data); setLoading(false); }
+    } catch (e) {
+      console.error("Failed to load people:", e);
+      if (gen === genRef.current) setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
