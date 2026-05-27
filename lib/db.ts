@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { createClient } from "@libsql/client";
 import { schema, MIGRATIONS } from "./schema";
 
@@ -16,6 +15,8 @@ function toPositional(sql: string) {
 }
 
 function makeLocalDb(path: string): DbClient {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Database = require("better-sqlite3");
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   return {
