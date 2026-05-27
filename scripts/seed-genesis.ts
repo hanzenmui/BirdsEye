@@ -11,6 +11,8 @@ const db = createClient({
 
 // ── helpers ────────────────────────────────────────────────────────────────
 const ids: Record<string, string> = {};
+const names: Record<string, string> = {};   // key → display name for denormalized cols
+
 function id(key: string) {
   if (!ids[key]) ids[key] = crypto.randomUUID();
   return ids[key];
@@ -20,6 +22,7 @@ async function insertPerson(p: {
   key: string; name: string; alsoKnownAs?: string; gender: string;
   description: string; tags: string[];
 }) {
+  names[p.key] = p.name;
   await db.execute({
     sql: `INSERT OR IGNORE INTO people (id,name,also_known_as,gender,testament,birth_year,death_year,description,tags,created_at)
           VALUES (?,?,?,?,'OT','','',?,?,datetime('now'))`,
@@ -31,7 +34,8 @@ async function insertRel(aKey: string, type: string, bKey: string, notes?: strin
   await db.execute({
     sql: `INSERT OR IGNORE INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
           VALUES (?,?,?,?,?,?,?,datetime('now'))`,
-    args: [crypto.randomUUID(), id(aKey), aKey, type, id(bKey), bKey, notes ?? ''],
+    // Use resolved display names, falling back to the key if person wasn't seeded
+    args: [crypto.randomUUID(), id(aKey), names[aKey] ?? aKey, type, id(bKey), names[bKey] ?? bKey, notes ?? ''],
   });
 }
 
@@ -45,6 +49,7 @@ async function insertRef(personKey: string, book: string, cs: number, vs: number
 
 // ── people ─────────────────────────────────────────────────────────────────
 async function seedPeople() {
+  // ── Primeval history ───────────────────────────────────────────────────
   await insertPerson({ key: "adam", name: "Adam", gender: "male",
     description: "The first man, formed by God from the dust of the ground. Placed in the Garden of Eden to tend it. Fell through disobedience and was expelled.",
     tags: ["patriarch", "antediluvian", "first man"] });
@@ -54,37 +59,45 @@ async function seedPeople() {
     tags: ["matriarch", "antediluvian", "first woman"] });
 
   await insertPerson({ key: "cain", name: "Cain", gender: "male",
-    description: "Firstborn son of Adam and Eve. A farmer who murdered his brother Abel out of jealousy after God accepted Abel's offering over his. Marked by God and sent to wander.",
+    description: "Firstborn son of Adam and Eve. A farmer who murdered his brother Abel out of jealousy after God accepted Abel's offering over his. Marked by God and sent to wander. Founded a city and named it after his son Enoch.",
     tags: ["antediluvian"] });
 
   await insertPerson({ key: "abel", name: "Abel", gender: "male",
     description: "Second son of Adam and Eve. A shepherd whose offering God regarded with favor. Murdered by his brother Cain — the first death in Scripture.",
     tags: ["antediluvian"] });
 
+  await insertPerson({ key: "enoch_cain", name: "Enoch", alsoKnownAs: "Enoch son of Cain",
+    gender: "male",
+    description: "Son of Cain. Cain built a city and named it after him. Not to be confused with Enoch of Seth's line who walked with God.",
+    tags: ["antediluvian"] });
+
   await insertPerson({ key: "seth", name: "Seth", gender: "male",
     description: "Third son of Adam and Eve, given as a replacement for Abel. Ancestor of Noah and the messianic line. His generation began calling on the name of the Lord.",
     tags: ["antediluvian", "patriarch"] });
 
-  await insertPerson({ key: "enosh", name: "Enosh", gender: "male",
+  await insertPerson({ key: "enosh", name: "Enosh", alsoKnownAs: "Enos", gender: "male",
     description: "Son of Seth. In his time, people began to call on the name of the Lord.",
+    tags: ["antediluvian"] });
+
+  await insertPerson({ key: "enoch_seth", name: "Enoch", alsoKnownAs: "Enoch son of Jared",
+    gender: "male",
+    description: "Son of Jared (of Seth's line), father of Methuselah. Walked faithfully with God and was taken by God without dying — a rare distinction in Scripture.",
     tags: ["antediluvian"] });
 
   await insertPerson({ key: "methuselah", name: "Methuselah", gender: "male",
     description: "Son of Enoch (of Seth's line), father of Lamech, grandfather of Noah. Lived 969 years — the longest lifespan recorded in Scripture.",
     tags: ["antediluvian"] });
 
-  await insertPerson({ key: "lamech_seth", name: "Lamech", gender: "male",
+  await insertPerson({ key: "lamech_seth", name: "Lamech", alsoKnownAs: "Lamech son of Methuselah",
+    gender: "male",
     description: "Son of Methuselah and father of Noah. Prophesied that Noah would bring relief from the curse on the ground.",
-    tags: ["antediluvian"] });
-
-  await insertPerson({ key: "enoch_seth", name: "Enoch", gender: "male",
-    description: "Son of Jared (of Seth's line), father of Methuselah. Walked faithfully with God and was taken by God without dying — a rare distinction in Scripture.",
     tags: ["antediluvian"] });
 
   await insertPerson({ key: "noah", name: "Noah", gender: "male",
     description: "Son of Lamech. Found favor with God while the rest of humanity was corrupt. Built the ark as God commanded, preserving his family and animals through the flood. Made a covenant with God after the flood.",
     tags: ["patriarch", "antediluvian"] });
 
+  // ── Post-flood ─────────────────────────────────────────────────────────
   await insertPerson({ key: "shem", name: "Shem", gender: "male",
     description: "Eldest son of Noah. Ancestor of the Semitic peoples, including Abraham. Noah blessed him after he and Japheth covered their father's nakedness.",
     tags: ["patriarch"] });
@@ -97,12 +110,21 @@ async function seedPeople() {
     description: "Third son of Noah. Ancestor of the Indo-European peoples. Blessed by Noah alongside Shem.",
     tags: ["patriarch"] });
 
+  await insertPerson({ key: "cush", name: "Cush", gender: "male",
+    description: "Son of Ham, grandson of Noah. Father of Nimrod and ancestor of the Cushites (Ethiopians). His descendants settled in northeast Africa and Arabia.",
+    tags: ["patriarch"] });
+
   await insertPerson({ key: "nimrod", name: "Nimrod", gender: "male",
-    description: "Son of Cush, grandson of Ham. A mighty hunter before the Lord. Founded cities including Babel, Erech, and Nineveh. Often associated with the Tower of Babel.",
+    description: "Son of Cush, great-grandson of Noah. A mighty hunter before the Lord. Founded cities including Babel, Erech, and Nineveh. Often associated with the Tower of Babel.",
     tags: ["king"] });
 
+  // ── Terah's family ─────────────────────────────────────────────────────
   await insertPerson({ key: "terah", name: "Terah", gender: "male",
-    description: "Father of Abram, Nahor, and Haran. Set out from Ur of the Chaldeans toward Canaan with his family, but stopped and settled in Haran, where he died at 205 years old.",
+    description: "Father of Abram, Nahor, Haran, and Sarah (by a different mother). Set out from Ur of the Chaldeans toward Canaan with his family, but stopped and settled in Haran, where he died at 205 years old.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "haran", name: "Haran", gender: "male",
+    description: "Son of Terah, younger brother of Abram. Father of Lot, Milcah, and Iscah. Died in Ur of the Chaldeans before his father Terah. The city of Haran is likely named after him.",
     tags: ["patriarch"] });
 
   await insertPerson({ key: "abraham", name: "Abraham", alsoKnownAs: "Abram",
@@ -112,11 +134,11 @@ async function seedPeople() {
 
   await insertPerson({ key: "sarah", name: "Sarah", alsoKnownAs: "Sarai",
     gender: "female",
-    description: "Originally called Sarai, wife of Abraham. Barren for decades, she gave her servant Hagar to Abraham. Miraculously conceived and bore Isaac at age 90. The only woman in Scripture whose age at death is recorded (127 years).",
+    description: "Originally called Sarai. Daughter of Terah by a different mother than Abraham, making her Abraham's half-sister (Gen 20:12). Wife of Abraham. Barren for decades; miraculously conceived and bore Isaac at age 90. The only woman in Scripture whose age at death is recorded (127 years).",
     tags: ["matriarch"] });
 
   await insertPerson({ key: "lot", name: "Lot", gender: "male",
-    description: "Nephew of Abraham, son of Haran. Traveled with Abraham from Ur. Chose the well-watered Jordan Valley and settled near Sodom. Rescued from Sodom's destruction by angels. Father of Moab and Ben-ammi by his daughters.",
+    description: "Son of Haran, nephew of Abraham. Traveled with Abraham from Ur. Chose the well-watered Jordan Valley and settled near Sodom. Rescued from Sodom's destruction by angels. Father of Moab and Ben-ammi by his daughters.",
     tags: ["patriarch"] });
 
   await insertPerson({ key: "hagar", name: "Hagar", gender: "female",
@@ -132,15 +154,17 @@ async function seedPeople() {
     tags: ["king", "priest"] });
 
   await insertPerson({ key: "eliezer", name: "Eliezer", gender: "male",
-    description: "Chief servant of Abraham, likely the one sent to find a wife for Isaac. Swore an oath on Abraham's behalf and traveled to Mesopotamia. His faithful, prayerful mission in Genesis 24 is among the most detailed narratives in the book.",
+    description: "Chief servant of Abraham, sent to find a wife for Isaac. Swore an oath on Abraham's behalf and traveled to Mesopotamia. His faithful, prayerful mission in Genesis 24 is among the most detailed narratives in the book.",
     tags: ["servant"] });
 
+  // ── Isaac's generation ─────────────────────────────────────────────────
   await insertPerson({ key: "isaac", name: "Isaac", gender: "male",
     description: "Miracle son of Abraham and Sarah, born when Sarah was 90. The son of the covenant promise. Almost sacrificed by Abraham in the supreme test of faith. Married Rebekah. Father of Esau and Jacob. Lived 180 years — the most peaceful of the patriarchal lives.",
     tags: ["patriarch"] });
 
-  await insertPerson({ key: "rebekah", name: "Rebekah", gender: "female",
-    description: "Daughter of Bethuel, sister of Laban. Chosen by Eliezer to be Isaac's wife. Known for her initiative and hospitality. Received a prophetic word about her twin sons before birth. Favored Jacob and helped him deceive Isaac to obtain the birthright blessing.",
+  await insertPerson({ key: "rebekah", name: "Rebekah", alsoKnownAs: "Rebecca",
+    gender: "female",
+    description: "Daughter of Bethuel, granddaughter of Nahor (Abraham's brother). Chosen by Eliezer to be Isaac's wife. Known for her initiative and hospitality. Received a prophetic word about her twin sons before birth. Favored Jacob and helped him deceive Isaac to obtain the birthright blessing.",
     tags: ["matriarch"] });
 
   await insertPerson({ key: "bethuel", name: "Bethuel", gender: "male",
@@ -161,6 +185,7 @@ async function seedPeople() {
     description: "Second-born twin son of Isaac and Rebekah. Grasped Esau's heel at birth. Obtained Esau's birthright by cunning and his blessing by deception. Fled to Laban and married his two daughters. Wrestled with God at Peniel and was renamed Israel. Father of the twelve tribes.",
     tags: ["patriarch", "israel"] });
 
+  // ── Jacob's wives ──────────────────────────────────────────────────────
   await insertPerson({ key: "leah", name: "Leah", gender: "female",
     description: "Elder daughter of Laban. Given to Jacob in place of Rachel by Laban's deception. Tender-eyed but unloved by Jacob. God opened her womb, and she bore six sons and a daughter: Reuben, Simeon, Levi, Judah, Issachar, Zebulun, and Dinah.",
     tags: ["matriarch"] });
@@ -170,15 +195,17 @@ async function seedPeople() {
     tags: ["matriarch"] });
 
   await insertPerson({ key: "bilhah", name: "Bilhah", gender: "female",
-    description: "Rachel's servant, given to Jacob as a wife. Bore Dan and Naphtali on Rachel's behalf.",
+    description: "Rachel's servant, given to Jacob as a wife. Bore Dan and Naphtali on Rachel's behalf. Daughter of Laban according to some traditions.",
     tags: ["matriarch"] });
 
-  await insertPerson({ key: "zilpah", name: "Zilpah", gender: "female",
+  await insertPerson({ key: "zilpah", name: "Zilpah", alsoKnownAs: "Zilpa",
+    gender: "female",
     description: "Leah's servant, given to Jacob as a wife. Bore Gad and Asher on Leah's behalf.",
     tags: ["matriarch"] });
 
+  // ── The twelve sons of Jacob ───────────────────────────────────────────
   await insertPerson({ key: "reuben", name: "Reuben", gender: "male",
-    description: "Firstborn son of Jacob and Leah. Attempted to rescue Joseph from the pit. Later, sleeping with Bilhah cost him his birthright. He offered his own sons as surety for Benjamin. Tribe of Reuben settled east of the Jordan.",
+    description: "Firstborn son of Jacob and Leah. Attempted to rescue Joseph from the pit. Later, sleeping with Bilhah cost him his birthright. He offered his own sons as surety for Benjamin.",
     tags: ["tribe of israel"] });
 
   await insertPerson({ key: "simeon", name: "Simeon", gender: "male",
@@ -222,36 +249,17 @@ async function seedPeople() {
     tags: ["tribe of israel"] });
 
   await insertPerson({ key: "joseph", name: "Joseph", gender: "male",
-    description: "Eleventh son of Jacob, firstborn of Rachel. His father's favorite, given a richly ornamented robe. Sold into Egypt by his jealous brothers. Resisted Potiphar's wife and was imprisoned. Interpreted Pharaoh's dreams and was elevated to second in command over Egypt. Saved Egypt and his family from famine. Forgave his brothers with the famous words: 'You intended to harm me, but God intended it for good.'",
+    description: "Eleventh son of Jacob, firstborn of Rachel. His father's favorite, given a richly ornamented robe. Sold into Egypt by his jealous brothers. Resisted Potiphar's wife and was imprisoned. Interpreted Pharaoh's dreams and was elevated to second in command over Egypt. Saved Egypt and his family from famine. Forgave his brothers: 'You intended to harm me, but God intended it for good.'",
     tags: ["tribe of israel", "patriarch"] });
 
   await insertPerson({ key: "benjamin", name: "Benjamin", gender: "male",
     description: "Twelfth and youngest son of Jacob, second son of Rachel. Born as Rachel died near Bethlehem. His mother named him Ben-Oni (son of my sorrow) but Jacob called him Benjamin (son of my right hand). Jacob was fiercely protective of him after Joseph's apparent death.",
     tags: ["tribe of israel"] });
 
+  // ── Judah's family ─────────────────────────────────────────────────────
   await insertPerson({ key: "tamar", name: "Tamar", gender: "female",
-    description: "Daughter-in-law of Judah, wife of his son Er. After Er and Onan died and Shelah was withheld from her, she disguised herself and slept with Judah. Bore twins Perez and Zerah. Judah declared her more righteous than himself. Ancestor of David and Jesus.",
+    description: "Daughter-in-law of Judah, wife first of Er then of Onan. After both husbands died and Shelah was withheld from her, she disguised herself and slept with Judah. Bore twins Perez and Zerah. Judah declared her more righteous than himself. Ancestor of David and Jesus.",
     tags: ["matriarch", "messianic line"] });
-
-  await insertPerson({ key: "potiphar", name: "Potiphar", gender: "male",
-    description: "Egyptian official, captain of Pharaoh's guard who bought Joseph from the Ishmaelite traders. Put Joseph in charge of his household. Had Joseph imprisoned after his wife falsely accused him.",
-    tags: ["egyptian"] });
-
-  await insertPerson({ key: "asenath", name: "Asenath", gender: "female",
-    description: "Daughter of Potiphera, priest of On. Given to Joseph as wife by Pharaoh. Mother of Manasseh and Ephraim.",
-    tags: ["egyptian", "matriarch"] });
-
-  await insertPerson({ key: "manasseh", name: "Manasseh", gender: "male",
-    description: "Firstborn son of Joseph and Asenath. Adopted by Jacob as his own, receiving a tribal inheritance. Although the firstborn, Jacob crossed his hands and gave Ephraim the greater blessing.",
-    tags: ["tribe of israel"] });
-
-  await insertPerson({ key: "ephraim", name: "Ephraim", gender: "male",
-    description: "Second son of Joseph and Asenath. Adopted by Jacob and given the greater blessing over his older brother Manasseh. His tribe became the dominant northern tribe and is sometimes used as a name for the northern kingdom itself.",
-    tags: ["tribe of israel"] });
-
-  await insertPerson({ key: "perez", name: "Perez", gender: "male",
-    description: "Son of Judah and Tamar, twin of Zerah. Though Zerah's hand emerged first, Perez broke through ahead of him. His name means 'breach.' Ancestor of David and Jesus.",
-    tags: ["messianic line"] });
 
   await insertPerson({ key: "er", name: "Er", gender: "male",
     description: "Firstborn son of Judah. Married Tamar but was wicked in the Lord's sight, so the Lord put him to death.",
@@ -260,6 +268,28 @@ async function seedPeople() {
   await insertPerson({ key: "onan", name: "Onan", gender: "male",
     description: "Second son of Judah. Married Tamar after Er died. Refused to fulfill his duty to raise offspring for his brother. What he did was wicked in the Lord's sight, so the Lord put him to death also.",
     tags: [] });
+
+  await insertPerson({ key: "perez", name: "Perez", gender: "male",
+    description: "Son of Judah and Tamar, twin of Zerah. Though Zerah's hand emerged first, Perez broke through ahead of him. His name means 'breach.' Ancestor of David and Jesus.",
+    tags: ["messianic line"] });
+
+  // ── Joseph in Egypt ────────────────────────────────────────────────────
+  await insertPerson({ key: "potiphar", name: "Potiphar", gender: "male",
+    description: "Egyptian official, captain of Pharaoh's guard who bought Joseph from the Ishmaelite traders. Put Joseph in charge of his household. Had Joseph imprisoned after his wife falsely accused him.",
+    tags: ["egyptian"] });
+
+  await insertPerson({ key: "asenath", name: "Asenath", gender: "female",
+    description: "Daughter of Potiphera, priest of On. Given to Joseph as wife by Pharaoh. Mother of Manasseh and Ephraim.",
+    tags: ["egyptian", "matriarch"] });
+
+  await insertPerson({ key: "manasseh", name: "Manasseh", alsoKnownAs: "Manasseh son of Joseph",
+    gender: "male",
+    description: "Firstborn son of Joseph and Asenath. Adopted by Jacob as his own, receiving a tribal inheritance. Although the firstborn, Jacob crossed his hands and gave Ephraim the greater blessing.",
+    tags: ["tribe of israel"] });
+
+  await insertPerson({ key: "ephraim", name: "Ephraim", gender: "male",
+    description: "Second son of Joseph and Asenath. Adopted by Jacob and given the greater blessing over his older brother Manasseh. His tribe became the dominant northern tribe and is sometimes used as a name for the northern kingdom itself.",
+    tags: ["tribe of israel"] });
 }
 
 // ── relationships ──────────────────────────────────────────────────────────
@@ -273,6 +303,9 @@ async function seedRelationships() {
   await insertRel("eve", "parent_of", "abel");
   await insertRel("eve", "parent_of", "seth");
 
+  // Cain's line
+  await insertRel("cain", "parent_of", "enoch_cain");
+
   // Seth line
   await insertRel("seth", "parent_of", "enosh");
   await insertRel("enoch_seth", "parent_of", "methuselah");
@@ -283,13 +316,18 @@ async function seedRelationships() {
   await insertRel("noah", "parent_of", "shem");
   await insertRel("noah", "parent_of", "ham");
   await insertRel("noah", "parent_of", "japheth");
-  await insertRel("ham", "parent_of", "nimrod", "Nimrod is a grandson via Cush");
-  await insertRel("shem", "descendant_of", "noah");
+  // Ham → Cush → Nimrod (correct chain)
+  await insertRel("ham", "parent_of", "cush");
+  await insertRel("cush", "parent_of", "nimrod");
 
-  // Terah's family
+  // Terah's family — Terah's sons: Abram, Nahor, Haran; daughter: Sarai (Gen 20:12)
   await insertRel("terah", "parent_of", "abraham");
-  await insertRel("terah", "parent_of", "lot", "Lot's father Haran was Terah's son; Terah raised Lot");
-  await insertRel("terah", "parent_of", "laban", "Laban is a more distant descendant via Nahor's line");
+  await insertRel("terah", "parent_of", "haran");
+  await insertRel("terah", "parent_of", "sarah", "Sarah was Terah's daughter by a different mother (Gen 20:12)");
+  // Haran's children: Lot, Milcah, Iscah
+  await insertRel("haran", "parent_of", "lot");
+  // Sarah is Abraham's half-sister (same father, different mother)
+  await insertRel("abraham", "sibling_of", "sarah", "Half-siblings — same father Terah, different mothers (Gen 20:12)");
 
   // Abraham's family
   await insertRel("abraham", "spouse_of", "sarah");
@@ -299,10 +337,16 @@ async function seedRelationships() {
   await insertRel("sarah", "parent_of", "isaac");
   await insertRel("hagar", "parent_of", "ishmael");
   await insertRel("abraham", "ally_of", "melchizedek", "Melchizedek blessed Abraham; Abraham gave him a tithe");
-  await insertRel("lot", "sibling_of", "sarah", "Lot was Abraham's nephew; their exact relationship is debated");
-
-  // Eliezer
   await insertRel("eliezer", "servant_of", "abraham");
+
+  // Bethuel's family
+  await insertRel("bethuel", "parent_of", "rebekah");
+  await insertRel("bethuel", "parent_of", "laban");
+  await insertRel("laban", "sibling_of", "rebekah");
+  // Bilhah and Zilpah as daughters of Laban (rabbinic tradition, consistent with Gen 29-30)
+  await insertRel("laban", "parent_of", "bilhah", "Bilhah given as servant to Rachel");
+  await insertRel("laban", "parent_of", "leah");
+  await insertRel("laban", "parent_of", "rachel");
 
   // Isaac's family
   await insertRel("isaac", "spouse_of", "rebekah");
@@ -310,32 +354,26 @@ async function seedRelationships() {
   await insertRel("isaac", "parent_of", "jacob");
   await insertRel("rebekah", "parent_of", "esau");
   await insertRel("rebekah", "parent_of", "jacob");
-  await insertRel("rebekah", "sibling_of", "laban");
-  await insertRel("bethuel", "parent_of", "rebekah");
-  await insertRel("bethuel", "parent_of", "laban");
+  await insertRel("esau", "sibling_of", "jacob");
 
   // Jacob's family
   await insertRel("jacob", "spouse_of", "leah");
   await insertRel("jacob", "spouse_of", "rachel");
   await insertRel("jacob", "spouse_of", "bilhah");
   await insertRel("jacob", "spouse_of", "zilpah");
-  await insertRel("laban", "parent_of", "leah");
-  await insertRel("laban", "parent_of", "rachel");
-  await insertRel("esau", "sibling_of", "jacob");
 
-  // Jacob's children
-  const jacobSons = ["reuben","simeon","levi","judah","issachar","zebulun","dinah"];
-  for (const s of jacobSons) {
+  // Leah's children
+  for (const s of ["reuben","simeon","levi","judah","issachar","zebulun","dinah"]) {
     await insertRel("jacob", "parent_of", s);
     await insertRel("leah", "parent_of", s);
   }
-  const bilhahSons = ["dan","naphtali"];
-  for (const s of bilhahSons) {
+  // Bilhah's children (for Rachel)
+  for (const s of ["dan","naphtali"]) {
     await insertRel("jacob", "parent_of", s);
     await insertRel("bilhah", "parent_of", s);
   }
-  const zilpahSons = ["gad","asher"];
-  for (const s of zilpahSons) {
+  // Zilpah's children (for Leah)
+  for (const s of ["gad","asher"]) {
     await insertRel("jacob", "parent_of", s);
     await insertRel("zilpah", "parent_of", s);
   }
@@ -344,7 +382,7 @@ async function seedRelationships() {
   await insertRel("jacob", "parent_of", "benjamin");
   await insertRel("rachel", "parent_of", "benjamin");
 
-  // Joseph
+  // Joseph's family
   await insertRel("joseph", "spouse_of", "asenath");
   await insertRel("joseph", "parent_of", "manasseh");
   await insertRel("joseph", "parent_of", "ephraim");
@@ -353,30 +391,33 @@ async function seedRelationships() {
   await insertRel("joseph", "servant_of", "potiphar", "Joseph served as head of Potiphar's household");
 
   // Judah's family
-  await insertRel("judah", "spouse_of", "tamar", "Tamar was Judah's daughter-in-law who later bore his children");
   await insertRel("judah", "parent_of", "er");
   await insertRel("judah", "parent_of", "onan");
   await insertRel("judah", "parent_of", "perez");
   await insertRel("tamar", "parent_of", "perez");
   await insertRel("er", "spouse_of", "tamar");
+  await insertRel("onan", "spouse_of", "tamar");
+  // Judah and Tamar — complicated relationship
+  await insertRel("judah", "parent_of", "perez");
 }
 
 // ── scripture references ───────────────────────────────────────────────────
 async function seedRefs() {
   await insertRef("adam",    "Genesis", 1, 26, 2, 25, "Creation and life in Eden");
   await insertRef("adam",    "Genesis", 3,  1, 3, 24, "The fall");
-  await insertRef("adam",    "Genesis", 4,  1, 4, 2);
-  await insertRef("adam",    "Genesis", 5,  1, 5, 5,  "Genealogy and death");
+  await insertRef("adam",    "Genesis", 4,  1, 4,  2);
+  await insertRef("adam",    "Genesis", 5,  1, 5,  5, "Genealogy and death");
 
   await insertRef("eve",     "Genesis", 2, 18, 2, 25, "Creation of woman");
   await insertRef("eve",     "Genesis", 3,  1, 3, 24, "The fall");
-  await insertRef("eve",     "Genesis", 4,  1, 4, 2);
+  await insertRef("eve",     "Genesis", 4,  1, 4,  2);
 
   await insertRef("cain",    "Genesis", 4,  1, 4, 24);
   await insertRef("abel",    "Genesis", 4,  1, 4, 12);
+  await insertRef("enoch_cain", "Genesis", 4, 17, 4, 18, "City named after him by Cain");
 
   await insertRef("seth",    "Genesis", 4, 25, 4, 26);
-  await insertRef("seth",    "Genesis", 5,  3, 5, 8);
+  await insertRef("seth",    "Genesis", 5,  3, 5,  8);
 
   await insertRef("enosh",   "Genesis", 4, 26, 4, 26);
   await insertRef("enosh",   "Genesis", 5,  6, 5, 11);
@@ -384,8 +425,7 @@ async function seedRefs() {
   await insertRef("enoch_seth", "Genesis", 5, 18, 5, 24, "Walked with God and was taken");
 
   await insertRef("methuselah", "Genesis", 5, 21, 5, 27);
-
-  await insertRef("lamech_seth", "Genesis", 5, 25, 5, 31);
+  await insertRef("lamech_seth","Genesis", 5, 25, 5, 31);
 
   await insertRef("noah",    "Genesis", 5, 29, 5, 32);
   await insertRef("noah",    "Genesis", 6,  5, 9, 29, "The flood and covenant");
@@ -396,17 +436,19 @@ async function seedRefs() {
 
   await insertRef("ham",     "Genesis", 5, 32, 5, 32);
   await insertRef("ham",     "Genesis", 9, 18, 9, 27, "Noah's curse on Canaan");
-  await insertRef("ham",     "Genesis", 10, 6, 10, 20, "Table of nations");
+  await insertRef("ham",     "Genesis", 10,  6, 10, 20, "Table of nations");
 
   await insertRef("japheth", "Genesis", 5, 32, 5, 32);
   await insertRef("japheth", "Genesis", 9, 18, 9, 27);
-  await insertRef("japheth", "Genesis", 10, 1, 10, 5);
+  await insertRef("japheth", "Genesis", 10,  1, 10,  5);
 
-  await insertRef("nimrod",  "Genesis", 10, 8, 10, 12, "Mighty hunter and city founder");
+  await insertRef("cush",    "Genesis", 10,  6, 10,  8);
+  await insertRef("nimrod",  "Genesis", 10,  8, 10, 12, "Mighty hunter and city founder");
 
   await insertRef("terah",   "Genesis", 11, 24, 11, 32, "Journey from Ur toward Canaan");
+  await insertRef("haran",   "Genesis", 11, 26, 11, 29, "Terah's son; died in Ur");
 
-  await insertRef("abraham", "Genesis", 11, 26, 12, 9,  "Call and departure from Haran");
+  await insertRef("abraham", "Genesis", 11, 26, 12,  9, "Call and departure from Haran");
   await insertRef("abraham", "Genesis", 14,  1, 14, 24, "Rescues Lot; meets Melchizedek");
   await insertRef("abraham", "Genesis", 15,  1, 15, 21, "Covenant with God");
   await insertRef("abraham", "Genesis", 17,  1, 17, 27, "Covenant of circumcision; renamed Abraham");
@@ -434,27 +476,27 @@ async function seedRefs() {
 
   await insertRef("melchizedek", "Genesis", 14, 17, 14, 24, "Blesses Abram; receives tithe");
 
-  await insertRef("eliezer", "Genesis", 15,  2, 15, 2,  "Mentioned as heir before Isaac");
+  await insertRef("eliezer", "Genesis", 15,  2, 15,  2, "Mentioned as heir before Isaac");
   await insertRef("eliezer", "Genesis", 24,  1, 24, 67, "Sent to find Isaac's wife");
 
   await insertRef("isaac",   "Genesis", 17, 19, 17, 21, "Promised before his birth");
-  await insertRef("isaac",   "Genesis", 21,  1, 21, 8,  "Birth and weaning");
+  await insertRef("isaac",   "Genesis", 21,  1, 21,  8, "Birth and weaning");
   await insertRef("isaac",   "Genesis", 22,  1, 22, 19, "The binding");
   await insertRef("isaac",   "Genesis", 24,  1, 24, 67, "Marriage to Rebekah");
   await insertRef("isaac",   "Genesis", 25, 19, 26, 35, "His life and sons");
-  await insertRef("isaac",   "Genesis", 27,  1, 28, 5,  "Blesses Jacob");
+  await insertRef("isaac",   "Genesis", 27,  1, 28,  5, "Blesses Jacob");
   await insertRef("isaac",   "Genesis", 35, 27, 35, 29, "Death of Isaac");
 
   await insertRef("rebekah", "Genesis", 22, 20, 24, 67, "Introduced and betrothed");
-  await insertRef("rebekah", "Genesis", 25, 19, 28, 9,  "Birth of sons; helps Jacob");
+  await insertRef("rebekah", "Genesis", 25, 19, 28,  9, "Birth of sons; helps Jacob");
 
   await insertRef("bethuel", "Genesis", 22, 22, 24, 50);
 
   await insertRef("laban",   "Genesis", 24, 29, 24, 60, "Welcomes Eliezer");
   await insertRef("laban",   "Genesis", 28, 10, 31, 55, "Jacob's 20 years in his household");
 
-  await insertRef("esau",    "Genesis", 25, 24, 28, 9,  "Birth, birthright, blessing lost");
-  await insertRef("esau",    "Genesis", 32, 3,  33, 20, "Reconciliation with Jacob");
+  await insertRef("esau",    "Genesis", 25, 24, 28,  9, "Birth, birthright, blessing lost");
+  await insertRef("esau",    "Genesis", 32,  3, 33, 20, "Reconciliation with Jacob");
   await insertRef("esau",    "Genesis", 36,  1, 36, 43, "Genealogy of Esau/Edom");
 
   await insertRef("jacob",   "Genesis", 25, 24, 27, 46, "Birth through stolen blessing");
@@ -469,7 +511,7 @@ async function seedRefs() {
   await insertRef("rachel",  "Genesis", 29, 16, 30, 24, "Marriage; bears Joseph");
   await insertRef("rachel",  "Genesis", 35, 16, 35, 20, "Death bearing Benjamin");
 
-  await insertRef("bilhah",  "Genesis", 29, 29, 30, 8);
+  await insertRef("bilhah",  "Genesis", 29, 29, 30,  8);
   await insertRef("bilhah",  "Genesis", 35, 22, 35, 22, "Slept with by Reuben");
 
   await insertRef("zilpah",  "Genesis", 29, 24, 30, 13);
@@ -478,16 +520,16 @@ async function seedRefs() {
   await insertRef("reuben",  "Genesis", 35, 22, 35, 22, "Slept with Bilhah");
   await insertRef("reuben",  "Genesis", 37, 21, 37, 30, "Tried to save Joseph");
   await insertRef("reuben",  "Genesis", 42, 22, 42, 37, "Offers his sons as surety");
-  await insertRef("reuben",  "Genesis", 49,  3, 49, 4,  "Jacob's blessing: lost preeminence");
+  await insertRef("reuben",  "Genesis", 49,  3, 49,  4, "Jacob's blessing: lost preeminence");
 
   await insertRef("simeon",  "Genesis", 29, 33, 29, 33);
   await insertRef("simeon",  "Genesis", 34,  1, 34, 31, "Attacks Shechem");
   await insertRef("simeon",  "Genesis", 42, 24, 42, 36, "Held hostage in Egypt");
-  await insertRef("simeon",  "Genesis", 49,  5, 49, 7);
+  await insertRef("simeon",  "Genesis", 49,  5, 49,  7);
 
   await insertRef("levi",    "Genesis", 29, 34, 29, 34);
   await insertRef("levi",    "Genesis", 34,  1, 34, 31, "Attacks Shechem");
-  await insertRef("levi",    "Genesis", 49,  5, 49, 7);
+  await insertRef("levi",    "Genesis", 49,  5, 49,  7);
 
   await insertRef("judah",   "Genesis", 29, 35, 29, 35);
   await insertRef("judah",   "Genesis", 37, 26, 37, 27, "Sells Joseph");
@@ -495,10 +537,10 @@ async function seedRefs() {
   await insertRef("judah",   "Genesis", 43,  3, 44, 34, "Guarantor for Benjamin");
   await insertRef("judah",   "Genesis", 49,  8, 49, 12, "Scepter blessing");
 
-  await insertRef("dan",     "Genesis", 30,  6, 30, 6);
+  await insertRef("dan",     "Genesis", 30,  6, 30,  6);
   await insertRef("dan",     "Genesis", 49, 16, 49, 18);
 
-  await insertRef("naphtali","Genesis", 30,  7, 30, 8);
+  await insertRef("naphtali","Genesis", 30,  7, 30,  8);
   await insertRef("naphtali","Genesis", 49, 21, 49, 21);
 
   await insertRef("gad",     "Genesis", 30, 10, 30, 11);
@@ -523,14 +565,16 @@ async function seedRefs() {
   await insertRef("joseph",  "Genesis", 46,  1, 50, 26, "Family comes to Egypt; death");
 
   await insertRef("benjamin","Genesis", 35, 16, 35, 20, "Born as Rachel died");
-  await insertRef("benjamin","Genesis", 42,  4, 42, 4,  "Jacob refuses to send him");
+  await insertRef("benjamin","Genesis", 42,  4, 42,  4, "Jacob refuses to send him");
   await insertRef("benjamin","Genesis", 43,  1, 45, 22, "Goes to Egypt with brothers");
   await insertRef("benjamin","Genesis", 49, 27, 49, 27, "Jacob's blessing: ravenous wolf");
 
   await insertRef("tamar",   "Genesis", 38,  1, 38, 30);
+  await insertRef("er",      "Genesis", 38,  1, 38, 10);
+  await insertRef("onan",    "Genesis", 38,  4, 38, 10);
+  await insertRef("perez",   "Genesis", 38, 29, 38, 30);
 
   await insertRef("potiphar","Genesis", 37, 36, 39, 23);
-
   await insertRef("asenath", "Genesis", 41, 45, 41, 52);
 
   await insertRef("manasseh","Genesis", 41, 51, 41, 52);
@@ -538,11 +582,6 @@ async function seedRefs() {
 
   await insertRef("ephraim", "Genesis", 41, 52, 41, 52);
   await insertRef("ephraim", "Genesis", 48,  1, 48, 22, "Receives greater blessing than Manasseh");
-
-  await insertRef("perez",   "Genesis", 38, 29, 38, 30);
-
-  await insertRef("er",      "Genesis", 38,  1, 38, 10);
-  await insertRef("onan",    "Genesis", 38,  4, 38, 10);
 }
 
 // ── schema init ───────────────────────────────────────────────────────────
@@ -581,7 +620,15 @@ async function main() {
   await seedRelationships();
   console.log("Seeding scripture references...");
   await seedRefs();
-  console.log("\n✓ Genesis seed complete.");
+
+  // Quick sanity check
+  const pc = await db.execute("SELECT COUNT(*) as c FROM people");
+  const rc = await db.execute("SELECT COUNT(*) as c FROM relationships");
+  const sc = await db.execute("SELECT COUNT(*) as c FROM scripture_refs");
+  console.log(`\n✓ Genesis seed complete.`);
+  console.log(`  People: ${(pc.rows[0] as {c:number}).c}`);
+  console.log(`  Relationships: ${(rc.rows[0] as {c:number}).c}`);
+  console.log(`  Scripture refs: ${(sc.rows[0] as {c:number}).c}`);
   process.exit(0);
 }
 
