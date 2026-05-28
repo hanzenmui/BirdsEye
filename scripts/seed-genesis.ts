@@ -397,8 +397,6 @@ async function seedRelationships() {
   await insertRel("tamar", "parent_of", "perez");
   await insertRel("er", "spouse_of", "tamar");
   await insertRel("onan", "spouse_of", "tamar");
-  // Judah and Tamar — complicated relationship
-  await insertRel("judah", "parent_of", "perez");
 }
 
 // ── scripture references ───────────────────────────────────────────────────
