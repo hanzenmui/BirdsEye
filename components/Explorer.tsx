@@ -6,6 +6,13 @@ import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS } from "@/lib/types";
 
+// Returns the relationship label from the given person's perspective.
+// When the person is person_a they are the actor; when person_b they are the target.
+function relLabel(r: Relationship, personId: string): string {
+  const isA = r.personAId === personId;
+  return isA ? (RELATIONSHIP_LABELS[r.type] ?? r.type) : (RELATIONSHIP_INVERSE_LABELS[r.type] ?? RELATIONSHIP_LABELS[r.type] ?? r.type);
+}
+
 // ── Toast ────────────────────────────────────────────────────────────────────
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 function showToast(msg: string, type: "success" | "error" = "success") {
@@ -360,7 +367,7 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
               const isA = r.personAId === person.id;
               const otherName = isA ? r.personBName : r.personAName;
               const otherId   = isA ? r.personBId   : r.personAId;
-              const label = isA ? RELATIONSHIP_LABELS[r.type] : RELATIONSHIP_INVERSE_LABELS[r.type];
+              const label = relLabel(r, person.id);
               return (
                 <div key={r.id} className="rel-item">
                   <span className="rel-type-label">{label}</span>
@@ -602,7 +609,7 @@ function TreeSection({ people, relationships, onSelect }: TreeSectionProps) {
 
   const grouped = rels.reduce<Record<string, { rel: Relationship; otherId: string; otherName: string }[]>>((acc, r) => {
     const isA = r.personAId === focalId;
-    const label = isA ? RELATIONSHIP_LABELS[r.type] : RELATIONSHIP_INVERSE_LABELS[r.type];
+    const label = relLabel(r, focalId!);
     const otherId   = isA ? r.personBId   : r.personAId;
     const otherName = isA ? r.personBName : r.personAName;
     if (!acc[label]) acc[label] = [];
