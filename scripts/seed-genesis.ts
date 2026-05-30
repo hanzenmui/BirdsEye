@@ -79,6 +79,18 @@ async function seedPeople() {
     description: "Son of Seth. In his time, people began to call on the name of the Lord.",
     tags: ["antediluvian"] });
 
+  await insertPerson({ key: "kenan", name: "Kenan", alsoKnownAs: "Cainan", gender: "male",
+    description: "Son of Enosh, father of Mahalalel. Part of the antediluvian line from Seth to Noah in Genesis 5.",
+    tags: ["antediluvian"] });
+
+  await insertPerson({ key: "mahalalel", name: "Mahalalel", alsoKnownAs: "Mahalaleel", gender: "male",
+    description: "Son of Kenan, father of Jared. Part of the antediluvian genealogy in Genesis 5.",
+    tags: ["antediluvian"] });
+
+  await insertPerson({ key: "jared", name: "Jared", gender: "male",
+    description: "Son of Mahalalel, father of Enoch who walked with God. Part of the antediluvian genealogy in Genesis 5.",
+    tags: ["antediluvian"] });
+
   await insertPerson({ key: "enoch_seth", name: "Enoch", alsoKnownAs: "Enoch son of Jared",
     gender: "male",
     description: "Son of Jared (of Seth's line), father of Methuselah. Walked faithfully with God and was taken by God without dying — a rare distinction in Scripture.",
@@ -117,6 +129,39 @@ async function seedPeople() {
   await insertPerson({ key: "nimrod", name: "Nimrod", gender: "male",
     description: "Son of Cush, great-grandson of Noah. A mighty hunter before the Lord. Founded cities including Babel, Erech, and Nineveh. Often associated with the Tower of Babel.",
     tags: ["king"] });
+
+  // ── Shem → Abraham line (Gen 11:10-26) ────────────────────────────────
+  await insertPerson({ key: "arpachshad", name: "Arpachshad", alsoKnownAs: "Arphaxad", gender: "male",
+    description: "Son of Shem, born two years after the flood. Ancestor of the Hebrew people. Father of Shelah and grandfather of Eber.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "shelah", name: "Shelah", gender: "male",
+    description: "Son of Arpachshad, father of Eber. Ancestor of the Hebrew line.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "eber", name: "Eber", gender: "male",
+    description: "Son of Shelah, father of Peleg and Joktan. Some traditions derive the word 'Hebrew' (Ivri) from his name. Ancestor of Abraham.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "peleg", name: "Peleg", gender: "male",
+    description: "Son of Eber. In his days the earth was divided (Genesis 10:25). Father of Reu.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "reu", name: "Reu", gender: "male",
+    description: "Son of Peleg, father of Serug. Part of the post-flood genealogy from Shem to Abraham.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "serug", name: "Serug", gender: "male",
+    description: "Son of Reu, father of Nahor (grandfather of Abraham). Part of the genealogy in Genesis 11.",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "nahor1", name: "Nahor", alsoKnownAs: "Nahor son of Serug", gender: "male",
+    description: "Son of Serug, father of Terah, grandfather of Abraham. Not to be confused with his grandson Nahor (son of Terah, brother of Abraham).",
+    tags: ["patriarch"] });
+
+  await insertPerson({ key: "nahor2", name: "Nahor", alsoKnownAs: "Nahor son of Terah", gender: "male",
+    description: "Son of Terah, brother of Abraham and Haran. Married Milcah, daughter of Haran. Father of Bethuel and grandfather of Rebekah and Laban.",
+    tags: ["patriarch"] });
 
   // ── Terah's family ─────────────────────────────────────────────────────
   await insertPerson({ key: "terah", name: "Terah", gender: "male",
@@ -306,8 +351,12 @@ async function seedRelationships() {
   // Cain's line
   await insertRel("cain", "parent_of", "enoch_cain");
 
-  // Seth line
+  // Seth line — complete antediluvian chain Enosh → Noah
   await insertRel("seth", "parent_of", "enosh");
+  await insertRel("enosh", "parent_of", "kenan");
+  await insertRel("kenan", "parent_of", "mahalalel");
+  await insertRel("mahalalel", "parent_of", "jared");
+  await insertRel("jared", "parent_of", "enoch_seth");
   await insertRel("enoch_seth", "parent_of", "methuselah");
   await insertRel("methuselah", "parent_of", "lamech_seth");
   await insertRel("lamech_seth", "parent_of", "noah");
@@ -316,16 +365,29 @@ async function seedRelationships() {
   await insertRel("noah", "parent_of", "shem");
   await insertRel("noah", "parent_of", "ham");
   await insertRel("noah", "parent_of", "japheth");
-  // Ham → Cush → Nimrod (correct chain)
+  // Ham → Cush → Nimrod
   await insertRel("ham", "parent_of", "cush");
   await insertRel("cush", "parent_of", "nimrod");
 
+  // Shem → Abraham line (Gen 11:10-26)
+  await insertRel("shem", "parent_of", "arpachshad");
+  await insertRel("arpachshad", "parent_of", "shelah");
+  await insertRel("shelah", "parent_of", "eber");
+  await insertRel("eber", "parent_of", "peleg");
+  await insertRel("peleg", "parent_of", "reu");
+  await insertRel("reu", "parent_of", "serug");
+  await insertRel("serug", "parent_of", "nahor1");
+  await insertRel("nahor1", "parent_of", "terah");
+
   // Terah's family — Terah's sons: Abram, Nahor, Haran; daughter: Sarai (Gen 20:12)
   await insertRel("terah", "parent_of", "abraham");
+  await insertRel("terah", "parent_of", "nahor2");
   await insertRel("terah", "parent_of", "haran");
   await insertRel("terah", "parent_of", "sarah", "Sarah was Terah's daughter by a different mother (Gen 20:12)");
   // Haran's children: Lot, Milcah, Iscah
   await insertRel("haran", "parent_of", "lot");
+  // Nahor II → Bethuel (connects Rebekah and Laban to the main tree)
+  await insertRel("nahor2", "parent_of", "bethuel");
   // Sarah is Abraham's half-sister (same father, different mother)
   await insertRel("abraham", "sibling_of", "sarah", "Half-siblings — same father Terah, different mothers (Gen 20:12)");
 
@@ -420,6 +482,10 @@ async function seedRefs() {
   await insertRef("enosh",   "Genesis", 4, 26, 4, 26);
   await insertRef("enosh",   "Genesis", 5,  6, 5, 11);
 
+  await insertRef("kenan",     "Genesis", 5,  9, 5, 14);
+  await insertRef("mahalalel", "Genesis", 5, 12, 5, 17);
+  await insertRef("jared",     "Genesis", 5, 15, 5, 20);
+
   await insertRef("enoch_seth", "Genesis", 5, 18, 5, 24, "Walked with God and was taken");
 
   await insertRef("methuselah", "Genesis", 5, 21, 5, 27);
@@ -442,6 +508,18 @@ async function seedRefs() {
 
   await insertRef("cush",    "Genesis", 10,  6, 10,  8);
   await insertRef("nimrod",  "Genesis", 10,  8, 10, 12, "Mighty hunter and city founder");
+
+  await insertRef("arpachshad", "Genesis", 11, 10, 11, 13);
+  await insertRef("shelah",     "Genesis", 11, 14, 11, 17);
+  await insertRef("eber",       "Genesis", 10, 24, 10, 25, "Father of Peleg and Joktan");
+  await insertRef("eber",       "Genesis", 11, 16, 11, 17);
+  await insertRef("peleg",      "Genesis", 10, 25, 10, 25, "In his days the earth was divided");
+  await insertRef("peleg",      "Genesis", 11, 18, 11, 19);
+  await insertRef("reu",        "Genesis", 11, 20, 11, 21);
+  await insertRef("serug",      "Genesis", 11, 22, 11, 23);
+  await insertRef("nahor1",     "Genesis", 11, 24, 11, 25);
+  await insertRef("nahor2",     "Genesis", 11, 27, 11, 29, "Son of Terah; married Milcah daughter of Haran");
+  await insertRef("nahor2",     "Genesis", 22, 20, 22, 24, "His children listed after Akedah");
 
   await insertRef("terah",   "Genesis", 11, 24, 11, 32, "Journey from Ur toward Canaan");
   await insertRef("haran",   "Genesis", 11, 26, 11, 29, "Terah's son; died in Ur");

@@ -5,6 +5,7 @@ import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS } from "@/lib/types";
+import { FamilyTree } from "./FamilyTree";
 
 // Returns the relationship label from the given person's perspective.
 // When the person is person_a they are the actor; when person_b they are the target.
@@ -25,6 +26,9 @@ function showToast(msg: string, type: "success" | "error" = "success") {
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => { if (wrap.contains(el)) wrap.removeChild(el); }, 3000);
 }
+
+// ── Card art colors (cycling) ────────────────────────────────────────────────
+const CARD_COLORS = ['#1F5450', '#ABD3C8', '#CF6B4F', '#2E7167', '#70566D'];
 
 // ── Sidebar nav sections ─────────────────────────────────────────────────────
 type Section = "people" | "books" | "tree";
@@ -327,7 +331,7 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
       <div className="detail-pane-header">
         <div>
           <div className="detail-pane-name">{person.name}</div>
-          {person.alsoKnownAs && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2, fontStyle: "italic" }}>Also: {person.alsoKnownAs}</div>}
+          {person.alsoKnownAs && <div className="detail-pane-aka">Also: {person.alsoKnownAs}</div>}
           <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             <TestamentBadge testament={person.testament} />
             {person.gender !== "unknown" && <span className="badge badge-tag">{person.gender}</span>}
@@ -472,17 +476,24 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
             </div>
           ) : (
             <div className="people-grid">
-              {filtered.map(p => (
+              {filtered.map((p, i) => (
                 <div key={p.id} className={`person-card${selectedId === p.id ? " selected" : ""}`} onClick={() => onSelect(p.id)}>
-                  <div className="person-card-name">{p.name}</div>
-                  {p.alsoKnownAs && <div className="person-card-aka">{p.alsoKnownAs}</div>}
-                  {p.description && <div className="person-card-desc">{p.description}</div>}
-                  <div className="person-card-footer">
-                    <TestamentBadge testament={p.testament} />
-                    {p.tags.slice(0, 2).map(t => <span key={t} className="badge badge-tag">{t}</span>)}
-                    <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--mono)" }}>
-                      {refs.filter(r => r.personId === p.id).length} refs
+                  <div className="person-card-art" style={{ background: CARD_COLORS[i % CARD_COLORS.length] }}>
+                    <span className="person-card-initial" style={{ color: i % CARD_COLORS.length === 1 ? 'rgba(36,52,56,0.34)' : 'rgba(241,235,218,0.94)' }}>
+                      {p.name[0]}
                     </span>
+                  </div>
+                  <div className="person-card-body">
+                    <div className="person-card-name">{p.name}</div>
+                    {p.alsoKnownAs && <div className="person-card-aka">{p.alsoKnownAs}</div>}
+                    {p.description && <div className="person-card-desc">{p.description}</div>}
+                    <div className="person-card-footer">
+                      <TestamentBadge testament={p.testament} />
+                      {p.tags.slice(0, 2).map(t => <span key={t} className="badge badge-tag">{t}</span>)}
+                      <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text3)", fontFamily: "var(--mono)" }}>
+                        {refs.filter(r => r.personId === p.id).length} refs
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -571,15 +582,22 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
           <>
             <h2 style={{ fontFamily: "var(--font)", fontSize: 18, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>{activeBook} — {bookPeople.length} {bookPeople.length === 1 ? "person" : "people"}</h2>
             <div className="people-grid">
-              {bookPeople.map(p => (
+              {bookPeople.map((p, i) => (
                 <div key={p.id} className="person-card" onClick={() => onSelect(p.id)}>
-                  <div className="person-card-name">{p.name}</div>
-                  {p.description && <div className="person-card-desc">{p.description}</div>}
-                  <div className="person-card-footer">
-                    <TestamentBadge testament={p.testament} />
-                    {refs.filter(r => r.personId === p.id && r.book === activeBook).map(r => (
-                      <span key={r.id} className="badge badge-tag" style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{formatRef(r)}</span>
-                    ))}
+                  <div className="person-card-art" style={{ background: CARD_COLORS[i % CARD_COLORS.length] }}>
+                    <span className="person-card-initial" style={{ color: i % CARD_COLORS.length === 1 ? 'rgba(36,52,56,0.34)' : 'rgba(241,235,218,0.94)' }}>
+                      {p.name[0]}
+                    </span>
+                  </div>
+                  <div className="person-card-body">
+                    <div className="person-card-name">{p.name}</div>
+                    {p.description && <div className="person-card-desc">{p.description}</div>}
+                    <div className="person-card-footer">
+                      <TestamentBadge testament={p.testament} />
+                      {refs.filter(r => r.personId === p.id && r.book === activeBook).map(r => (
+                        <span key={r.id} className="badge badge-tag" style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{formatRef(r)}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -722,7 +740,7 @@ export function Explorer() {
       <div id="layout-root">
         {/* Sidebar */}
         <nav className={`app-sidebar${sidebarOpen ? " open" : ""}`} id="app-sidebar">
-          <div className="sidebar-logo">Bird<span>seye</span></div>
+          <div className="sidebar-logo">Birds<span className="logo-eye">eye</span></div>
           <div className="sidebar-nav">
             {NAV.map(n => (
               <div key={n.key} className={`sidebar-item${section === n.key ? " active" : ""}`}
@@ -752,6 +770,7 @@ export function Explorer() {
               </svg>
             </button>
             <div>
+              <div className="section-eyebrow">Browse</div>
               <div className="section-title">People</div>
               <div className="section-subtitle">{people.length} {people.length === 1 ? "person" : "people"} in the database</div>
             </div>
@@ -784,6 +803,7 @@ export function Explorer() {
               </svg>
             </button>
             <div>
+              <div className="section-eyebrow">Browse</div>
               <div className="section-title">By Book</div>
               <div className="section-subtitle">Find people by where they appear in scripture</div>
             </div>
@@ -800,11 +820,12 @@ export function Explorer() {
               </svg>
             </button>
             <div>
+              <div className="section-eyebrow">Explore</div>
               <div className="section-title">Family Tree</div>
-              <div className="section-subtitle">Explore relationships and connections</div>
+              <div className="section-subtitle">Adam through Jacob's sons — click any node to view profile</div>
             </div>
           </div>
-          <TreeSection people={people} relationships={relationships} onSelect={selectPerson} />
+          <FamilyTree people={people} relationships={relationships} onSelect={selectPerson} />
         </div>
       </div>
 

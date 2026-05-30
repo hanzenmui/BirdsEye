@@ -29,7 +29,7 @@ export function LoginForm() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">Bird<span>seye</span></div>
+        <div className="login-logo">Birds<span className="logo-eye">eye</span></div>
         <div className="login-subtitle">People of the Bible, clearly mapped.</div>
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: 16 }}>
