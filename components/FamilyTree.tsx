@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useRef, useReducer, useEffect, useCallback } from "react";
 import type { Person, Relationship } from "@/lib/types";
 
 const NW = 108;   // node width
@@ -79,6 +79,40 @@ function buildLayout(people: Person[], rels: Relationship[], rootId: string) {
   return { all, w, h };
 }
 
+// ── View state (zoom + pan) managed atomically via reducer ────────────────────
+interface ViewState { zoom: number; pan: { x: number; y: number } }
+type ViewAction =
+  | { type: "PINCH"; delta: number; cx: number; cy: number }
+  | { type: "PAN";   dx: number; dy: number }
+  | { type: "FIT";   treeW: number; treeH: number; vpW: number; vpH: number };
+
+function viewReducer(s: ViewState, a: ViewAction): ViewState {
+  switch (a.type) {
+    case "PINCH": {
+      const z = Math.max(0.08, Math.min(6, s.zoom * (1 + a.delta)));
+      return {
+        zoom: z,
+        pan: {
+          x: a.cx - (a.cx - s.pan.x) * (z / s.zoom),
+          y: a.cy - (a.cy - s.pan.y) * (z / s.zoom),
+        },
+      };
+    }
+    case "PAN":
+      return { ...s, pan: { x: s.pan.x + a.dx, y: s.pan.y + a.dy } };
+    case "FIT": {
+      const scale = Math.min(a.vpW / a.treeW, a.vpH / a.treeH, 1);
+      return {
+        zoom: scale,
+        pan: {
+          x: (a.vpW - a.treeW * scale) / 2,
+          y: (a.vpH - a.treeH * scale) / 2,
+        },
+      };
+    }
+  }
+}
+
 interface Props {
   people: Person[];
   relationships: Relationship[];
@@ -86,12 +120,68 @@ interface Props {
 }
 
 export function FamilyTree({ people, relationships, onSelect }: Props) {
-  const adam = useMemo(() => people.find(p => p.name === "Adam") ?? null, [people]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const lastMouse = useRef({ x: 0, y: 0 });
+  const didDrag = useRef(false);
+  const [view, dispatch] = useReducer(viewReducer, { zoom: 1, pan: { x: 0, y: 0 } });
 
+  const adam = useMemo(() => people.find(p => p.name === "Adam") ?? null, [people]);
   const tree = useMemo(() => {
     if (!adam || people.length === 0) return null;
     return buildLayout(people, relationships, adam.id);
   }, [people, relationships, adam]);
+
+  // Fit tree to viewport on first load
+  useEffect(() => {
+    if (!tree || !containerRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+  }, [tree]);
+
+  // Non-passive wheel listener — required to call preventDefault() for pinch
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey) {
+        // Trackpad pinch or Ctrl+scroll — zoom toward cursor
+        const factor = e.deltaMode === 1 ? 0.12 : 0.008;
+        const rect = el.getBoundingClientRect();
+        dispatch({
+          type: "PINCH",
+          delta: -e.deltaY * factor,
+          cx: e.clientX - rect.left,
+          cy: e.clientY - rect.top,
+        });
+      } else {
+        // Trackpad two-finger scroll or mouse wheel — pan
+        dispatch({ type: "PAN", dx: -e.deltaX, dy: -e.deltaY });
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDragging.current = true;
+    didDrag.current = false;
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    const dx = e.clientX - lastMouse.current.x;
+    const dy = e.clientY - lastMouse.current.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didDrag.current = true;
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+    dispatch({ type: "PAN", dx, dy });
+  }, []);
+
+  const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
   if (people.length === 0) {
     return (
@@ -113,48 +203,72 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
   }
 
   const { all, w, h } = tree;
+  const { zoom, pan } = view;
 
   return (
-    <div style={{ flex: 1, overflow: "auto", background: "var(--bg)" }}>
-      <svg width={w} height={h} style={{ display: "block" }}>
-        {/* Connector lines */}
-        {all.filter(n => n.children.length > 0).map(n => {
-          const yBot = n.y + NH;
-          const yMid = yBot + VG / 2;
-          const xL = n.children[0].x;
-          const xR = n.children[n.children.length - 1].x;
-          return (
-            <g key={`e${n.id}`} stroke="rgba(60,45,20,.18)" strokeWidth="1.5" fill="none">
-              <line x1={n.x} y1={yBot} x2={n.x} y2={yMid} />
-              {xL !== xR && <line x1={xL} y1={yMid} x2={xR} y2={yMid} />}
-              {n.children.map(c => (
-                <line key={c.id} x1={c.x} y1={yMid} x2={c.x} y2={c.y} />
-              ))}
-            </g>
-          );
-        })}
+    <div
+      ref={containerRef}
+      style={{
+        flex: 1,
+        overflow: "hidden",
+        background: "var(--bg)",
+        cursor: isDragging.current ? "grabbing" : "grab",
+        userSelect: "none",
+      }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      <div
+        style={{
+          position: "absolute",
+          transformOrigin: "0 0",
+          transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`,
+          willChange: "transform",
+        }}
+      >
+        <svg width={w} height={h} style={{ display: "block", overflow: "visible" }}>
+          {/* Connector lines */}
+          {all.filter(n => n.children.length > 0).map(n => {
+            const yBot = n.y + NH;
+            const yMid = yBot + VG / 2;
+            const xL = n.children[0].x;
+            const xR = n.children[n.children.length - 1].x;
+            return (
+              <g key={`e${n.id}`} stroke="rgba(60,45,20,.18)" strokeWidth="1.5" fill="none">
+                <line x1={n.x} y1={yBot} x2={n.x} y2={yMid} />
+                {xL !== xR && <line x1={xL} y1={yMid} x2={xR} y2={yMid} />}
+                {n.children.map(c => (
+                  <line key={c.id} x1={c.x} y1={yMid} x2={c.x} y2={c.y} />
+                ))}
+              </g>
+            );
+          })}
 
-        {/* Person nodes */}
-        {all.map(n => (
-          <g
-            key={n.id}
-            className="ft-node"
-            transform={`translate(${n.x - NW / 2},${n.y})`}
-            onClick={() => onSelect(n.id)}
-          >
-            <rect className="ft-node-rect" width={NW} height={NH} rx={6} />
-            <text
-              className="ft-node-text"
-              x={NW / 2}
-              y={NH / 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
+          {/* Person nodes */}
+          {all.map(n => (
+            <g
+              key={n.id}
+              className="ft-node"
+              transform={`translate(${n.x - NW / 2},${n.y})`}
+              onClick={() => { if (!didDrag.current) onSelect(n.id); }}
+              style={{ cursor: "pointer" }}
             >
-              {n.name.length > 13 ? n.name.slice(0, 12) + "…" : n.name}
-            </text>
-          </g>
-        ))}
-      </svg>
+              <rect className="ft-node-rect" width={NW} height={NH} rx={6} />
+              <text
+                className="ft-node-text"
+                x={NW / 2}
+                y={NH / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+              >
+                {n.name.length > 13 ? n.name.slice(0, 12) + "…" : n.name}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }
