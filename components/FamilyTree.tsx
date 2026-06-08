@@ -124,6 +124,7 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const didDrag = useRef(false);
+  const hasFitted = useRef(false);
   const [view, dispatch] = useReducer(viewReducer, { zoom: 1, pan: { x: 0, y: 0 } });
 
   const adam = useMemo(() => people.find(p => p.name === "Adam") ?? null, [people]);
@@ -132,12 +133,30 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
     return buildLayout(people, relationships, adam.id);
   }, [people, relationships, adam]);
 
-  // Fit tree to viewport on first load
-  useEffect(() => {
-    if (!tree || !containerRef.current) return;
+  const fitView = useCallback(() => {
+    if (!containerRef.current || !tree) return;
     const { width, height } = containerRef.current.getBoundingClientRect();
     if (width === 0 || height === 0) return;
     dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+  }, [tree]);
+
+  // Auto-fit once on first load. Uses ResizeObserver because the container's
+  // flex dimensions aren't available yet when the effect first runs.
+  useEffect(() => {
+    if (!tree || !containerRef.current) return;
+    hasFitted.current = false;
+    const el = containerRef.current;
+    const tryFit = () => {
+      if (hasFitted.current) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
+      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+      hasFitted.current = true;
+    };
+    tryFit();
+    const ro = new ResizeObserver(tryFit);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [tree]);
 
   // Non-passive wheel listener — required to call preventDefault() for pinch
@@ -209,6 +228,7 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
     <div
       ref={containerRef}
       style={{
+        position: "relative",
         flex: 1,
         overflow: "hidden",
         background: "var(--bg)",
@@ -269,6 +289,38 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
           ))}
         </svg>
       </div>
+
+      {/* Fit-to-view button */}
+      <button
+        onClick={fitView}
+        title="Fit to view"
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: "1px solid rgba(60,45,20,.18)",
+          background: "var(--surface, #fff)",
+          color: "var(--text, #1a1209)",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          boxShadow: "0 1px 4px rgba(0,0,0,.12)",
+          opacity: 0.92,
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "0.92")}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1 4V1h3M10 1h3v3M13 10v3h-3M4 13H1v-3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Fit view
+      </button>
     </div>
   );
 }
