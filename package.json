@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:genesis": "npx tsx scripts/seed-genesis.ts",
-    "seed:exodus": "npx tsx scripts/seed-exodus.ts"
+    "seed:exodus": "npx tsx scripts/seed-exodus.ts",
+    "seed:numbers": "npx tsx scripts/seed-numbers.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
