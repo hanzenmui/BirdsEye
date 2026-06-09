@@ -159,6 +159,26 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
     return () => ro.disconnect();
   }, [tree]);
 
+  // Keyboard +/- zoom toward viewport center
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "+" && e.key !== "-" && e.key !== "=" ) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      e.preventDefault();
+      const el = containerRef.current;
+      if (!el) return;
+      const { width, height } = el.getBoundingClientRect();
+      dispatch({
+        type: "PINCH",
+        delta: (e.key === "-" ? -1 : 1) * 0.15,
+        cx: width / 2,
+        cy: height / 2,
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Non-passive wheel listener — required to call preventDefault() for pinch
   useEffect(() => {
     const el = containerRef.current;
