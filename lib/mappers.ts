@@ -11,7 +11,7 @@ export function personFromDb(r: any): Person {
     birthYear:   r.birth_year ?? "",
     deathYear:   r.death_year ?? "",
     description: r.description ?? "",
-    tags:        JSON.parse(r.tags ?? "[]"),
+    tags:        (() => { try { return JSON.parse(r.tags ?? "[]"); } catch { return []; } })(),
     createdAt:   r.created_at,
   };
 }

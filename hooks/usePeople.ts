@@ -33,11 +33,10 @@ export function usePeople() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      const created: Person = await res.json();
-      setPeople(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      return created;
-    }
+    if (!res.ok) throw new Error(await res.text());
+    const created: Person = await res.json();
+    setPeople(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    return created;
   }, []);
 
   const updatePerson = useCallback(async (id: string, patch: Partial<Person>) => {
@@ -46,11 +45,10 @@ export function usePeople() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    if (res.ok) {
-      const updated: Person = await res.json();
-      setPeople(prev => prev.map(p => p.id === id ? updated : p));
-      return updated;
-    }
+    if (!res.ok) throw new Error(await res.text());
+    const updated: Person = await res.json();
+    setPeople(prev => prev.map(p => p.id === id ? updated : p));
+    return updated;
   }, []);
 
   const deletePerson = useCallback(async (id: string) => {

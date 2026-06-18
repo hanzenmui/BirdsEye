@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
   }
   const { passcode } = await req.json();
   const expected = Buffer.from(process.env.ADMIN_PASSCODE ?? "");
+  if (expected.length === 0) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
   const provided = Buffer.from(passcode ?? "");
   const valid = expected.length === provided.length && timingSafeEqual(expected, provided);
   if (!valid) {

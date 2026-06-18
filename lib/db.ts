@@ -37,7 +37,7 @@ function makeLocalDb(path: string): DbClient {
     async init() {
       for (const s of schema) db.exec(s);
       for (const m of MIGRATIONS) {
-        try { db.exec(m); } catch {}
+        try { db.exec(m); } catch (e) { console.warn("Migration skipped:", e); }
       }
     },
   };
@@ -62,7 +62,7 @@ function makeTursoDb(): DbClient {
     async init() {
       for (const s of schema) await client.execute(s);
       for (const m of MIGRATIONS) {
-        try { await client.execute(m); } catch {}
+        try { await client.execute(m); } catch (e) { console.warn("Migration skipped:", e); }
       }
     },
   };

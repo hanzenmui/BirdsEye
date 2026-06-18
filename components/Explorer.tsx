@@ -76,8 +76,14 @@ function AddPersonModal({ onSave, onClose }: AddPersonProps) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await onSave(form);
-    onClose();
+    try {
+      await onSave(form);
+      onClose();
+    } catch {
+      // onSave threw — stay open so the user can retry
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

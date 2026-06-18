@@ -17,14 +17,19 @@ function id(key: string) {
   return ids[key];
 }
 
-// Checks DB by name before inserting. If found, maps existing id — no duplicate.
+// Checks DB before inserting. When alsoKnownAs is set, matches on both name
+// AND also_known_as so "Noah daughter of Zelophehad" doesn't collide with
+// Genesis patriarch Noah (whose also_known_as is blank or different).
 async function safeInsertPerson(p: {
   key: string; name: string; alsoKnownAs?: string; gender: string;
   description: string; tags: string[];
 }): Promise<void> {
+  const aka = p.alsoKnownAs ?? '';
   const existing = await db.execute({
-    sql: "SELECT id FROM people WHERE name = ? LIMIT 1",
-    args: [p.name],
+    sql: aka
+      ? "SELECT id FROM people WHERE name = ? AND also_known_as = ? LIMIT 1"
+      : "SELECT id FROM people WHERE name = ? LIMIT 1",
+    args: aka ? [p.name, aka] : [p.name],
   });
   const row = existing.rows[0] as unknown as { id: string } | undefined;
   if (row) {

@@ -9,7 +9,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await requireAuth();
     const { id } = await params;
     const db = getDb();
-    const patch: Partial<Person> = await req.json();
+    const raw: Partial<Person> = await req.json();
+    // Strip immutable fields — client must not overwrite the primary key or timestamp
+    const { id: _id, createdAt: _createdAt, ...patch } = raw;
     const rows = await db.query<Record<string, unknown>>("SELECT * FROM people WHERE id = $1", [id]);
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const updated: Person = { ...personFromDb(rows[0]), ...patch };
