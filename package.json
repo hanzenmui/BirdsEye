@@ -9,7 +9,11 @@
     "lint": "eslint",
     "seed:genesis": "npx tsx scripts/seed-genesis.ts",
     "seed:exodus": "npx tsx scripts/seed-exodus.ts",
-    "seed:numbers": "npx tsx scripts/seed-numbers.ts"
+    "seed:numbers": "npx tsx scripts/seed-numbers.ts",
+    "seed:deuteronomy": "npx tsx scripts/seed-deuteronomy.ts",
+    "seed:joshua": "npx tsx scripts/seed-joshua.ts",
+    "seed:judges": "npx tsx scripts/seed-judges.ts",
+    "seed:ruth": "npx tsx scripts/seed-ruth.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
