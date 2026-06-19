@@ -13,7 +13,11 @@
     "seed:deuteronomy": "npx tsx scripts/seed-deuteronomy.ts",
     "seed:joshua": "npx tsx scripts/seed-joshua.ts",
     "seed:judges": "npx tsx scripts/seed-judges.ts",
-    "seed:ruth": "npx tsx scripts/seed-ruth.ts"
+    "seed:ruth": "npx tsx scripts/seed-ruth.ts",
+    "seed:1samuel": "npx tsx scripts/seed-1samuel.ts",
+    "seed:2samuel": "npx tsx scripts/seed-2samuel.ts",
+    "seed:1kings": "npx tsx scripts/seed-1kings.ts",
+    "seed:2kings": "npx tsx scripts/seed-2kings.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
