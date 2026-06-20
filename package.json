@@ -17,7 +17,12 @@
     "seed:1samuel": "npx tsx scripts/seed-1samuel.ts",
     "seed:2samuel": "npx tsx scripts/seed-2samuel.ts",
     "seed:1kings": "npx tsx scripts/seed-1kings.ts",
-    "seed:2kings": "npx tsx scripts/seed-2kings.ts"
+    "seed:2kings": "npx tsx scripts/seed-2kings.ts",
+    "seed:ezra-nehemiah": "npx tsx scripts/seed-ezra-nehemiah.ts",
+    "seed:esther": "npx tsx scripts/seed-esther.ts",
+    "seed:job": "npx tsx scripts/seed-job.ts",
+    "seed:daniel": "npx tsx scripts/seed-daniel.ts",
+    "seed:prophets": "npx tsx scripts/seed-prophets.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
