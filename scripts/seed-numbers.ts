@@ -158,7 +158,7 @@ async function seedPeople() {
     tags: ["leader", "tribe of israel"] });
 
   // ── Levitical clan heads (Num 3–4) ────────────────────────────────────
-  await safeInsertPerson({ key: "gershon", name: "Gershon", alsoKnownAs: "Gershom son of Levi",
+  await safeInsertPerson({ key: "gershon", name: "Gershon", alsoKnownAs: "Gershon son of Levi",
     gender: "male",
     description: "Eldest son of Levi. His clan was responsible for carrying the tabernacle coverings, curtains, and hangings during the wilderness march. They camped on the west side of the tabernacle under the supervision of Ithamar son of Aaron.",
     tags: ["priestly line"] });

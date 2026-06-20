@@ -168,8 +168,6 @@ async function seedRelationships() {
   // ── Saul's line ───────────────────────────────────────────────────────
   await insertRelByName("Saul",    "parent_of",  "Ish-bosheth", "Ish-bosheth, Saul's son; rival king (2 Sam 2:8)");
   await insertRelByName("Jonathan","parent_of",  "Mephibosheth","Jonathan's crippled son (2 Sam 4:4)");
-  await insertRel("ish_bosheth", "servant_of", "abner",
-    "Abner made Ish-bosheth king but really held the power"); // abner from 1 Samuel, ref by name below
   await insertRelByName("Abner",   "servant_of", "Ish-bosheth", "Abner installed and propped up Ish-bosheth (2 Sam 2:8-9)");
   await insertRelByName("David",   "ally_of",    "Mephibosheth","David honored Jonathan's memory by restoring Mephibosheth (2 Sam 9)");
 
@@ -196,15 +194,13 @@ async function seedRelationships() {
   await insertRel("amnon",   "enemy_of",   "tamar_david", "Amnon raped his half-sister Tamar (2 Sam 13:14)");
   await insertRel("absalom", "sibling_of", "tamar_david", "Tamar is Absalom's full sister (2 Sam 13:1)");
   await insertRel("absalom", "enemy_of",   "amnon",       "Absalom had Amnon killed for raping Tamar (2 Sam 13:29)");
-  await insertRelByName("David",   "parent_of",  "Tamar",       "Tamar daughter of David (2 Sam 13:1)");
+  await insertRelNameToLocal("David", "parent_of", "tamar_david", "Tamar daughter of David (2 Sam 13:1)");
 
   // ── Absalom's revolt ──────────────────────────────────────────────────
-  await insertRel("absalom",    "enemy_of",   "ahithophel",
-    "Ahithophel defected to Absalom; killed himself when counsel rejected");
   await insertRelByName("Ahithophel","ally_of",    "Absalom",     "Ahithophel joined Absalom's revolt (2 Sam 15:12)");
   await insertRelByName("Hushai",    "ally_of",    "David",       "David's spy in Absalom's court (2 Sam 15:37)");
   await insertRel("hushai",    "enemy_of",   "ahithophel", "Hushai countered Ahithophel's advice, saving David");
-  await insertRel("shimei",    "enemy_of",   "david",       "Cursed David while he fled Absalom (2 Sam 16:5-8)");
+  await insertRelByName("Shimei",    "enemy_of",   "David",       "Cursed David while he fled Absalom (2 Sam 16:5-8)");
 }
 
 // ── Scripture references ───────────────────────────────────────────────────────

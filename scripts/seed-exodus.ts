@@ -116,7 +116,7 @@ async function seedPeople() {
     tags: ["prophet", "leader", "lawgiver"] });
 
   // ── Moses' family ─────────────────────────────────────────────────────
-  await insertPerson({ key: "jethro", name: "Jethro", alsoKnownAs: "Reuel, Hobab",
+  await insertPerson({ key: "jethro", name: "Jethro", alsoKnownAs: "Reuel",
     gender: "male",
     description: "Priest of Midian and father-in-law of Moses. Moses fled to his household after killing the Egyptian. Gave Moses his daughter Zipporah in marriage. Later visited the Israelite camp and advised Moses to delegate judicial authority — one of the Bible's earliest organizational leadership principles.",
     tags: ["midianite", "priest"] });

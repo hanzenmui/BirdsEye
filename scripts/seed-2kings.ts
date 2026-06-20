@@ -172,7 +172,7 @@ async function seedRelationships() {
   await insertRelByName("Jezebel",  "parent_of", "Athaliah",     "Athaliah daughter of Jezebel (inferred from Ahab's line)");
   await insertRel("athaliah","enemy_of",   "joash_judah",  "Athaliah tried to destroy the royal family (2 Kgs 11:1)");
   await insertRel("jehoiada","ally_of",    "joash_judah",  "Hid and crowned Joash; guided his early reign (2 Kgs 11-12)");
-  await insertRel("joash_judah","enemy_of","jehoiada",     "Joash had Jehoiada's son Zechariah stoned (2 Chr 24:21)");
+  // Joash had Jehoiada's son Zechariah stoned (2 Chr 24:21) — Zechariah son of Jehoiada not seeded
 
   // ── Hezekiah era ──────────────────────────────────────────────────────
   await insertRelByName("Hezekiah","ally_of",    "Isaiah",       "Isaiah guided and prophesied to Hezekiah (2 Kgs 19-20)");

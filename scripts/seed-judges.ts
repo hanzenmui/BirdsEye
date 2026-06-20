@@ -85,7 +85,7 @@ async function seedPeople() {
   // ── Judge 1: Othniel (Judg 3) ─────────────────────────────────────────
   await safeInsertPerson({ key: "othniel", name: "Othniel",
     gender: "male",
-    description: "Son of Kenaz, Caleb's younger brother, making him Caleb's nephew. Captured Debir and received Achsah (Caleb's daughter) as his wife. Became the first judge of Israel after the conquest, delivering Israel from Cushan-rishathaim, king of Aram-Naharaim. He judged Israel forty years. A model judge: the Spirit of the Lord came upon him, he went to war, prevailed, and there was peace during his lifetime.",
+    description: "Son of Kenaz, Caleb's younger brother (Judg 3:9). Captured Debir and received Achsah (Caleb's daughter) as his wife. Became the first judge of Israel after the conquest, delivering Israel from Cushan-rishathaim, king of Aram-Naharaim. He judged Israel forty years. A model judge: the Spirit of the Lord came upon him, he went to war, prevailed, and there was peace during his lifetime.",
     tags: ["judge", "warrior", "tribe of israel"] });
 
   await safeInsertPerson({ key: "cushan", name: "Cushan-rishathaim",

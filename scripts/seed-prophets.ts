@@ -203,8 +203,7 @@ async function seedRelationships() {
   await insertRel("hosea", "spouse_of", "gomer", "God commanded Hosea to marry Gomer as a sign of Israel's unfaithfulness (Hos 1:2)");
 
   // ── Minor prophets → opponents ─────────────────────────────────────────
-  await insertRelByName("Jeroboam","enemy_of","Amos",
-    "Amaziah expelled Amos from Bethel on Jeroboam's behalf (Amos 7:10)");
+  // Jeroboam II (not seeded) expelled Amos from Bethel via Amaziah (Amos 7:10)
 
   // ── Post-exilic prophets → leaders they served with ───────────────────
   await insertRelByName("Zerubbabel","ally_of","Haggai",      "Haggai's words stirred Zerubbabel to rebuild (Hag 1:12)");
@@ -220,11 +219,6 @@ async function seedRefs() {
   await insertRef("baruch",            "Jeremiah", 36,  1, 45,  5, "Writes, reads, and preserves Jeremiah's scroll");
   await insertRef("ebed_melech",       "Jeremiah", 38,  7, 39, 18, "Rescues Jeremiah from cistern; promised personal safety");
   await insertRef("pashhur_jeremiah",  "Jeremiah", 20,  1, 20,  6, "Beats and stocks Jeremiah; named 'terror on every side'");
-
-  // Also add 2 Kings refs for Jeremiah (briefly mentioned)
-  if (await loadExisting("jer_2k", "Jeremiah")) {
-    // loadExisting already maps ids["jer_2k"] = Jeremiah's id
-  }
 
   // ── Ezekiel ───────────────────────────────────────────────────────────
   await insertRef("ezekiel",    "Ezekiel",  1,  1, 48, 35, "Chariot vision; acted signs; judgments; new Temple; dry bones");
