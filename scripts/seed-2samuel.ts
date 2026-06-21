@@ -161,6 +161,18 @@ async function seedPeople() {
     gender: "male",
     description: "Benjaminite from Saul's clan. Came out cursing David as he fled Jerusalem during Absalom's revolt, throwing stones and dust, calling him a man of blood. Abishai wanted to kill him on the spot; David restrained him, saying perhaps the Lord had told Shimei to curse. After Absalom's defeat, Shimei came humbly to David at the Jordan and was pardoned — though David told Solomon not to let him die peacefully. Solomon later had him executed when he violated the terms of house arrest.",
     tags: ["tribe of israel"] });
+
+  // ── Priests ───────────────────────────────────────────────────────────
+  await safeInsertPerson({ key: "zadok", name: "Zadok",
+    gender: "male",
+    description: "Priest who served David and Solomon, one of two chief priests alongside Abiathar. Remained loyal to David during Absalom's revolt, carrying the ark back to Jerusalem when David sent it away. With the prophet Nathan, anointed Solomon as king at Gihon after Adonijah's rival coronation failed. Solomon rewarded Zadok by making him sole high priest after exiling Abiathar. His descendants became the Zadokite priesthood, the dominant priestly line through the Second Temple period; Ezekiel's vision of the new Temple specifies only 'sons of Zadok' may serve at the altar (Ezek 44:15).",
+    tags: ["priest"] });
+
+  // ── Obed-edom ─────────────────────────────────────────────────────────
+  await safeInsertPerson({ key: "obed_edom", name: "Obed-edom",
+    gender: "male",
+    description: "Gittite in whose house the ark of the Lord rested for three months after Uzzah was struck dead for touching it. God blessed Obed-edom and his entire household during this time. When David heard of the blessing he went to bring the ark up with great celebration. Chronicles identifies Obed-edom as a Levite who became a gatekeeper and musician before the ark.",
+    tags: ["other"] });
 }
 
 // ── Relationships ─────────────────────────────────────────────────────────────
@@ -201,6 +213,12 @@ async function seedRelationships() {
   await insertRelByName("Hushai",    "ally_of",    "David",       "David's spy in Absalom's court (2 Sam 15:37)");
   await insertRel("hushai",    "enemy_of",   "ahithophel", "Hushai countered Ahithophel's advice, saving David");
   await insertRelByName("Shimei",    "enemy_of",   "David",       "Cursed David while he fled Absalom (2 Sam 16:5-8)");
+
+  // ── Zadok and Abiathar ────────────────────────────────────────────────
+  await insertRelByName("David",   "ally_of",    "Zadok",       "Zadok served as co-chief priest throughout David's reign (2 Sam 8:17)");
+  await insertRelByName("Abiathar","ally_of",    "Zadok",       "Co-priests of David; both carried the ark during Absalom's revolt");
+  await insertRel("zadok",   "ally_of",    "hushai",      "Zadok relayed Hushai's intelligence to David (2 Sam 17:15-17)");
+  await insertRelByName("David",   "ally_of",    "Obed-edom",   "Obed-edom housed the ark; God blessed him (2 Sam 6:10-12)");
 }
 
 // ── Scripture references ───────────────────────────────────────────────────────
@@ -222,6 +240,9 @@ async function seedRefs() {
   await insertRef("ahithophel",   "2 Samuel", 15, 12, 17, 23, "Joins Absalom; counsel rejected; hangs himself");
   await insertRef("hushai",       "2 Samuel", 15, 32, 17, 23, "David's spy; foils Ahithophel's advice");
   await insertRef("shimei",       "2 Samuel", 16,  5, 19, 23, "Curses David; pardoned; told to Solomon for later");
+  await insertRef("zadok",        "2 Samuel",  8, 17,  8, 17, "Listed as one of David's priests alongside Abiathar");
+  await insertRef("zadok",        "2 Samuel", 15, 24, 17, 20, "Carries ark; loyal during Absalom's revolt; intelligence relay");
+  await insertRef("obed_edom",    "2 Samuel",  6, 10,  6, 12, "Houses ark three months; blessed by God");
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────

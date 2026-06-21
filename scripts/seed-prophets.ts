@@ -61,6 +61,25 @@ async function lookupId(name: string): Promise<string | null> {
   return (r.rows[0] as unknown as { id: string } | undefined)?.id ?? null;
 }
 
+async function lookupIdByAka(name: string, aka: string): Promise<string | null> {
+  const r = await db.execute({
+    sql: "SELECT id FROM people WHERE name = ? AND also_known_as = ? LIMIT 1",
+    args: [name, aka],
+  });
+  return (r.rows[0] as unknown as { id: string } | undefined)?.id ?? null;
+}
+
+async function insertRelByAkaToName(aName: string, aAka: string, type: string, bName: string, notes?: string) {
+  const aId = await lookupIdByAka(aName, aAka);
+  const bId = await lookupId(bName);
+  if (!aId || !bId) { console.warn(`  ⚠ Could not link ${aName} (${aAka}) → ${bName}`); return; }
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
+          VALUES (?,?,?,?,?,?,?,datetime('now'))`,
+    args: [crypto.randomUUID(), aId, aName, type, bId, bName, notes ?? ''],
+  });
+}
+
 async function insertRelByName(aName: string, type: string, bName: string, notes?: string) {
   const aId = await lookupId(aName);
   const bId = await lookupId(bName);
@@ -202,8 +221,14 @@ async function seedRelationships() {
   // ── Hosea / Gomer ─────────────────────────────────────────────────────
   await insertRel("hosea", "spouse_of", "gomer", "God commanded Hosea to marry Gomer as a sign of Israel's unfaithfulness (Hos 1:2)");
 
-  // ── Minor prophets → opponents ─────────────────────────────────────────
-  // Jeroboam II (not seeded) expelled Amos from Bethel via Amaziah (Amos 7:10)
+  // ── Minor prophets → Jeroboam II context ────────────────────────────────
+  // Use lookupIdByAka to avoid matching Jeroboam I from 1 Kings
+  await insertRelByAkaToName("Jeroboam", "Jeroboam II king of Israel", "enemy_of", "Amos",
+    "Amaziah expelled Amos from Bethel on Jeroboam II's behalf (Amos 7:10-13)");
+  await insertRelByAkaToName("Jeroboam", "Jeroboam II king of Israel", "other", "Hosea",
+    "Hosea prophesied during Jeroboam II's prosperous and corrupt reign (Hos 1:1)");
+  await insertRelByAkaToName("Jeroboam", "Jeroboam II king of Israel", "other", "Jonah",
+    "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)");
 
   // ── Post-exilic prophets → leaders they served with ───────────────────
   await insertRelByName("Zerubbabel","ally_of","Haggai",      "Haggai's words stirred Zerubbabel to rebuild (Hag 1:12)");

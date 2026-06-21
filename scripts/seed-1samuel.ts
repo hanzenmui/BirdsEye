@@ -176,6 +176,11 @@ async function seedPeople() {
     description: "Priest at Nob who gave David the showbread and Goliath's sword when David claimed to be on a secret royal mission. Doeg the Edomite witnessed this and reported it to Saul. Ahimelech protested his innocence before Saul; eighty-five priests of Nob were massacred at Saul's order. Only his son Abiathar escaped to warn David.",
     tags: ["priest"] });
 
+  await safeInsertPerson({ key: "abiathar", name: "Abiathar",
+    gender: "male",
+    description: "Son of Ahimelech, sole survivor of Saul's massacre of the priests of Nob. Escaped and fled to David, bringing the ephod with him. Served as David's priest throughout his outlaw years and entire reign — the only legitimate ark-keeper outside of Zadok for decades. Consulted the ephod for David at Keilah and Ziklag. Carried the ark during Absalom's revolt and was part of David's intelligence network. Fatal error: supported Adonijah's bid for the throne instead of Solomon's. Solomon exiled him to Anathoth, fulfilling the prophecy against Eli's house (1 Kgs 2:27).",
+    tags: ["priest"] });
+
   await safeInsertPerson({ key: "doeg", name: "Doeg", alsoKnownAs: "Doeg the Edomite",
     gender: "male",
     description: "Edomite who was Saul's chief shepherd. Witnessed Ahimelech give David bread and a sword at Nob. When Saul's guards refused to kill the priests, Doeg carried out Saul's order himself, killing 85 priests and the entire town of Nob — men, women, children, and livestock. David credited him with Saul's massacre in Psalm 52.",
@@ -241,6 +246,8 @@ async function seedRelationships() {
 
   // ── Priests of Nob ────────────────────────────────────────────────────
   await insertRel("ahimelech","ally_of",    "david",   "Gave David showbread and Goliath's sword (1 Sam 21:6)");
+  await insertRel("ahimelech","parent_of",  "abiathar","Abiathar, sole survivor of Nob massacre (1 Sam 22:20)");
+  await insertRel("abiathar", "ally_of",    "david",   "Fled to David with the ephod; served him the rest of his life");
   await insertRel("doeg",     "enemy_of",   "ahimelech","Massacred 85 priests at Saul's order (1 Sam 22:18)");
   await insertRel("doeg",     "servant_of", "saul",    "Saul's chief shepherd, informant (1 Sam 21:7)");
 }
@@ -263,6 +270,7 @@ async function seedRefs() {
   await insertRef("david",      "1 Samuel", 16,  1, 31, 13, "Anointed by Samuel; kills Goliath; flees Saul");
   await insertRef("goliath",    "1 Samuel", 17,  1, 17, 51, "Philistine champion; forty-day taunt; killed by David");
   await insertRef("ahimelech",  "1 Samuel", 21,  1, 22, 20, "Gives David showbread and sword; massacred by Doeg");
+  await insertRef("abiathar",   "1 Samuel", 22, 20, 23, 12, "Escapes Nob; joins David; ephod consulted at Keilah");
   await insertRef("doeg",       "1 Samuel", 21,  7, 22, 22, "Witnesses David at Nob; massacres 85 priests");
   await insertRef("nabal",      "1 Samuel", 25,  2, 25, 38, "Refuses David; dies ten days after Abigail's intervention");
   await insertRef("abigail",    "1 Samuel", 25,  2, 25, 44, "Intervenes to save Nabal's household; marries David");

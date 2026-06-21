@@ -152,6 +152,58 @@ async function seedPeople() {
     gender: "male",
     description: "King of Babylon who became the instrument of God's judgment on Judah. Besieged Jerusalem three times: deported Jehoiachin and the nobles in 597 BC, appointed Zedekiah, then when Zedekiah rebelled destroyed the Temple and city in 586 BC, deporting most of the population to Babylon. Appears also in Daniel, where he has a famous dream of a great statue, goes mad eating grass for seven years, and is finally restored.",
     tags: ["king", "antagonist"] });
+
+  // ── Omride successors (Israel) ────────────────────────────────────────
+  await safeInsertPerson({ key: "ahaziah_israel", name: "Ahaziah", alsoKnownAs: "Ahaziah king of Israel",
+    gender: "male",
+    description: "Son of Ahab and Jezebel, second king of the Omride dynasty of Israel. Fell through the lattice of his upper room in Samaria and was injured. Sent messengers to inquire of Baal-zebub, the god of Ekron, whether he would recover. Elijah intercepted the messengers and declared he would not come down from his bed but would die. Sent two companies of fifty soldiers to bring Elijah; each was consumed by fire from heaven. The third captain humbly pleaded and was spared. Ahaziah died without a son. Not to be confused with Ahaziah king of Judah.",
+    tags: ["king", "tribe of israel"] });
+
+  await safeInsertPerson({ key: "joram_israel", name: "Joram", alsoKnownAs: "Joram king of Israel, Jehoram king of Israel",
+    gender: "male",
+    description: "Son of Ahab and Jezebel, last king of the Omride dynasty of Israel. Removed the sacred stone of Baal his father had made but kept Jeroboam's golden calves. Joined with Jehoshaphat of Judah and the king of Edom against Moab; Elisha providentially provided water for their armies. When Hazael of Damascus threatened Israel, Joram was wounded at Ramoth-Gilead. Was recuperating in Jezreel when Jehu drove his chariot furiously into the city; Joram went out to meet him and was shot through the heart. His body was cast on Naboth's field, fulfilling Elijah's prophecy. Not to be confused with Joram king of Judah.",
+    tags: ["king", "tribe of israel"] });
+
+  // ── Judah: Ahaziah of Judah ───────────────────────────────────────────
+  await safeInsertPerson({ key: "ahaziah_judah", name: "Ahaziah", alsoKnownAs: "Ahaziah king of Judah",
+    gender: "male",
+    description: "Son of Jehoram king of Judah and Athaliah daughter of Ahab. Twenty-two years old when he began to reign; walked in the ways of the house of Ahab. Went to visit the wounded Joram king of Israel at Jezreel and was caught in Jehu's revolution — Jehu killed him at Beth-haggan as he fled. His death triggered his mother Athaliah to seize the throne and attempt to kill all the royal family; only the infant Joash survived. Not to be confused with Ahaziah king of Israel.",
+    tags: ["king", "tribe of israel"] });
+
+  // ── Jeroboam II (Israel) ──────────────────────────────────────────────
+  await safeInsertPerson({ key: "jeroboam2", name: "Jeroboam", alsoKnownAs: "Jeroboam II king of Israel",
+    gender: "male",
+    description: "Son of Jehoash king of Israel; reigned 41 years (c. 793–753 BC), the longest reign of any northern king. Restored Israel's borders from Lebo-hamath to the Dead Sea in fulfillment of the prophecy of Jonah son of Amittai. The most prosperous period in the northern kingdom's history — also the period condemned by Amos and Hosea for its extreme inequality between rich and poor. His reign provided the background for Amos's oracles against social injustice and empty worship. Not to be confused with Jeroboam I son of Nebat who founded the northern kingdom.",
+    tags: ["king", "tribe of israel"] });
+
+  // ── Amon king of Judah ────────────────────────────────────────────────
+  await safeInsertPerson({ key: "amon", name: "Amon", alsoKnownAs: "Amon king of Judah",
+    gender: "male",
+    description: "Son of Manasseh, king of Judah who reigned only two years. Followed his father's wicked example, worshipping all the idols Manasseh had served. Killed by his own servants in the palace. The people of the land rose up and killed all the conspirators and made his son Josiah king at age eight. Not to be confused with Amon the Egyptian god.",
+    tags: ["king", "tribe of israel"] });
+
+  // ── Huldah ────────────────────────────────────────────────────────────
+  await safeInsertPerson({ key: "huldah", name: "Huldah",
+    gender: "female",
+    description: "Prophetess in Jerusalem during Josiah's reign, wife of Shallum the keeper of the wardrobe. When the Book of the Law was found in the Temple, Josiah sent a delegation — including Hilkiah the priest and Shaphan the scribe — not to Isaiah or Jeremiah but to Huldah. She delivered two oracles: judgment on Jerusalem for abandoning the covenant would still come, but Josiah himself would be gathered to his tomb in peace and would not see the disaster. Her validation of the scroll was the official prophetic authentication of the canonical text.",
+    tags: ["prophet"] });
+
+  // ── Later kings of Israel ─────────────────────────────────────────────
+  await safeInsertPerson({ key: "pekah", name: "Pekah", alsoKnownAs: "Pekah king of Israel",
+    gender: "male",
+    description: "Military commander who assassinated Pekahiah and seized the throne of Israel. Allied with Rezin king of Damascus in the Syro-Ephraimite war, attacking Judah to force them to join their anti-Assyrian coalition and install a puppet king. Isaiah told Ahaz of Judah not to fear, that this alliance would fail — the famous Immanuel prophecy of Isaiah 7 was spoken in this context. Tiglath-pileser III of Assyria responded by invading Israel, taking Galilee and Gilead, and deporting their populations. Pekah was then assassinated by Hoshea.",
+    tags: ["king", "tribe of israel"] });
+
+  await safeInsertPerson({ key: "hoshea_king", name: "Hoshea", alsoKnownAs: "Hoshea king of Israel",
+    gender: "male",
+    description: "Last king of the northern kingdom of Israel. Killed Pekah and became king under Assyrian suzerainty, paying tribute to Shalmaneser V. Secretly negotiated with Egypt and withheld tribute, which Shalmaneser discovered. Hoshea was imprisoned and Samaria besieged for three years; it fell in 722 BC to Sargon II (who completed the siege after Shalmaneser's death). The ten tribes were deported to Assyria and the land repopulated with foreigners — ending the northern kingdom. The text notes that this happened 'because the people of Israel sinned against the Lord their God.'",
+    tags: ["king", "tribe of israel"] });
+
+  // ── Zechariah son of Jehoiada ─────────────────────────────────────────
+  await safeInsertPerson({ key: "zechariah_jehoiada", name: "Zechariah", alsoKnownAs: "Zechariah son of Jehoiada",
+    gender: "male",
+    description: "Son of Jehoiada the high priest. After his father died Joash listened to corrupt officials and allowed idolatry to return; Zechariah stood and prophesied: 'This is what God says: why do you disobey the Lord's commands? You will not prosper.' The people stoned him in the Temple court at the king's command. His dying words: 'May the Lord see this and call you to account.' Jesus cited his blood among the righteous blood shed from Abel to Zechariah that would fall on that generation (Matt 23:35). Not to be confused with the post-exilic prophet Zechariah son of Berechiah.",
+    tags: ["prophet", "priest"] });
 }
 
 // ── Relationships ─────────────────────────────────────────────────────────────
@@ -174,6 +226,32 @@ async function seedRelationships() {
   await insertRel("jehoiada","ally_of",    "joash_judah",  "Hid and crowned Joash; guided his early reign (2 Kgs 11-12)");
   // Joash had Jehoiada's son Zechariah stoned (2 Chr 24:21) — Zechariah son of Jehoiada not seeded
 
+  // ── Omrides into Jehu ─────────────────────────────────────────────────
+  await insertRelNameToLocal("Ahab",    "parent_of", "ahaziah_israel", "Ahaziah son of Ahab king of Israel (2 Kgs 1:1)");
+  await insertRelNameToLocal("Jezebel", "parent_of", "ahaziah_israel", "Jezebel's son Ahaziah king of Israel (2 Kgs 1:1)");
+  await insertRelNameToLocal("Ahab",    "parent_of", "joram_israel",   "Joram son of Ahab (2 Kgs 3:1)");
+  await insertRelNameToLocal("Jezebel", "parent_of", "joram_israel",   "Jezebel's son Joram king of Israel (2 Kgs 3:1)");
+  await insertRel("elisha",        "ally_of",   "joram_israel", "Elisha aided the allied kings against Moab (2 Kgs 3:11-19)");
+  await insertRel("jehu", "enemy_of", "joram_israel",   "Jehu shot Joram through the heart at Naboth's field (2 Kgs 9:24)");
+  await insertRel("jehu", "enemy_of", "ahaziah_judah",  "Jehu killed Ahaziah of Judah at Beth-haggan (2 Kgs 9:27)");
+
+  // ── Ahaziah of Judah lineage ──────────────────────────────────────────
+  await insertRel("athaliah", "parent_of",  "ahaziah_judah",  "Athaliah was Ahaziah's mother (2 Kgs 8:26)");
+  await insertRel("ahaziah_judah","parent_of","joash_judah",  "Joash was Ahaziah's infant son hidden by Jehosheba");
+  await insertRel("athaliah", "enemy_of",   "joash_judah",    "Tried to kill all the royal family after Ahaziah died");
+
+  // ── Jeroboam II context ───────────────────────────────────────────────
+  await insertRelNameToLocal("Jonah", "ally_of", "jeroboam2",    "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)");
+
+  // ── Amon and Josiah ───────────────────────────────────────────────────
+  await insertRel("manasseh_king","parent_of","amon",          "Amon son of Manasseh (2 Kgs 21:18)");
+  await insertRel("amon",         "parent_of","josiah",        "Josiah son of Amon (2 Kgs 21:26)");
+  await insertRel("josiah",       "ally_of",  "huldah",        "Josiah sent delegates to Huldah to validate the Book of the Law");
+
+  // ── Zechariah son of Jehoiada ─────────────────────────────────────────
+  await insertRel("jehoiada","parent_of","zechariah_jehoiada", "Jehoiada's son stoned in the Temple court (2 Chr 24:20)");
+  await insertRel("joash_judah","enemy_of","zechariah_jehoiada","Ordered Zechariah stoned; dying words: 'May the Lord see this'");
+
   // ── Hezekiah era ──────────────────────────────────────────────────────
   await insertRelByName("Hezekiah","ally_of",    "Isaiah",       "Isaiah guided and prophesied to Hezekiah (2 Kgs 19-20)");
   await insertRel("sennacherib","enemy_of","hezekiah",     "Besieged Jerusalem; 185,000 struck by angel (2 Kgs 19)");
@@ -193,9 +271,19 @@ async function seedRefs() {
   await insertRef("hezekiah",      "2 Kings", 18,  1, 20, 21, "Destroys idols; withstands Sennacherib; 15 extra years");
   await insertRef("isaiah",        "2 Kings", 19,  1, 20, 19, "Advises Hezekiah; announces deliverance and extra years");
   await insertRef("sennacherib",   "2 Kings", 18, 13, 19, 37, "Besieges Jerusalem; mocks God; 185,000 die; killed by sons");
-  await insertRef("manasseh_king", "2 Kings", 21,  1, 21, 18, "55-year reign; most wicked king; fills Jerusalem with blood");
-  await insertRef("josiah",        "2 Kings", 22,  1, 23, 30, "Finds Book of Law; greatest reform; Passover; dies at Megiddo");
-  await insertRef("nebuchadnezzar","2 Kings", 24,  1, 25, 21, "Besieges Jerusalem; destroys Temple; exiles Judah to Babylon");
+  await insertRef("manasseh_king",       "2 Kings", 21,  1, 21, 18, "55-year reign; most wicked king; fills Jerusalem with blood");
+  await insertRef("josiah",              "2 Kings", 22,  1, 23, 30, "Finds Book of Law; greatest reform; Passover; dies at Megiddo");
+  await insertRef("nebuchadnezzar",      "2 Kings", 24,  1, 25, 21, "Besieges Jerusalem; destroys Temple; exiles Judah to Babylon");
+
+  await insertRef("ahaziah_israel",      "2 Kings",  1,  1,  1, 18, "Falls through lattice; sends to Baal-zebub; fire from heaven; dies");
+  await insertRef("joram_israel",        "2 Kings",  3,  1,  9, 26, "Joins against Moab with Elisha; wounded; killed by Jehu");
+  await insertRef("ahaziah_judah",       "2 Kings",  8, 25,  9, 29, "Son of Jehoram; walks in Ahab's ways; killed by Jehu");
+  await insertRef("jeroboam2",           "2 Kings", 14, 23, 14, 29, "41-year reign; restores borders; context for Amos/Hosea/Jonah");
+  await insertRef("amon",                "2 Kings", 21, 18, 21, 26, "2-year reign; follows Manasseh's wickedness; killed by servants");
+  await insertRef("huldah",              "2 Kings", 22, 14, 22, 20, "Validates Book of Law; prophecy of judgment but peace for Josiah");
+  await insertRef("pekah",               "2 Kings", 15, 25, 15, 31, "Kills Pekahiah; attacks Judah with Damascus; deposed by Hoshea");
+  await insertRef("hoshea_king",         "2 Kings", 17,  1, 17, 23, "Last king of Israel; withholds tribute; Samaria falls 722 BC");
+  await insertRef("zechariah_jehoiada",  "2 Chronicles", 24, 20, 24, 22, "Prophesies in Temple; stoned by Joash; 'may the Lord see this'");
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────

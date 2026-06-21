@@ -47,6 +47,27 @@ async function insertRef(personKey: string, book: string, cs: number, vs: number
   });
 }
 
+async function safeInsertPerson(p: {
+  key: string; name: string; alsoKnownAs?: string; gender: string;
+  description: string; tags: string[];
+}): Promise<void> {
+  const aka = p.alsoKnownAs ?? '';
+  const existing = await db.execute({
+    sql: aka
+      ? "SELECT id FROM people WHERE name = ? AND also_known_as = ? LIMIT 1"
+      : "SELECT id FROM people WHERE name = ? LIMIT 1",
+    args: aka ? [p.name, aka] : [p.name],
+  });
+  const row = existing.rows[0] as unknown as { id: string } | undefined;
+  if (row) { ids[p.key] = row.id; names[p.key] = p.name; return; }
+  names[p.key] = p.name;
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO people (id,name,also_known_as,gender,testament,birth_year,death_year,description,tags,created_at)
+          VALUES (?,?,?,?,'OT','','',?,?,datetime('now'))`,
+    args: [id(p.key), p.name, aka, p.gender, p.description, JSON.stringify(p.tags)],
+  });
+}
+
 // ── people ─────────────────────────────────────────────────────────────────
 async function seedPeople() {
   // ── Primeval history ───────────────────────────────────────────────────
@@ -135,7 +156,7 @@ async function seedPeople() {
     description: "Son of Shem, born two years after the flood. Ancestor of the Hebrew people. Father of Shelah and grandfather of Eber.",
     tags: ["patriarch"] });
 
-  await insertPerson({ key: "shelah", name: "Shelah", gender: "male",
+  await insertPerson({ key: "shelah", name: "Shelah", alsoKnownAs: "Shelah son of Arpachshad", gender: "male",
     description: "Son of Arpachshad, father of Eber. Ancestor of the Hebrew line.",
     tags: ["patriarch"] });
 
@@ -314,6 +335,11 @@ async function seedPeople() {
     description: "Second son of Judah. Married Tamar after Er died. Refused to fulfill his duty to raise offspring for his brother. What he did was wicked in the Lord's sight, so the Lord put him to death also.",
     tags: [] });
 
+  await safeInsertPerson({ key: "shelah_judah", name: "Shelah", alsoKnownAs: "Shelah son of Judah",
+    gender: "male",
+    description: "Third son of Judah, born of his Canaanite wife Bath-shua. After Er and Onan died Tamar expected to be given Shelah as husband to continue the line, but Judah withheld him — fearful he too would die. When Tamar exposed Judah's failure to fulfill this obligation, Judah declared her 'more righteous than I.' Shelah became the ancestor of the Shelanite clan. Not to be confused with Shelah son of Arpachshad.",
+    tags: ["tribe of israel"] });
+
   await insertPerson({ key: "perez", name: "Perez", gender: "male",
     description: "Son of Judah and Tamar, twin of Zerah. Though Zerah's hand emerged first, Perez broke through ahead of him. His name means 'breach.' Ancestor of David and Jesus.",
     tags: ["messianic line"] });
@@ -455,6 +481,7 @@ async function seedRelationships() {
   // Judah's family
   await insertRel("judah", "parent_of", "er");
   await insertRel("judah", "parent_of", "onan");
+  await insertRel("judah", "parent_of", "shelah_judah");
   await insertRel("judah", "parent_of", "perez");
   await insertRel("tamar", "parent_of", "perez");
   await insertRel("er", "spouse_of", "tamar");
@@ -645,10 +672,11 @@ async function seedRefs() {
   await insertRef("benjamin","Genesis", 43,  1, 45, 22, "Goes to Egypt with brothers");
   await insertRef("benjamin","Genesis", 49, 27, 49, 27, "Jacob's blessing: ravenous wolf");
 
-  await insertRef("tamar",   "Genesis", 38,  1, 38, 30);
-  await insertRef("er",      "Genesis", 38,  1, 38, 10);
-  await insertRef("onan",    "Genesis", 38,  4, 38, 10);
-  await insertRef("perez",   "Genesis", 38, 29, 38, 30);
+  await insertRef("tamar",        "Genesis", 38,  1, 38, 30);
+  await insertRef("er",           "Genesis", 38,  1, 38, 10);
+  await insertRef("onan",         "Genesis", 38,  4, 38, 10);
+  await insertRef("shelah_judah", "Genesis", 38,  5, 38, 26, "Third son withheld from Tamar; Judah's failure exposed");
+  await insertRef("perez",        "Genesis", 38, 29, 38, 30);
 
   await insertRef("potiphar","Genesis", 37, 36, 39, 23);
   await insertRef("asenath", "Genesis", 41, 45, 41, 52);
