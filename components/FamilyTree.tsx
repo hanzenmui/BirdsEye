@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useReducer, useEffect, useCallback } from "react";
+import { useMemo, useRef, useReducer, useEffect, useCallback, useState } from "react";
 import type { Person, Relationship } from "@/lib/types";
 
 const NW = 108;   // node width
@@ -127,11 +127,29 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
   const hasFitted = useRef(false);
   const [view, dispatch] = useReducer(viewReducer, { zoom: 1, pan: { x: 0, y: 0 } });
 
+  // ── Root picker state ────────────────────────────────────────────────────────
+  const [rootId, setRootId] = useState<string | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const adam = useMemo(() => people.find(p => p.name === "Adam") ?? null, [people]);
+  const effectiveRootId = rootId ?? adam?.id ?? null;
+  const rootPerson = useMemo(
+    () => (effectiveRootId ? people.find(p => p.id === effectiveRootId) ?? null : null),
+    [people, effectiveRootId],
+  );
+
+  const pickerSuggestions = useMemo(
+    () => pickerQuery
+      ? people.filter(p => p.name.toLowerCase().includes(pickerQuery.toLowerCase())).slice(0, 8)
+      : [],
+    [people, pickerQuery],
+  );
+
   const tree = useMemo(() => {
-    if (!adam || people.length === 0) return null;
-    return buildLayout(people, relationships, adam.id);
-  }, [people, relationships, adam]);
+    if (!effectiveRootId || people.length === 0) return null;
+    return buildLayout(people, relationships, effectiveRootId);
+  }, [people, relationships, effectiveRootId]);
 
   const fitView = useCallback(() => {
     if (!containerRef.current || !tree) return;
@@ -231,7 +249,7 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
     );
   }
 
-  if (!adam || !tree) {
+  if (!tree) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🌿</div>
@@ -293,7 +311,9 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
               className="ft-node"
               transform={`translate(${n.x - NW / 2},${n.y})`}
               onClick={() => { if (!didDrag.current) onSelect(n.id); }}
+              onDoubleClick={e => { e.stopPropagation(); setRootId(n.id); setPickerQuery(""); }}
               style={{ cursor: "pointer" }}
+              title="Double-click to re-root tree here"
             >
               <rect className="ft-node-rect" width={NW} height={NH} rx={6} />
               <text
@@ -308,6 +328,44 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
             </g>
           ))}
         </svg>
+      </div>
+
+      {/* Root picker overlay — top-left */}
+      <div
+        style={{ position: "absolute", top: 14, left: 14, zIndex: 20, minWidth: 180 }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: "var(--text3, #888)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input
+            value={pickerQuery || rootPerson?.name || ""}
+            onChange={e => { setPickerQuery(e.target.value); setPickerOpen(true); }}
+            onFocus={() => { setPickerQuery(""); setPickerOpen(true); }}
+            onBlur={() => setTimeout(() => setPickerOpen(false), 120)}
+            placeholder="Root: Adam"
+            style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, color: "var(--text, #1a1209)", width: 130, fontFamily: "var(--ui-font, sans-serif)" }}
+          />
+          {rootId && (
+            <button
+              onClick={() => { setRootId(null); setPickerQuery(""); }}
+              title="Reset to Adam"
+              style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "var(--text3, #888)", fontSize: 15, lineHeight: 1, flexShrink: 0 }}
+            >×</button>
+          )}
+        </div>
+        {pickerOpen && pickerSuggestions.length > 0 && (
+          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", overflow: "hidden" }}>
+            {pickerSuggestions.map(p => (
+              <div
+                key={p.id}
+                onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); dispatch({ type: "FIT", treeW: w, treeH: h, vpW: containerRef.current?.clientWidth ?? 800, vpH: containerRef.current?.clientHeight ?? 600 }); }}
+                style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >{p.name}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Fit-to-view button */}

@@ -71,6 +71,16 @@ async function insertRelByName(aName: string, type: string, bName: string, notes
   });
 }
 
+async function insertRelNameToLocal(aName: string, type: string, bKey: string, notes?: string) {
+  const aId = await lookupId(aName);
+  if (!aId) { console.warn(`  ⚠ Could not find ${aName}`); return; }
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
+          VALUES (?,?,?,?,?,?,?,datetime('now'))`,
+    args: [crypto.randomUUID(), aId, aName, type, id(bKey), names[bKey] ?? bKey, notes ?? ''],
+  });
+}
+
 async function loadExisting(key: string, name: string): Promise<boolean> {
   const dbId = await lookupId(name);
   if (!dbId) { console.warn(`  ⚠ ${name} not found in DB`); return false; }
