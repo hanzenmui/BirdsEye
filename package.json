@@ -22,7 +22,11 @@
     "seed:esther": "npx tsx scripts/seed-esther.ts",
     "seed:job": "npx tsx scripts/seed-job.ts",
     "seed:daniel": "npx tsx scripts/seed-daniel.ts",
-    "seed:prophets": "npx tsx scripts/seed-prophets.ts"
+    "seed:prophets": "npx tsx scripts/seed-prophets.ts",
+    "seed:nt-birth": "npx tsx scripts/seed-nt-birth.ts",
+    "seed:nt-ministry": "npx tsx scripts/seed-nt-ministry.ts",
+    "seed:nt-passion": "npx tsx scripts/seed-nt-passion.ts",
+    "seed:acts": "npx tsx scripts/seed-acts.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
