@@ -313,7 +313,6 @@ export function FamilyTree({ people, relationships, onSelect }: Props) {
               onClick={() => { if (!didDrag.current) onSelect(n.id); }}
               onDoubleClick={e => { e.stopPropagation(); setRootId(n.id); setPickerQuery(""); }}
               style={{ cursor: "pointer" }}
-              title="Double-click to re-root tree here"
             >
               <rect className="ft-node-rect" width={NW} height={NH} rx={6} />
               <text
