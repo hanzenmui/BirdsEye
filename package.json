@@ -32,7 +32,11 @@
     "seed:chronicles": "npx tsx scripts/seed-chronicles.ts",
     "seed:wisdom": "npx tsx scripts/seed-wisdom.ts",
     "seed:late-kings": "npx tsx scripts/seed-late-kings.ts",
-    "seed:matthew-lineage": "npx tsx scripts/seed-matthew-lineage.ts"
+    "seed:matthew-lineage": "npx tsx scripts/seed-matthew-lineage.ts",
+    "seed:luke-lineage": "npx tsx scripts/seed-luke-lineage.ts",
+    "seed:romans16": "npx tsx scripts/seed-romans16.ts",
+    "seed:revelation": "npx tsx scripts/seed-revelation.ts",
+    "seed:nt-gaps": "npx tsx scripts/seed-nt-gaps.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
