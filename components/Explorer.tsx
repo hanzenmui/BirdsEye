@@ -4,7 +4,7 @@ import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
-import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS } from "@/lib/types";
+import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
 import { FamilyTree } from "./FamilyTree";
 
 // Returns the relationship label from the given person's perspective.
@@ -332,6 +332,10 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
     return ba - bb || a.chapterStart - b.chapterStart || a.verseStart - b.verseStart;
   });
 
+  const childCount    = personRels.filter(r => r.type === "parent_of" && r.personAId === person.id).length;
+  const siblingCount  = personRels.filter(r => r.type === "sibling_of").length;
+  const spouseCount   = personRels.filter(r => r.type === "spouse_of").length;
+
   return (
     <div className="detail-pane">
       <div className="detail-pane-header">
@@ -343,6 +347,14 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
             {person.gender !== "unknown" && <span className="badge badge-tag">{person.gender}</span>}
             {person.tags.map(t => <span key={t} className="badge badge-tag">{t}</span>)}
           </div>
+          {(childCount > 0 || siblingCount > 0 || spouseCount > 0 || personRefs.length > 0) && (
+            <div style={{ marginTop: 10, display: "flex", gap: 14, fontSize: 12, color: "var(--text3)" }}>
+              {childCount   > 0 && <span><strong style={{ color: "var(--text2)" }}>{childCount}</strong> {childCount === 1 ? "child" : "children"}</span>}
+              {spouseCount  > 0 && <span><strong style={{ color: "var(--text2)" }}>{spouseCount}</strong> {spouseCount === 1 ? "spouse" : "spouses"}</span>}
+              {siblingCount > 0 && <span><strong style={{ color: "var(--text2)" }}>{siblingCount}</strong> {siblingCount === 1 ? "sibling" : "siblings"}</span>}
+              {personRefs.length > 0 && <span><strong style={{ color: "var(--text2)" }}>{personRefs.length}</strong> refs</span>}
+            </div>
+          )}
         </div>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
@@ -380,6 +392,7 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
               const label = relLabel(r, person.id);
               return (
                 <div key={r.id} className="rel-item">
+                  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: RELATIONSHIP_COLORS[r.type] ?? RELATIONSHIP_COLORS.other, flexShrink: 0 }} />
                   <span className="rel-type-label">{label}</span>
                   <span className="rel-person-name" onClick={() => onNavigate(otherId)}>{otherName}</span>
                   {r.notes && <span style={{ fontSize: 11, color: "var(--text3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.notes}</span>}

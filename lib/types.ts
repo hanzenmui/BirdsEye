@@ -143,6 +143,23 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   other:         "Related to",
 };
 
+export const RELATIONSHIP_COLORS: Record<RelationshipType | "lineage", string> = {
+  parent_of:     "rgba(60,45,20,.22)",  // default tree line
+  child_of:      "rgba(60,45,20,.22)",
+  sibling_of:    "#b45309",             // amber-orange  (blood family)
+  spouse_of:     "#e11d48",             // vivid rose-red
+  ancestor_of:   "#0891b2",             // cyan           (distant lineage)
+  descendant_of: "#0891b2",
+  mentor_of:     "#2563eb",             // bright blue
+  disciple_of:   "#2563eb",
+  ally_of:       "#16a34a",             // green
+  servant_of:    "#059669",             // emerald
+  enemy_of:      "#dc2626",             // red
+  ruler_of:      "#d97706",             // amber-gold
+  other:         "#6b7280",             // gray
+  lineage:       "#7c3aed",             // Adam → Jesus violet
+};
+
 // Inverse labels for when the current person is person B in the relationship
 export const RELATIONSHIP_INVERSE_LABELS: Record<RelationshipType, string> = {
   parent_of:     "Child of",
