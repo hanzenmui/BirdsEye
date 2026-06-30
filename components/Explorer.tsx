@@ -841,10 +841,10 @@ export function Explorer() {
             <div>
               <div className="section-eyebrow">Explore</div>
               <div className="section-title">Family Tree</div>
-              <div className="section-subtitle">Click a node to view profile · double-click to re-root the tree</div>
+              <div className="section-subtitle">Click a node to open profile · double-click to re-root · search &amp; filter top-right</div>
             </div>
           </div>
-          <FamilyTree people={people} relationships={relationships} onSelect={selectPerson} />
+          <FamilyTree people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
         </div>
       </div>
 
