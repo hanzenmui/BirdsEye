@@ -52,16 +52,27 @@ function formatRef(r: ScriptureRef) {
   return `${r.book} ${r.chapterStart}:${r.verseStart} – ${r.chapterEnd}:${r.verseEnd}`;
 }
 
-// ── Add Person Modal ──────────────────────────────────────────────────────────
-interface AddPersonProps {
+// ── Add / Edit Person Modal ───────────────────────────────────────────────────
+interface PersonModalProps {
+  initial?: Person;
   onSave: (p: Omit<Person, "id" | "createdAt">) => Promise<void>;
   onClose: () => void;
 }
-function AddPersonModal({ onSave, onClose }: AddPersonProps) {
+function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
   const EMPTY = { name: "", alsoKnownAs: "", gender: "unknown" as Person["gender"], testament: "OT" as Person["testament"], birthYear: "", deathYear: "", description: "", tags: [] as string[] };
-  const [form, setForm] = useState({ ...EMPTY });
+  const [form, setForm] = useState(initial ? {
+    name: initial.name,
+    alsoKnownAs: initial.alsoKnownAs,
+    gender: initial.gender,
+    testament: initial.testament,
+    birthYear: initial.birthYear,
+    deathYear: initial.deathYear,
+    description: initial.description,
+    tags: [...initial.tags],
+  } : { ...EMPTY });
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const isEdit = !!initial;
 
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }));
@@ -90,7 +101,7 @@ function AddPersonModal({ onSave, onClose }: AddPersonProps) {
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
         <div className="modal-header">
-          <span className="modal-title">Add Person</span>
+          <span className="modal-title">{isEdit ? `Edit ${initial!.name}` : "Add Person"}</span>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -152,7 +163,7 @@ function AddPersonModal({ onSave, onClose }: AddPersonProps) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add Person"}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save Changes" : "Add Person"}</button>
           </div>
         </form>
       </div>
@@ -318,13 +329,14 @@ interface DetailPaneProps {
   people: Person[];
   onNavigate: (id: string) => void;
   onClose: () => void;
+  onEdit: () => void;
   onAddRef: () => void;
   onDeleteRef: (id: string) => void;
   onAddRel: () => void;
   onDeleteRel: (id: string) => void;
   onDelete: () => void;
 }
-function DetailPane({ person, relationships, refs, people, onNavigate, onClose, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
+function DetailPane({ person, relationships, refs, people, onNavigate, onClose, onEdit, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
   const personRels = relationships.filter(r => r.personAId === person.id || r.personBId === person.id);
   const personRefs = refs.filter(r => r.personId === person.id).sort((a, b) => {
     const ba = BIBLE_BOOKS.find(bk => bk.name === a.book)?.order ?? 99;
@@ -356,8 +368,14 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
             </div>
           )}
         </div>
-        <button className="close-btn" onClick={onClose}>×</button>
-      </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Edit person">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <button className="close-btn" onClick={onClose}>×</button>
+          </div>
+        </div>
 
       <div className="detail-pane-body">
         {/* Dates */}
@@ -445,13 +463,14 @@ interface PeopleSectionProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddPerson: () => void;
+  onEditPerson: (p: Person) => void;
   onAddRef: (p: Person) => void;
   onDeleteRef: (id: string) => void;
   onAddRel: (p: Person) => void;
   onDeleteRel: (id: string) => void;
   onDeletePerson: (id: string) => void;
 }
-function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAddPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
+function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "OT" | "NT" | "both">("all");
 
@@ -530,6 +549,7 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
           people={people}
           onNavigate={onSelect}
           onClose={() => onSelect(selected.id)}
+          onEdit={() => onEditPerson(selected)}
           onAddRef={() => onAddRef(selected)}
           onDeleteRef={onDeleteRef}
           onAddRel={() => onAddRel(selected)}
@@ -573,12 +593,17 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
           <div className="book-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            {books.map(b => (
-              <div key={b.name} className={`book-tile${activeBook === b.name ? " active" : ""}`} onClick={() => setActiveBook(b.name)}>
-                <div className="book-tile-name">{b.name}</div>
-                <div className="book-tile-count">{countByBook(b.name)} people</div>
-              </div>
-            ))}
+            {books.map(b => {
+              const count = countByBook(b.name);
+              return (
+                <div key={b.name} className={`book-tile${activeBook === b.name ? " active" : ""}`}
+                  onClick={() => setActiveBook(b.name)}
+                  style={count === 0 ? { opacity: 0.35, cursor: "default", pointerEvents: "none" } : undefined}>
+                  <div className="book-tile-name">{b.name}</div>
+                  <div className="book-tile-count">{count === 0 ? "no people" : `${count} ${count === 1 ? "person" : "people"}`}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -628,105 +653,6 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
   );
 }
 
-// ── Family Tree Section ───────────────────────────────────────────────────────
-interface TreeSectionProps {
-  people: Person[];
-  relationships: Relationship[];
-  onSelect: (id: string) => void;
-}
-function TreeSection({ people, relationships, onSelect }: TreeSectionProps) {
-  const [focalId, setFocalId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-
-  const focal = focalId ? people.find(p => p.id === focalId) ?? null : null;
-
-  const rels = focalId
-    ? relationships.filter(r => r.personAId === focalId || r.personBId === focalId)
-    : [];
-
-  const grouped = rels.reduce<Record<string, { rel: Relationship; otherId: string; otherName: string }[]>>((acc, r) => {
-    const isA = r.personAId === focalId;
-    const label = relLabel(r, focalId!);
-    const otherId   = isA ? r.personBId   : r.personAId;
-    const otherName = isA ? r.personBName : r.personAName;
-    if (!acc[label]) acc[label] = [];
-    acc[label].push({ rel: r, otherId, otherName });
-    return acc;
-  }, {});
-
-  const suggestions = query
-    ? people.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : [];
-
-  return (
-    <div style={{ padding: "24px", overflow: "auto", flex: 1 }}>
-      {/* Person selector */}
-      <div style={{ maxWidth: 400, marginBottom: 28, position: "relative" }}>
-        <label className="form-label">Focus on a person</label>
-        <div className="search-wrap" style={{ maxWidth: "100%" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input className="search-input" placeholder="Search by name…" value={query || focal?.name || ""} onChange={e => { setQuery(e.target.value); if (!e.target.value) setFocalId(null); }} />
-        </div>
-        {suggestions.length > 0 && (
-          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", zIndex: 10, marginTop: 2 }}>
-            {suggestions.map(p => (
-              <div key={p.id} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--text)" }}
-                onMouseDown={() => { setFocalId(p.id); setQuery(""); }}
-              >{p.name}</div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tree display */}
-      {!focal ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🌿</div>
-          <div className="empty-state-title">Search for a person above</div>
-          <div className="empty-state-sub">Their relationships and connections will be mapped here.</div>
-        </div>
-      ) : (
-        <div>
-          {/* Focal node */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-            <div className="tree-node focal" style={{ fontSize: 15, padding: "10px 20px" }}>{focal.name}</div>
-            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-              <TestamentBadge testament={focal.testament} />
-              {focal.tags.slice(0, 2).map(t => <span key={t} className="badge badge-tag">{t}</span>)}
-            </div>
-          </div>
-
-          {rels.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-sub">No relationships recorded for {focal.name}.</div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {Object.entries(grouped).map(([label, items]) => (
-                <div key={label}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 10, fontFamily: "var(--ui-font)" }}>{label}</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {items.map(({ rel, otherId, otherName }) => (
-                      <div key={rel.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                        <div className="tree-node" onClick={() => { setFocalId(otherId); setQuery(""); }}>{otherName}</div>
-                        {rel.notes && <div style={{ fontSize: 10, color: "var(--text3)", maxWidth: 120, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rel.notes}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ marginTop: 24 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => onSelect(focal.id)}>View full profile →</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Explorer (main orchestrator) ──────────────────────────────────────────────
 export function Explorer() {
   const { people, loading: loadingPeople, addPerson, updatePerson, deletePerson } = usePeople();
@@ -736,6 +662,7 @@ export function Explorer() {
   const [section, setSection] = useState<Section>("people");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [editPersonFor, setEditPersonFor] = useState<Person | null>(null);
   const [addRefFor, setAddRefFor] = useState<Person | null>(null);
   const [addRelFor, setAddRelFor] = useState<Person | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -804,6 +731,7 @@ export function Explorer() {
               selectedId={selectedId}
               onSelect={selectPerson}
               onAddPerson={() => setShowAddPerson(true)}
+              onEditPerson={p => setEditPersonFor(p)}
               onAddRef={p => setAddRefFor(p)}
               onDeleteRef={async id => { await deleteRef(id); showToast("Reference removed"); }}
               onAddRel={p => setAddRelFor(p)}
@@ -853,9 +781,16 @@ export function Explorer() {
 
       {/* Modals */}
       {showAddPerson && (
-        <AddPersonModal
+        <PersonModal
           onSave={async p => { await addPerson(p); showToast(`${p.name} added`); }}
           onClose={() => setShowAddPerson(false)}
+        />
+      )}
+      {editPersonFor && (
+        <PersonModal
+          initial={editPersonFor}
+          onSave={async p => { await updatePerson(editPersonFor.id, p); showToast(`${p.name} updated`); }}
+          onClose={() => setEditPersonFor(null)}
         />
       )}
       {addRefFor && (
