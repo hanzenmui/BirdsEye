@@ -356,6 +356,47 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
   const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
+  // Touch handlers for mobile pan + pinch-to-zoom
+  const lastTouches = useRef<{ x: number; y: number }[]>([]);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+    isDragging.current = true;
+    didDrag.current = false;
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const touches = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+    if (touches.length === 1 && lastTouches.current.length >= 1) {
+      const dx = touches[0].x - lastTouches.current[0].x;
+      const dy = touches[0].y - lastTouches.current[0].y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) didDrag.current = true;
+      dispatch({ type: "PAN", dx, dy });
+    } else if (touches.length === 2 && lastTouches.current.length === 2) {
+      const prevDist = Math.hypot(
+        lastTouches.current[0].x - lastTouches.current[1].x,
+        lastTouches.current[0].y - lastTouches.current[1].y,
+      );
+      const currDist = Math.hypot(
+        touches[0].x - touches[1].x,
+        touches[0].y - touches[1].y,
+      );
+      if (prevDist > 0 && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const cx = ((touches[0].x + touches[1].x) / 2) - rect.left;
+        const cy = ((touches[0].y + touches[1].y) / 2) - rect.top;
+        dispatch({ type: "PINCH", delta: (currDist / prevDist) - 1, cx, cy });
+      }
+      didDrag.current = true;
+    }
+    lastTouches.current = touches;
+  }, []);
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+    if (e.touches.length === 0) isDragging.current = false;
+  }, []);
+
   if (people.length === 0) {
     return (
       <div className="empty-state">
@@ -396,6 +437,9 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       {/* ── Scrollable SVG canvas ─────────────────────────────────────────────── */}
       <div
@@ -547,6 +591,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
       {/* ── Node search + book filter — top right ─────────────────────────────── */}
       <div
+        className="ft-controls-tr"
         style={{ position: "absolute", top: 14, right: panelOpen ? 298 : 14, zIndex: 20, display: "flex", gap: 6, alignItems: "flex-start" }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -634,6 +679,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
       {/* ── Relationship legend — bottom left ─────────────────────────────────── */}
       <div
+        className="ft-legend"
         style={{ position: "absolute", bottom: 16, left: 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -664,6 +710,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
       {/* ── Zoom + fit controls — bottom right ────────────────────────────────── */}
       <div
+        className="ft-zoom"
         style={{
           position: "absolute",
           bottom: 16,
@@ -708,6 +755,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
       {/* ── Detail panel — right side ──────────────────────────────────────────── */}
       {detailPerson && (
         <div
+          className="ft-detail-panel"
           style={{
             position: "absolute",
             top: 0, right: 0, bottom: 0,

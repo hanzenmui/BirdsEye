@@ -329,18 +329,64 @@ select.form-input { cursor: pointer; }
 .login-subtitle { font-size: 14px; color: var(--text3); margin-bottom: 30px; }
 .login-error { font-size: 12px; color: var(--danger); margin-top: 8px; }
 
-/* ── Mobile ──────────────────────────────────────────────────────────────── */
+/* ── Mobile helpers (always) ─────────────────────────────────────────────── */
 .mob-menu-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; background: none; border: none; color: var(--text3); cursor: pointer; border-radius: var(--radius); padding: 0; }
 .mob-menu-btn:hover { background: var(--bg3); }
+.mob-only { display: none; }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 99; }
 .sidebar-backdrop.open { display: block; }
+
+/* ── Mobile overrides (≤ 768 px) ────────────────────────────────────────── */
 @media (max-width: 768px) {
+  /* Sidebar */
   .mob-menu-btn { display: flex; }
+  .mob-only { display: flex; }
   .app-sidebar { position: fixed; top: 0; left: 0; height: 100dvh; transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 100; }
   .app-sidebar.open { transform: translateX(0); box-shadow: 6px 0 32px rgba(0,0,0,0.35); }
-  .section-header { padding: 14px 16px; gap: 8px; }
+
+  /* Section header */
+  .section-header { padding: 12px 14px 10px; gap: 8px; }
+  .section-title { font-size: 20px; }
+  .section-subtitle { font-size: 12px; }
   .section-body { padding: 16px; }
-  .detail-pane { width: 100%; border-left: none; border-top: 1px solid var(--border); }
-  .people-grid { grid-template-columns: 1fr; }
+
+  /* Forms */
   .form-grid { grid-template-columns: 1fr; }
+
+  /* Modal: bottom sheet */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-width: 100%; max-height: 92dvh; position: fixed; bottom: 0; left: 0; right: 0; }
+
+  /* People section: hide list when detail pane is open */
+  .people-grid { grid-template-columns: 1fr; }
+  .people-layout.detail-open .people-list-col { display: none; }
+  .people-layout.detail-open .detail-pane { width: 100%; border-left: none; border-top: none; height: 100dvh; }
+  .detail-pane { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+
+  /* Books section: stack vertically, show only one panel at a time */
+  .books-layout { flex-direction: column; }
+  .books-list-col { width: 100% !important; flex-shrink: 0; height: 40vh; min-height: 200px; border-right: none !important; border-bottom: 1px solid var(--border); }
+  .books-layout.book-open .books-list-col { display: none; }
+  .books-layout.book-open .books-people-col { flex: 1; }
+
+  /* Stats: single column */
+  .stats-charts-grid { grid-template-columns: 1fr !important; }
+  .stats-summary-cards { flex-direction: column; }
+
+  /* FamilyTree overlays */
+  .ft-controls-tr { flex-direction: column !important; right: 8px !important; top: 8px !important; align-items: flex-end !important; }
+  .ft-legend { display: none !important; }
+  .ft-zoom { right: 16px !important; }
+
+  /* FamilyTree detail panel: full-width bottom sheet */
+  .ft-detail-panel {
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-height: 60dvh !important;
+    border-top: 1px solid rgba(60,45,20,.18) !important;
+    border-left: none !important;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.10) !important;
+  }
 }

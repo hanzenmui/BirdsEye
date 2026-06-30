@@ -487,8 +487,8 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
   const selected = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
 
   return (
-    <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className={`people-layout${selected ? " detail-open" : ""}`} style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%" }}>
+      <div className="people-list-col" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Toolbar */}
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <div className="search-wrap">
@@ -582,9 +582,9 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
     : [];
 
   return (
-    <div style={{ display: "flex", gap: 0, flex: 1, overflow: "hidden" }}>
+    <div className={`books-layout${activeBook ? " book-open" : ""}`} style={{ display: "flex", gap: 0, flex: 1, overflow: "hidden" }}>
       {/* Book list */}
-      <div style={{ width: 280, flexShrink: 0, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="books-list-col" style={{ width: 280, flexShrink: 0, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", gap: 6 }}>
           {(["all", "OT", "NT"] as const).map(t => (
             <button key={t} className={`filter-chip${testament === t ? " active" : ""}`} onClick={() => setTestament(t)}>
@@ -610,7 +610,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
       </div>
 
       {/* People in book */}
-      <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
+      <div className="books-people-col" style={{ flex: 1, overflow: "auto", padding: "20px" }}>
         {!activeBook ? (
           <div className="empty-state">
             <div className="empty-state-icon">📖</div>
@@ -625,7 +625,10 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
           </div>
         ) : (
           <>
-            <h2 style={{ fontFamily: "var(--font)", fontSize: 18, fontWeight: 700, color: "var(--text)", marginBottom: 16 }}>{activeBook} — {bookPeople.length} {bookPeople.length === 1 ? "person" : "people"}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <button className="mob-only btn btn-ghost btn-sm" onClick={() => setActiveBook(null)} style={{ flexShrink: 0 }}>← Books</button>
+              <h2 style={{ fontFamily: "var(--font)", fontSize: 18, fontWeight: 700, color: "var(--text)", margin: 0 }}>{activeBook} — {bookPeople.length} {bookPeople.length === 1 ? "person" : "people"}</h2>
+            </div>
             <div className="people-grid">
               {bookPeople.map((p, i) => (
                 <div key={p.id} className="person-card" onClick={() => onSelect(p.id)}>
@@ -750,9 +753,9 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
   );
 
   return (
-    <div style={{ flex: 1, overflow: "auto", padding: "24px 28px" }}>
+    <div style={{ flex: 1, overflow: "auto", padding: "clamp(14px, 4vw, 28px)" }}>
       {/* Summary cards */}
-      <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
+      <div className="stats-summary-cards" style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
         {statCard(people.length, "People")}
         {statCard(refs.length, "Scripture refs")}
         {statCard(relationships.length, "Relationships")}
@@ -782,7 +785,7 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
       </div>
 
       {/* Two-column charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+      <div className="stats-charts-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
         <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Most Referenced</div>
           {barList(topReferenced.map(p => ({ id: p.id, name: p.name, count: refCountById.get(p.id) ?? 0 })), maxRefs, onNavigate)}
@@ -793,7 +796,7 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="stats-charts-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Books by People</div>
           {barList(topBooks.map(({ book, count }) => ({ name: book, count })), maxBookCount)}
