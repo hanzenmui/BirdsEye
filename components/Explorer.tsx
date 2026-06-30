@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
@@ -31,12 +31,13 @@ function showToast(msg: string, type: "success" | "error" = "success") {
 const CARD_COLORS = ['#1F5450', '#ABD3C8', '#CF6B4F', '#2E7167', '#70566D'];
 
 // ── Sidebar nav sections ─────────────────────────────────────────────────────
-type Section = "people" | "books" | "tree";
+type Section = "people" | "books" | "tree" | "stats";
 
 const NAV: { key: Section; label: string; icon: string }[] = [
-  { key: "people", label: "People", icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
-  { key: "books",  label: "By Book", icon: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" },
+  { key: "people", label: "People",      icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
+  { key: "books",  label: "By Book",     icon: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" },
   { key: "tree",   label: "Family Tree", icon: "M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12" },
+  { key: "stats",  label: "Insights",    icon: "M18 20V10M12 20V4M6 20v-6" },
 ];
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
@@ -653,6 +654,159 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
   );
 }
 
+// ── Stats / Insights Section ──────────────────────────────────────────────────
+interface StatsSectionProps {
+  people: Person[];
+  refs: ScriptureRef[];
+  relationships: Relationship[];
+  onNavigate: (id: string) => void;
+}
+function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionProps) {
+  const refCountById = useMemo(() => {
+    const m = new Map<string, number>();
+    refs.forEach(r => m.set(r.personId, (m.get(r.personId) ?? 0) + 1));
+    return m;
+  }, [refs]);
+
+  const topReferenced = useMemo(() =>
+    [...people].sort((a, b) => (refCountById.get(b.id) ?? 0) - (refCountById.get(a.id) ?? 0)).slice(0, 10),
+    [people, refCountById],
+  );
+  const maxRefs = (refCountById.get(topReferenced[0]?.id) ?? 0) || 1;
+
+  const relCountById = useMemo(() => {
+    const m = new Map<string, number>();
+    relationships.forEach(r => {
+      m.set(r.personAId, (m.get(r.personAId) ?? 0) + 1);
+      m.set(r.personBId, (m.get(r.personBId) ?? 0) + 1);
+    });
+    return m;
+  }, [relationships]);
+
+  const topConnected = useMemo(() =>
+    [...people].sort((a, b) => (relCountById.get(b.id) ?? 0) - (relCountById.get(a.id) ?? 0)).slice(0, 10),
+    [people, relCountById],
+  );
+  const maxRels = (relCountById.get(topConnected[0]?.id) ?? 0) || 1;
+
+  const topBooks = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    refs.forEach(r => {
+      if (!m.has(r.book)) m.set(r.book, new Set());
+      m.get(r.book)!.add(r.personId);
+    });
+    return [...m.entries()]
+      .map(([book, ids]) => ({ book, count: ids.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [refs]);
+  const maxBookCount = topBooks[0]?.count || 1;
+
+  const typeBreakdown = useMemo(() => {
+    const m = new Map<string, number>();
+    relationships.forEach(r => m.set(r.type, (m.get(r.type) ?? 0) + 1));
+    return [...m.entries()]
+      .map(([type, count]) => ({ type, count, label: RELATIONSHIP_LABELS[type as RelationshipType] ?? type, color: RELATIONSHIP_COLORS[type as RelationshipType] ?? RELATIONSHIP_COLORS.other }))
+      .sort((a, b) => b.count - a.count);
+  }, [relationships]);
+  const maxTypeCount = typeBreakdown[0]?.count || 1;
+
+  const otCount   = people.filter(p => p.testament === "OT").length;
+  const ntCount   = people.filter(p => p.testament === "NT").length;
+  const bothCount = people.filter(p => p.testament === "both").length;
+
+  const statCard = (value: number, label: string) => (
+    <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 24px", flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 32, fontWeight: 800, color: "var(--text)", fontFamily: "var(--font, serif)", lineHeight: 1 }}>{value.toLocaleString()}</div>
+      <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6, fontFamily: "var(--ui-font, sans-serif)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+    </div>
+  );
+
+  const barList = (
+    items: { id?: string; name: string; count: number; color?: string }[],
+    max: number,
+    onClickItem?: (id: string) => void,
+  ) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {items.map((item, i) => (
+        <div key={item.id ?? item.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 20, fontSize: 11, color: "var(--text3)", textAlign: "right", flexShrink: 0, fontFamily: "var(--mono, monospace)" }}>{i + 1}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+              <span
+                style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: item.id && onClickItem ? "pointer" : "default", textDecoration: item.id && onClickItem ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: "2px" }}
+                onClick={() => { if (item.id && onClickItem) onClickItem(item.id); }}
+                title={item.id && onClickItem ? `View ${item.name}` : undefined}
+              >{item.name}</span>
+              <span style={{ fontSize: 11, color: "var(--text3)", flexShrink: 0, marginLeft: "auto", paddingLeft: 8 }}>{item.count}</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: "var(--bg3, #ece7db)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(item.count / max) * 100}%`, background: item.color ?? "var(--primary, #4a3d1e)", borderRadius: 3 }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", padding: "24px 28px" }}>
+      {/* Summary cards */}
+      <div style={{ display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" }}>
+        {statCard(people.length, "People")}
+        {statCard(refs.length, "Scripture refs")}
+        {statCard(relationships.length, "Relationships")}
+        {statCard(topBooks.length, "Books covered")}
+      </div>
+
+      {/* Testament split */}
+      <div style={{ marginBottom: 28, background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 12 }}>Testament Breakdown</div>
+        <div style={{ display: "flex", gap: 0, height: 20, borderRadius: 6, overflow: "hidden", marginBottom: 10 }}>
+          <div style={{ width: `${(otCount / people.length) * 100}%`, background: "#b45309" }} title={`OT: ${otCount}`} />
+          <div style={{ width: `${(bothCount / people.length) * 100}%`, background: "#4f46e5" }} title={`Both: ${bothCount}`} />
+          <div style={{ width: `${(ntCount / people.length) * 100}%`, background: "#0f766e" }} title={`NT: ${ntCount}`} />
+        </div>
+        <div style={{ display: "flex", gap: 20, fontSize: 12 }}>
+          {[
+            { label: "Old Testament", count: otCount, color: "#b45309" },
+            { label: "Both", count: bothCount, color: "#4f46e5" },
+            { label: "New Testament", count: ntCount, color: "#0f766e" },
+          ].map(({ label, count, color }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: color, flexShrink: 0, display: "inline-block" }} />
+              <span style={{ color: "var(--text2)" }}><strong>{count}</strong> {label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Two-column charts */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Most Referenced</div>
+          {barList(topReferenced.map(p => ({ id: p.id, name: p.name, count: refCountById.get(p.id) ?? 0 })), maxRefs, onNavigate)}
+        </div>
+        <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Most Connected</div>
+          {barList(topConnected.map(p => ({ id: p.id, name: p.name, count: relCountById.get(p.id) ?? 0 })), maxRels, onNavigate)}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Books by People</div>
+          {barList(topBooks.map(({ book, count }) => ({ name: book, count })), maxBookCount)}
+        </div>
+        <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 22px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text3)", marginBottom: 14 }}>Relationship Types</div>
+          {barList(typeBreakdown.map(({ label, count, color }) => ({ name: label, count, color })), maxTypeCount)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Explorer (main orchestrator) ──────────────────────────────────────────────
 export function Explorer() {
   const { people, loading: loadingPeople, addPerson, updatePerson, deletePerson } = usePeople();
@@ -773,6 +927,23 @@ export function Explorer() {
             </div>
           </div>
           <FamilyTree people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
+        </div>
+
+        {/* Stats section */}
+        <div className={`app-section${section === "stats" ? " active" : ""}`}>
+          <div className="section-header">
+            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <div>
+              <div className="section-eyebrow">Explore</div>
+              <div className="section-title">Insights</div>
+              <div className="section-subtitle">Most referenced, most connected, coverage by book</div>
+            </div>
+          </div>
+          <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />
         </div>
       </div>
 
