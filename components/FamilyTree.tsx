@@ -356,45 +356,65 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
   const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
-  // Touch handlers for mobile pan + pinch-to-zoom
+  // Touch handlers for mobile pan + pinch-to-zoom — registered as non-passive
+  // so preventDefault() can block native browser scroll/zoom.
   const lastTouches = useRef<{ x: number; y: number }[]>([]);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
-    isDragging.current = true;
-    didDrag.current = false;
-  }, []);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    const touches = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
-    if (touches.length === 1 && lastTouches.current.length >= 1) {
-      const dx = touches[0].x - lastTouches.current[0].x;
-      const dy = touches[0].y - lastTouches.current[0].y;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) didDrag.current = true;
-      dispatch({ type: "PAN", dx, dy });
-    } else if (touches.length === 2 && lastTouches.current.length === 2) {
-      const prevDist = Math.hypot(
-        lastTouches.current[0].x - lastTouches.current[1].x,
-        lastTouches.current[0].y - lastTouches.current[1].y,
-      );
-      const currDist = Math.hypot(
-        touches[0].x - touches[1].x,
-        touches[0].y - touches[1].y,
-      );
-      if (prevDist > 0 && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const cx = ((touches[0].x + touches[1].x) / 2) - rect.left;
-        const cy = ((touches[0].y + touches[1].y) / 2) - rect.top;
-        dispatch({ type: "PINCH", delta: (currDist / prevDist) - 1, cx, cy });
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+      isDragging.current = true;
+      didDrag.current = false;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touches = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+      if (touches.length === 1 && lastTouches.current.length >= 1) {
+        const dx = touches[0].x - lastTouches.current[0].x;
+        const dy = touches[0].y - lastTouches.current[0].y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) didDrag.current = true;
+        dispatch({ type: "PAN", dx, dy });
+      } else if (touches.length === 2 && lastTouches.current.length === 2) {
+        const prevDist = Math.hypot(
+          lastTouches.current[0].x - lastTouches.current[1].x,
+          lastTouches.current[0].y - lastTouches.current[1].y,
+        );
+        const currDist = Math.hypot(
+          touches[0].x - touches[1].x,
+          touches[0].y - touches[1].y,
+        );
+        if (prevDist > 0 && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const cx = ((touches[0].x + touches[1].x) / 2) - rect.left;
+          const cy = ((touches[0].y + touches[1].y) / 2) - rect.top;
+          dispatch({ type: "PINCH", delta: (currDist / prevDist) - 1, cx, cy });
+        }
+        didDrag.current = true;
       }
-      didDrag.current = true;
-    }
-    lastTouches.current = touches;
-  }, []);
+      lastTouches.current = touches;
+    };
 
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
-    if (e.touches.length === 0) isDragging.current = false;
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+      if (e.touches.length === 0) isDragging.current = false;
+    };
+
+    el.addEventListener("touchstart",  onTouchStart, { passive: false });
+    el.addEventListener("touchmove",   onTouchMove,  { passive: false });
+    el.addEventListener("touchend",    onTouchEnd,   { passive: false });
+    el.addEventListener("touchcancel", onTouchEnd,   { passive: false });
+    return () => {
+      el.removeEventListener("touchstart",  onTouchStart);
+      el.removeEventListener("touchmove",   onTouchMove);
+      el.removeEventListener("touchend",    onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
   }, []);
 
   if (people.length === 0) {
@@ -437,9 +457,6 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
     >
       {/* ── Scrollable SVG canvas ─────────────────────────────────────────────── */}
       <div

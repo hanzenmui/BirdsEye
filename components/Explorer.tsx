@@ -490,11 +490,12 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
     <div className={`people-layout${selected ? " detail-open" : ""}`} style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%" }}>
       <div className="people-list-col" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Toolbar */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div className="people-toolbar" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", background: "var(--bg2)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <div className="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input className="search-input" placeholder="Search people…" value={query} onChange={e => setQuery(e.target.value)} />
           </div>
+          <button className="people-toolbar-add btn btn-primary btn-sm" style={{ marginLeft: "auto", flexShrink: 0 }} onClick={onAddPerson}>+ Add Person</button>
           <div className="filter-bar" style={{ flexShrink: 0 }}>
             {(["all", "OT", "NT", "both"] as const).map(f => (
               <button key={f} className={`filter-chip${filter === f ? " active" : ""}`} onClick={() => setFilter(f)}>
@@ -502,7 +503,6 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
               </button>
             ))}
           </div>
-          <button className="btn btn-primary btn-sm" style={{ marginLeft: "auto", flexShrink: 0 }} onClick={onAddPerson}>+ Add Person</button>
         </div>
 
         {/* Grid */}
@@ -602,6 +602,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                   style={count === 0 ? { opacity: 0.35, cursor: "default", pointerEvents: "none" } : undefined}>
                   <div className="book-tile-name">{b.name}</div>
                   <div className="book-tile-count">{count === 0 ? "no people" : `${count} ${count === 1 ? "person" : "people"}`}</div>
+                  {b.summary && <div className="book-tile-summary">{b.summary}</div>}
                 </div>
               );
             })}
