@@ -284,7 +284,7 @@ select.form-input { cursor: pointer; }
 .category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; max-width: 640px; margin: 0 auto; padding: 40px 20px; }
 .category-tile { padding: 28px 20px; border-radius: var(--radius-lg); background: var(--bg2); border: 1px solid var(--border); cursor: pointer; text-align: center; transition: all 120ms; }
 .category-tile:hover { box-shadow: var(--shadow-sm); }
-.category-tile-icon { font-size: 28px; margin-bottom: 10px; }
+.category-tile-icon { display: flex; justify-content: center; margin-bottom: 10px; color: var(--text2); }
 .category-tile-label { font-size: 15px; font-weight: 700; color: var(--text2); font-family: var(--font); }
 .category-tile-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
 .category-tile.families { border-color: var(--gold-dim); }

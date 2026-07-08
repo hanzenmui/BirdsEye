@@ -282,9 +282,10 @@ interface Props {
   refs: ScriptureRef[];
   onSelect: (id: string) => void;
   scope?: { label: string; memberIds: Set<string>; onBack: () => void };
+  onExitCategory?: () => void;
 }
 
-export function FamilyTree({ people, relationships, refs, onSelect, scope }: Props) {
+export function FamilyTree({ people, relationships, refs, onSelect, scope, onExitCategory }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -693,16 +694,29 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope }: Pro
         </svg>
       </div>
 
-      {/* ── Root picker (unscoped) or breadcrumb (scoped) — top left ──────────── */}
+      {/* ── Back-to-categories + root picker (unscoped) or breadcrumb (scoped) — top left ── */}
+      <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
+      {onExitCategory && (
+        <button
+          onClick={onExitCategory}
+          title="Back to categories"
+          onMouseDown={e => e.stopPropagation()}
+          style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, background: "var(--surface, #fff)", boxShadow: "0 1px 4px rgba(0,0,0,.12)", cursor: "pointer", color: "var(--text2, #4a3d1e)" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
+          onMouseLeave={e => (e.currentTarget.style.background = "var(--surface, #fff)")}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      )}
       {scope ? (
-        <div className="tree-breadcrumb" style={{ position: "absolute", top: 14, left: 14, zIndex: 20 }} onMouseDown={e => e.stopPropagation()}>
+        <div className="tree-breadcrumb" onMouseDown={e => e.stopPropagation()}>
           <button onClick={scope.onBack}>‹ Back</button>
           <span style={{ color: "var(--text3, #888)" }}>·</span>
           <span style={{ fontWeight: 600 }}>{scope.label}</span>
         </div>
       ) : (
         <div
-          style={{ position: "absolute", top: 14, left: 14, zIndex: 20, minWidth: 180 }}
+          style={{ minWidth: 180 }}
           onMouseDown={e => e.stopPropagation()}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
@@ -741,6 +755,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope }: Pro
           )}
         </div>
       )}
+      </div>
 
       {/* ── Node search + book filter — top right ─────────────────────────────── */}
       <div

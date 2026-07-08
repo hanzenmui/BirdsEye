@@ -33,9 +33,18 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
     return counts;
   }, [people]);
 
-  // "All" — the plain, unscoped tree, unchanged from today's behavior.
+  // "All" — the plain, unscoped tree, unchanged from today's behavior aside
+  // from the added back-to-categories button (onExitCategory).
   if (step1 === "all") {
-    return <FamilyTree people={people} relationships={relationships} refs={refs} onSelect={onSelect} />;
+    return (
+      <FamilyTree
+        people={people}
+        relationships={relationships}
+        refs={refs}
+        onSelect={onSelect}
+        onExitCategory={() => setStep1(null)}
+      />
+    );
   }
 
   // A family has been picked — render the scoped tree. key= forces a fresh
@@ -132,17 +141,23 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
   return (
     <div className="category-grid">
       <div className="category-tile" onClick={() => setStep1("all")}>
-        <div className="category-tile-icon">🌳</div>
+        <div className="category-tile-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg>
+        </div>
         <div className="category-tile-label">All</div>
         <div className="category-tile-sub">The full Adam → Revelation tree</div>
       </div>
       <div className="category-tile families" onClick={() => setStep1("families")}>
-        <div className="category-tile-icon">👪</div>
+        <div className="category-tile-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
         <div className="category-tile-label">Families</div>
         <div className="category-tile-sub">Abraham's, Jacob's, Moses', and more</div>
       </div>
       <div className="category-tile books" onClick={() => setStep1("books")}>
-        <div className="category-tile-icon">📖</div>
+        <div className="category-tile-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
         <div className="category-tile-label">Books</div>
         <div className="category-tile-sub">See who appears in each book</div>
       </div>
