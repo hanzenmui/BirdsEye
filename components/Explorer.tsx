@@ -5,7 +5,7 @@ import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
-import { FamilyTree } from "./FamilyTree";
+import { TreeCategoryPicker } from "./TreeCategoryPicker";
 
 // Returns the relationship label from the given person's perspective.
 // When the person is person_a they are the actor; when person_b they are the target.
@@ -927,10 +927,10 @@ export function Explorer() {
             <div>
               <div className="section-eyebrow">Explore</div>
               <div className="section-title">Family Tree</div>
-              <div className="section-subtitle">Click a node to open profile · double-click to re-root · search &amp; filter top-right</div>
+              <div className="section-subtitle">Pick a family or book to explore, or view the full tree</div>
             </div>
           </div>
-          <FamilyTree people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
+          <TreeCategoryPicker people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
         </div>
 
         {/* Stats section */}
