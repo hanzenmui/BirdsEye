@@ -122,6 +122,113 @@ function buildLayout(people: Person[], rels: Relationship[], rootId: string) {
   return { all, w, h };
 }
 
+// Like buildLayout, but supports a member-restricted set of people that may
+// not form a single connected tree (e.g. a book's cast, or a curated family
+// whose spouses often have no parent_of edge back into the set). Restricts
+// parent_of edges to pairs where both ends are in memberIds, finds the
+// connected components of that restricted graph, and lays each one out as
+// its own mini-tree side by side using the same recursion buildLayout uses.
+// A member with no parent_of edge to any other member becomes its own
+// single-node tree rather than being dropped.
+export function buildForest(people: Person[], rels: Relationship[], memberIds: Set<string>) {
+  const byId = new Map(people.map(p => [p.id, p]));
+  const hasMaleParent = new Set<string>();
+  const hasParent = new Set<string>();
+  const childrenOf = new Map<string, string[]>();
+  const parentOf = new Map<string, string>();
+
+  function addChild(parentId: string, childId: string) {
+    if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
+    childrenOf.get(parentId)!.push(childId);
+    parentOf.set(childId, parentId);
+  }
+
+  // Pass 1: male parents (patrilineal preference), restricted to memberIds
+  for (const r of rels) {
+    if (r.type !== "parent_of") continue;
+    if (!memberIds.has(r.personAId) || !memberIds.has(r.personBId)) continue;
+    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
+    if (byId.get(r.personAId)!.gender !== "male") continue;
+    if (hasMaleParent.has(r.personBId)) continue;
+    hasMaleParent.add(r.personBId);
+    hasParent.add(r.personBId);
+    addChild(r.personAId, r.personBId);
+  }
+
+  // Pass 2: female parents only when no male parent assigned
+  for (const r of rels) {
+    if (r.type !== "parent_of") continue;
+    if (!memberIds.has(r.personAId) || !memberIds.has(r.personBId)) continue;
+    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
+    if (byId.get(r.personAId)!.gender === "male") continue;
+    if (hasParent.has(r.personBId)) continue;
+    hasParent.add(r.personBId);
+    addChild(r.personAId, r.personBId);
+  }
+
+  // Each member's topmost ancestor within the restricted graph identifies
+  // its connected component. Members with no parent_of edge at all become
+  // their own topmost ancestor (a singleton component).
+  function topmost(id: string): string {
+    let cur = id;
+    const seen = new Set([cur]);
+    while (parentOf.has(cur)) {
+      const next = parentOf.get(cur)!;
+      if (seen.has(next)) break; // defensive: no real cycles expected in the data
+      cur = next;
+      seen.add(cur);
+    }
+    return cur;
+  }
+
+  const rootsInOrder: string[] = [];
+  const seenRoots = new Set<string>();
+  for (const id of memberIds) {
+    if (!byId.has(id)) continue;
+    const root = topmost(id);
+    if (!seenRoots.has(root)) { seenRoots.add(root); rootsInOrder.push(root); }
+  }
+
+  const visited = new Set<string>();
+  function build(id: string, gen: number): N {
+    visited.add(id);
+    const kids = (childrenOf.get(id) ?? [])
+      .filter(c => byId.has(c) && !visited.has(c))
+      .map(c => build(c, gen + 1))
+      .reverse(); // API returns DESC order; reverse restores seed/birth order
+    return { id, name: byId.get(id)!.name, x: 0, y: PAD + gen * (NH + VG), children: kids };
+  }
+
+  const trees = rootsInOrder.map(id => build(id, 0));
+
+  // Single shared cursor across every tree in the forest — this naturally
+  // lays every tree out left-to-right in one pass, same as buildLayout does
+  // for a single tree's leaves.
+  let cursor = 0;
+  function assignX(n: N) {
+    if (n.children.length === 0) {
+      n.x = PAD + cursor++ * (NW + HG) + NW / 2;
+      return;
+    }
+    n.children.forEach(assignX);
+    n.x = (n.children[0].x + n.children[n.children.length - 1].x) / 2;
+  }
+  trees.forEach(assignX);
+
+  const all: N[] = [];
+  function collect(n: N) { all.push(n); n.children.forEach(collect); }
+  trees.forEach(collect);
+
+  if (all.length === 0) return { all, w: PAD * 2, h: PAD * 2 };
+
+  const minX = Math.min(...all.map(n => n.x - NW / 2));
+  if (minX < PAD) all.forEach(n => { n.x += PAD - minX; });
+
+  const w = Math.max(...all.map(n => n.x)) + NW / 2 + PAD;
+  const h = Math.max(...all.map(n => n.y)) + NH + PAD;
+  return { all, w, h };
+}
+
 // ── View state (zoom + pan) managed atomically via reducer ────────────────────
 interface ViewState { zoom: number; pan: { x: number; y: number } }
 type ViewAction =
