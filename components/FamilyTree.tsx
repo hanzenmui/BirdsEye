@@ -281,9 +281,10 @@ interface Props {
   relationships: Relationship[];
   refs: ScriptureRef[];
   onSelect: (id: string) => void;
+  scope?: { label: string; memberIds: Set<string>; onBack: () => void };
 }
 
-export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
+export function FamilyTree({ people, relationships, refs, onSelect, scope }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -375,9 +376,11 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
   );
 
   const tree = useMemo(() => {
-    if (!effectiveRootId || people.length === 0) return null;
+    if (people.length === 0) return null;
+    if (scope) return buildForest(people, relationships, scope.memberIds);
+    if (!effectiveRootId) return null;
     return buildLayout(people, relationships, effectiveRootId);
-  }, [people, relationships, effectiveRootId]);
+  }, [people, relationships, effectiveRootId, scope]);
 
   const posMap = useMemo(
     () => new Map(tree ? tree.all.map(n => [n.id, n]) : []),
@@ -665,7 +668,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
                 className="ft-node"
                 transform={`translate(${n.x - NW / 2},${n.y})`}
                 onClick={() => { if (!didDrag.current) setDetailId(prev => prev === n.id ? null : n.id); }}
-                onDoubleClick={e => { e.stopPropagation(); setRootId(n.id); setPickerQuery(""); setDetailId(null); }}
+                onDoubleClick={e => { e.stopPropagation(); if (scope) return; setRootId(n.id); setPickerQuery(""); setDetailId(null); }}
                 style={{ cursor: "pointer", opacity: isDimmed ? 0.25 : 1 }}
               >
                 <rect
@@ -690,46 +693,54 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
         </svg>
       </div>
 
-      {/* ── Root picker — top left ─────────────────────────────────────────────── */}
-      <div
-        style={{ position: "absolute", top: 14, left: 14, zIndex: 20, minWidth: 180 }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: "var(--text3, #888)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input
-            value={pickerFocused ? pickerQuery : (rootPerson?.name ?? "")}
-            onChange={e => { setPickerQuery(e.target.value); setPickerOpen(true); }}
-            onFocus={() => { setPickerFocused(true); setPickerQuery(""); setPickerOpen(true); }}
-            onBlur={() => setTimeout(() => { setPickerOpen(false); setPickerFocused(false); }, 120)}
-            placeholder="Root: Adam"
-            style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, color: "var(--text, #1a1209)", width: 130, fontFamily: "var(--ui-font, sans-serif)" }}
-          />
-          {rootId && (
-            <button
-              onClick={() => { setRootId(null); setPickerQuery(""); }}
-              title="Reset to Adam"
-              style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "var(--text3, #888)", fontSize: 15, lineHeight: 1, flexShrink: 0 }}
-            >×</button>
+      {/* ── Root picker (unscoped) or breadcrumb (scoped) — top left ──────────── */}
+      {scope ? (
+        <div className="tree-breadcrumb" style={{ position: "absolute", top: 14, left: 14, zIndex: 20 }} onMouseDown={e => e.stopPropagation()}>
+          <button onClick={scope.onBack}>‹ Back</button>
+          <span style={{ color: "var(--text3, #888)" }}>·</span>
+          <span style={{ fontWeight: 600 }}>{scope.label}</span>
+        </div>
+      ) : (
+        <div
+          style={{ position: "absolute", top: 14, left: 14, zIndex: 20, minWidth: 180 }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: "var(--text3, #888)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input
+              value={pickerFocused ? pickerQuery : (rootPerson?.name ?? "")}
+              onChange={e => { setPickerQuery(e.target.value); setPickerOpen(true); }}
+              onFocus={() => { setPickerFocused(true); setPickerQuery(""); setPickerOpen(true); }}
+              onBlur={() => setTimeout(() => { setPickerOpen(false); setPickerFocused(false); }, 120)}
+              placeholder="Root: Adam"
+              style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, color: "var(--text, #1a1209)", width: 130, fontFamily: "var(--ui-font, sans-serif)" }}
+            />
+            {rootId && (
+              <button
+                onClick={() => { setRootId(null); setPickerQuery(""); }}
+                title="Reset to Adam"
+                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "var(--text3, #888)", fontSize: 15, lineHeight: 1, flexShrink: 0 }}
+              >×</button>
+            )}
+          </div>
+          {pickerOpen && pickerSuggestions.length > 0 && (
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", overflow: "hidden" }}>
+              {pickerSuggestions.map(p => (
+                <div
+                  key={p.id}
+                  onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); }}
+                  style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <div>{p.name}</div>
+                  {p.alsoKnownAs && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1 }}>{p.alsoKnownAs.split(",")[0].trim()}</div>}
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        {pickerOpen && pickerSuggestions.length > 0 && (
-          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", overflow: "hidden" }}>
-            {pickerSuggestions.map(p => (
-              <div
-                key={p.id}
-                onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); }}
-                style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-              >
-                <div>{p.name}</div>
-                {p.alsoKnownAs && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1 }}>{p.alsoKnownAs.split(",")[0].trim()}</div>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ── Node search + book filter — top right ─────────────────────────────── */}
       <div
@@ -737,27 +748,29 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
         style={{ position: "absolute", top: 14, right: panelOpen ? 298 : 14, zIndex: 20, display: "flex", gap: 6, alignItems: "flex-start" }}
         onMouseDown={e => e.stopPropagation()}
       >
-        {/* Book filter */}
-        <div style={{ background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95, display: "flex", alignItems: "center", gap: 5 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: bookFilter ? "#f59e0b" : "var(--text3, #888)" }}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-          <select
-            value={bookFilter}
-            onChange={e => setBookFilter(e.target.value)}
-            style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: bookFilter ? "#92400e" : "var(--text, #1a1209)", fontFamily: "var(--ui-font, sans-serif)", cursor: "pointer", maxWidth: 120 }}
-          >
-            <option value="">All books</option>
-            <optgroup label="Old Testament">
-              {BIBLE_BOOKS.filter(b => b.testament === "OT").map(b => (
-                <option key={b.name} value={b.name}>{b.name}</option>
-              ))}
-            </optgroup>
-            <optgroup label="New Testament">
-              {BIBLE_BOOKS.filter(b => b.testament === "NT").map(b => (
-                <option key={b.name} value={b.name}>{b.name}</option>
-              ))}
-            </optgroup>
-          </select>
-        </div>
+        {/* Book filter — hidden when scoped, since a fixed member set makes it redundant */}
+        {!scope && (
+          <div style={{ background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95, display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: bookFilter ? "#f59e0b" : "var(--text3, #888)" }}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <select
+              value={bookFilter}
+              onChange={e => setBookFilter(e.target.value)}
+              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: bookFilter ? "#92400e" : "var(--text, #1a1209)", fontFamily: "var(--ui-font, sans-serif)", cursor: "pointer", maxWidth: 120 }}
+            >
+              <option value="">All books</option>
+              <optgroup label="Old Testament">
+                {BIBLE_BOOKS.filter(b => b.testament === "OT").map(b => (
+                  <option key={b.name} value={b.name}>{b.name}</option>
+                ))}
+              </optgroup>
+              <optgroup label="New Testament">
+                {BIBLE_BOOKS.filter(b => b.testament === "NT").map(b => (
+                  <option key={b.name} value={b.name}>{b.name}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+        )}
 
         {/* Node search */}
         <div style={{ position: "relative" }}>
@@ -1018,12 +1031,14 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
 
           {/* Footer actions */}
           <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(60,45,20,.10)", display: "flex", gap: 6, flexShrink: 0 }}>
-            <button
-              onClick={() => { setRootId(detailId); setPickerQuery(""); }}
-              style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--bg2, #f5f0e8)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 6, cursor: "pointer", color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3, #ece7db)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-            >Set as root</button>
+            {!scope && (
+              <button
+                onClick={() => { setRootId(detailId); setPickerQuery(""); }}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--bg2, #f5f0e8)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 6, cursor: "pointer", color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3, #ece7db)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
+              >Set as root</button>
+            )}
             <button
               onClick={() => { onSelect(detailId!); setDetailId(null); }}
               style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--primary, #4a3d1e)", border: "none", borderRadius: 6, cursor: "pointer", color: "#fff", fontFamily: "var(--ui-font, sans-serif)" }}
