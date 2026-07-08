@@ -127,7 +127,10 @@ interface ViewState { zoom: number; pan: { x: number; y: number } }
 type ViewAction =
   | { type: "PINCH"; delta: number; cx: number; cy: number }
   | { type: "PAN";   dx: number; dy: number }
-  | { type: "FIT";   treeW: number; treeH: number; vpW: number; vpH: number };
+  | { type: "FIT";   treeW: number; treeH: number; vpW: number; vpH: number }
+  | { type: "CENTER"; nodeX: number; nodeY: number; vpW: number; vpH: number };
+
+const CENTER_TOP_OFFSET = 90; // clears the top search/root-picker bars
 
 function viewReducer(s: ViewState, a: ViewAction): ViewState {
   switch (a.type) {
@@ -153,6 +156,16 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
         },
       };
     }
+    case "CENTER":
+      // Recenters on a node without touching zoom — used when re-rooting after
+      // the user has already picked their own zoom level.
+      return {
+        ...s,
+        pan: {
+          x: a.vpW / 2 - a.nodeX * s.zoom,
+          y: CENTER_TOP_OFFSET - a.nodeY * s.zoom,
+        },
+      };
   }
 }
 
@@ -277,18 +290,23 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
     dispatch({ type: "PINCH", delta, cx: width / 2, cy: height / 2 });
   }, []);
 
-  // Auto-fit once on first load. Uses ResizeObserver because the container's
-  // flex dimensions aren't available yet when the effect first runs.
+  // Fit-to-view on first load only (uses ResizeObserver because the container's
+  // flex dimensions aren't available yet when the effect first runs). On every
+  // later root change, recenter on the new root instead of refitting, so a
+  // zoom level the user already chose isn't discarded by re-rooting/search.
   useEffect(() => {
     if (!tree || !containerRef.current) return;
-    hasFitted.current = false;
     const el = containerRef.current;
+    const root = tree.all[0];
     const tryFit = () => {
-      if (hasFitted.current) return;
       const { width, height } = el.getBoundingClientRect();
       if (width === 0 || height === 0) return;
-      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
-      hasFitted.current = true;
+      if (!hasFitted.current) {
+        dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+        hasFitted.current = true;
+      } else {
+        dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, vpW: width, vpH: height });
+      }
     };
     tryFit();
     const ro = new ResizeObserver(tryFit);
@@ -336,7 +354,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
       el.removeEventListener("gesturestart", prevent);
       el.removeEventListener("gesturechange", prevent);
     };
-  }, []);
+  }, [tree]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -415,7 +433,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
       el.removeEventListener("touchend",    onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, []);
+  }, [tree]);
 
   if (people.length === 0) {
     return (
@@ -593,7 +611,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
             {pickerSuggestions.map(p => (
               <div
                 key={p.id}
-                onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); dispatch({ type: "FIT", treeW: w, treeH: h, vpW: containerRef.current?.clientWidth ?? 800, vpH: containerRef.current?.clientHeight ?? 600 }); }}
+                onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); }}
                 style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -665,7 +683,6 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
                     // Navigate to this person by making them the root
                     setRootId(p.id);
                     setPickerQuery("");
-                    dispatch({ type: "FIT", treeW: w, treeH: h, vpW: containerRef.current?.clientWidth ?? 800, vpH: containerRef.current?.clientHeight ?? 600 });
                   }}
                   style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
@@ -895,7 +912,7 @@ export function FamilyTree({ people, relationships, refs, onSelect }: Props) {
           {/* Footer actions */}
           <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(60,45,20,.10)", display: "flex", gap: 6, flexShrink: 0 }}>
             <button
-              onClick={() => { setRootId(detailId); setPickerQuery(""); dispatch({ type: "FIT", treeW: w, treeH: h, vpW: containerRef.current?.clientWidth ?? 800, vpH: containerRef.current?.clientHeight ?? 600 }); }}
+              onClick={() => { setRootId(detailId); setPickerQuery(""); }}
               style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--bg2, #f5f0e8)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 6, cursor: "pointer", color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)" }}
               onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3, #ece7db)")}
               onMouseLeave={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
