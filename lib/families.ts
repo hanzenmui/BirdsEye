@@ -15,7 +15,9 @@ export const FAMILIES: FamilyCategory[] = [
   { key: "adam_family", label: "Adam's Family", members: [
     { name: "Adam" }, { name: "Eve" }, { name: "Cain" }, { name: "Abel" }, { name: "Seth" },
     { name: "Enoch", akaHint: "son of Cain" }, { name: "Enosh", akaHint: "Enos" },
-    { name: "Enoch", akaHint: "son of Jared" }, { name: "Lamech", akaHint: "son of Methuselah" },
+    { name: "Kenan", akaHint: "Cainan" }, { name: "Mahalalel", akaHint: "Mahalaleel" },
+    { name: "Jared" }, { name: "Enoch", akaHint: "son of Jared" }, { name: "Methuselah" },
+    { name: "Lamech", akaHint: "son of Methuselah" },
   ]},
   { key: "noah_family", label: "Noah's Family", members: [
     { name: "Noah" }, { name: "Shem" }, { name: "Ham" }, { name: "Japheth" },
