@@ -1,6 +1,6 @@
 # Genesis Audit — Section 2: Shem-to-Abraham Line & Terah's Family (Genesis 11-24)
 
-Reviewed: 17 people, 22 relationships, 37 refs. 3 findings.
+Reviewed: 17 people, 23 relationships, 37 refs. 3 findings.
 
 Scope: `scripts/seed-genesis.ts` lines 155-225 (people: arpachshad, shelah, eber,
 peleg, reu, serug, nahor1, nahor2, terah, haran, abraham, sarah, lot, hagar,
