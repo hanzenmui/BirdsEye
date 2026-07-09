@@ -1,11 +1,11 @@
 # Genesis Audit — Section 1: Primeval History & Post-Flood (Genesis 1-10)
 
-Reviewed: 19 people, 15 relationships, 33 refs. 3 findings.
+Reviewed: 19 people, 21 relationships, 33 refs. 3 findings.
 
 Scope: `scripts/seed-genesis.ts` lines 74-153 (people: adam, eve, cain, abel,
 enoch_cain, seth, enosh, kenan, mahalalel, jared, enoch_seth, methuselah,
 lamech_seth, noah, shem, ham, japheth, cush, nimrod), relationships involving
-these people from lines 368-491, and their scripture refs from lines 493-691.
+these people from lines 368-397, and their scripture refs from lines 493-691.
 
 Source text: ESV, fetched live via WebFetch from esv.org for Genesis 1:26-31,
 2, 3, 4, 5, 6:9-22, 9:1-29, 10:6-12, 11:10 (cross-check only).
@@ -19,6 +19,7 @@ Source text: ESV, fetched live via WebFetch from esv.org for Genesis 1:26-31,
 - **Current DB state:** The DB contains only `cain` (key: `cain`) and his son `enoch_cain` (key: `enoch_cain`), connected by a single relationship `cain → parent_of → enoch_cain` (seed-genesis.ts line 378). No other person records or relationships exist for Cain's line.
 - **Proposed correction:** Add person records and `parent_of` relationships for the rest of the chain as given in Gen 4:18-22: Enoch (son of Cain, already present as `enoch_cain`) → **Irad** → **Mehujael** → **Methushael** → **Lamech** (Cain's line — distinct from `lamech_seth`, needs a distinct key, e.g. `lamech_cain`). Lamech (Cain's line) had two wives, **Adah** and **Zillah** (`spouse_of` relationships). Adah bore **Jabal** ("father of those who dwell in tents and have livestock") and **Jubal** ("father of all who play the lyre and pipe") — both `parent_of` from Adah (and arguably Lamech, per the narrative's patrilineal framing). Zillah bore **Tubal-cain** ("who forged all instruments of bronze and iron") and his sister **Naamah** — both `parent_of` from Zillah. This entire branch (7 people, at minimum 8 relationships) is absent.
 - **Severity:** Critical
+- **Notes for consolidation:** The new person introduced by this correction (Cain-line Lamech) should use the key `lamech_cain`, parallel to the existing `enoch_cain` / `enoch_seth` naming pattern already used in this DB to disambiguate two people who share a name (here, Lamech son of Methushael vs. `lamech_seth`, Lamech son of Methuselah). The consolidation task should confirm `lamech_cain` doesn't collide with a key chosen independently by another section's audit before merging.
 
 ## Finding 2: Seth's `description` misattributes the "began to call on the name of the Lord" event to his own generation rather than Enosh's
 
@@ -46,7 +47,7 @@ All ten people present in DB (`adam`, `seth`, `enosh`, `kenan`, `mahalalel`, `ja
 
 **Cain line, Genesis 4:17-22 (Cain → Naamah/Jabal/Jubal/Tubal-cain):** Cain → Enoch → Irad → Mehujael → Methushael → Lamech → {Jabal, Jubal, Tubal-cain, Naamah}.
 
-DB-present: `cain`, `enoch_cain` (Enoch, Cain's son). DB-missing: Irad, Mehujael, Methushael, Lamech (Cain's line), Adah, Zillah, Jabal, Jubal, Tubal-cain, Naamah — nine names, none present as person records, and consequently no relationships for them either. This is the exact class of bug that motivated the audit: unlike the "floating disconnected node" symptom, here the chain doesn't even reach far enough to produce an orphaned node — it is truncated after the second generation and everything past `enoch_cain` simply does not exist in the seed data. See Finding 1.
+DB-present: `cain`, `enoch_cain` (Enoch, Cain's son). DB-missing: Irad, Mehujael, Methushael, Lamech (Cain's line), Adah, Zillah, Jabal, Jubal, Tubal-cain, Naamah — eight blood-line descendants and two spouses (ten names total), none present as person records, and consequently no relationships for them either. This is the exact class of bug that motivated the audit: unlike the "floating disconnected node" symptom, here the chain doesn't even reach far enough to produce an orphaned node — it is truncated after the second generation and everything past `enoch_cain` simply does not exist in the seed data. See Finding 1.
 
 ---
 
