@@ -36,14 +36,6 @@ function findLineagePath(rels: Relationship[], fromId: string, toId: string): Se
   return nodes;
 }
 
-// Cubic bezier that hugs the left (x=0) or right (x=treeW) SVG edge so arcs
-// avoid passing through the tree interior. Stays within SVG bounds so it is
-// never clipped by overflow:hidden on the container.
-function outerArcPath(x1: number, y1: number, x2: number, y2: number, treeW: number): string {
-  const goLeft = Math.min(x1, x2) <= treeW - Math.max(x1, x2);
-  const edgeX = goLeft ? 0 : treeW;
-  return `M ${x1} ${y1} C ${edgeX} ${y1} ${edgeX} ${y2} ${x2} ${y2}`;
-}
 
 const NW = 108;   // node width
 const NH = 34;    // node height
@@ -605,37 +597,20 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         }}
       >
         <svg width={w} height={h} style={{ display: "block", overflow: "visible" }}>
-          {/* Extra relationship arcs */}
+          {/* Spouse connector lines — plain, same visual weight as parent-child lines */}
           {relationships
-            .filter(r => r.type !== "parent_of" && r.type !== "child_of")
+            .filter(r => r.type === "spouse_of")
             .filter(r => posMap.has(r.personAId) && posMap.has(r.personBId))
             .map(r => {
               const nA = posMap.get(r.personAId)!;
               const nB = posMap.get(r.personBId)!;
-              const color = RELATIONSHIP_COLORS[r.type] ?? RELATIONSHIP_COLORS.other;
-              const dash: Record<string, string> = {
-                sibling_of:    "6 3",
-                spouse_of:     "2 3",
-                ancestor_of:   "10 4",
-                descendant_of: "10 4",
-                mentor_of:     "7 3",
-                disciple_of:   "7 3",
-                ally_of:       "5 3",
-                servant_of:    "3 5",
-                enemy_of:      "5 2 1 2",
-                ruler_of:      "9 3",
-                other:         "3 3",
-              };
-              const isAnc = r.type === "ancestor_of" || r.type === "descendant_of";
               return (
-                <path
+                <line
                   key={r.id}
-                  d={outerArcPath(nA.x, nA.y + NH / 2, nB.x, nB.y + NH / 2, w)}
-                  stroke={color}
+                  x1={nA.x} y1={nA.y + NH / 2}
+                  x2={nB.x} y2={nB.y + NH / 2}
+                  stroke="rgba(60,45,20,.18)"
                   strokeWidth={1.5}
-                  fill="none"
-                  strokeDasharray={dash[r.type] ?? "4 3"}
-                  opacity={isAnc ? 0.4 : 0.8}
                 />
               );
             })}
@@ -865,18 +840,12 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         onMouseDown={e => e.stopPropagation()}
       >
         {([
-          ["rgba(60,45,20,.75)", "Parent / Blood",   undefined],
-          [RELATIONSHIP_COLORS.sibling_of,   "Sibling",      "6 3"],
-          [RELATIONSHIP_COLORS.spouse_of,    "Spouse",       "2 3"],
-          [RELATIONSHIP_COLORS.mentor_of,    "Mentor",       "7 3"],
-          [RELATIONSHIP_COLORS.enemy_of,     "Enemy",        "5 2 1 2"],
-          [RELATIONSHIP_COLORS.ally_of,      "Ally / Friend","5 3"],
-          [RELATIONSHIP_COLORS.ancestor_of,  "Ancestor",     "10 4"],
-          [RELATIONSHIP_COLORS.ruler_of,     "Ruler",        "9 3"],
-        ] as [string, string, string | undefined][]).map(([color, label, dash]) => (
+          ["rgba(60,45,20,.75)", "Parent / Child"],
+          ["rgba(60,45,20,.75)", "Spouse"],
+        ] as [string, string][]).map(([color, label]) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <svg width="20" height="6" style={{ flexShrink: 0 }}>
-              <line x1="0" y1="3" x2="20" y2="3" stroke={color} strokeWidth="2" strokeDasharray={dash} />
+              <line x1="0" y1="3" x2="20" y2="3" stroke={color} strokeWidth="2" />
             </svg>
             <span>{label}</span>
           </div>
