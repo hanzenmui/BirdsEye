@@ -107,7 +107,11 @@ export interface FamilyCategory {
   label: string;
   members: FamilyMember[];
 }
+```
 
+_Note: the roster below was later expanded and had several `akaHint` values added post-implementation — see `lib/families.ts` for the current, correct source of truth._
+
+```typescript
 export const FAMILIES: FamilyCategory[] = [
   { key: "adam_family", label: "Adam's Family", members: [
     { name: "Adam" }, { name: "Eve" }, { name: "Cain" }, { name: "Abel" }, { name: "Seth" },

@@ -47,6 +47,12 @@ Each family is an explicit, hand-picked member list (root + spouse(s) + children
 
 **v1 roster** (member names as they exist in the seeded data; final list validated against the live DB during implementation — any name that fails to resolve is silently skipped, same as existing `.find()` patterns elsewhere in this file):
 
+> Note: this roster was expanded and several `akaHint` values were added
+> after initial implementation, based on further review and live-data
+> verification. `lib/families.ts` is the source of truth for the current
+> roster — this table reflects the original design intent, not the final
+> member lists.
+
 | Key | Label | Members |
 |---|---|---|
 | `adam_family` | Adam's Family | Adam, Eve, Cain, Abel, Seth |

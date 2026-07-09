@@ -327,15 +327,20 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   );
 
   // ── Search and filter highlights ─────────────────────────────────────────────
+  const scopedPeople = useMemo(
+    () => (scope ? people.filter(p => scope.memberIds.has(p.id)) : people),
+    [people, scope],
+  );
+
   const nodeSearchHits = useMemo(() => {
     if (!nodeSearch.trim()) return new Set<string>();
     const q = nodeSearch.toLowerCase();
     return new Set(
-      people
+      scopedPeople
         .filter(p => p.name.toLowerCase().includes(q) || p.alsoKnownAs.toLowerCase().includes(q))
         .map(p => p.id),
     );
-  }, [people, nodeSearch]);
+  }, [scopedPeople, nodeSearch]);
 
   const bookHits = useMemo(() => {
     if (!bookFilter) return new Set<string>();
@@ -353,8 +358,8 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const nodeSearchSuggestions = useMemo(() => {
     if (!nodeSearch.trim() || !nodeSearchOpen) return [];
-    return people.filter(p => p.name.toLowerCase().includes(nodeSearch.toLowerCase())).slice(0, 8);
-  }, [people, nodeSearch, nodeSearchOpen]);
+    return scopedPeople.filter(p => p.name.toLowerCase().includes(nodeSearch.toLowerCase())).slice(0, 8);
+  }, [scopedPeople, nodeSearch, nodeSearchOpen]);
 
   // ── Detail panel data ─────────────────────────────────────────────────────────
   const detailPerson = useMemo(
@@ -378,7 +383,10 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const tree = useMemo(() => {
     if (people.length === 0) return null;
-    if (scope) return buildForest(people, relationships, scope.memberIds);
+    if (scope) {
+      const forest = buildForest(people, relationships, scope.memberIds);
+      return forest.all.length === 0 ? null : forest;
+    }
     if (!effectiveRootId) return null;
     return buildLayout(people, relationships, effectiveRootId);
   }, [people, relationships, effectiveRootId, scope]);
@@ -815,9 +823,13 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                   onMouseDown={() => {
                     setNodeSearch(p.name);
                     setNodeSearchOpen(false);
-                    // Navigate to this person by making them the root
-                    setRootId(p.id);
-                    setPickerQuery("");
+                    if (scope) {
+                      setDetailId(p.id);
+                    } else {
+                      // Navigate to this person by making them the root
+                      setRootId(p.id);
+                      setPickerQuery("");
+                    }
                   }}
                   style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
