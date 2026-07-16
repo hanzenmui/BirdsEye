@@ -145,7 +145,7 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg>
         </div>
         <div className="category-tile-label">All</div>
-        <div className="category-tile-sub">The full Adam → Revelation tree</div>
+        <div className="category-tile-sub">The traceable bloodline from Adam</div>
       </div>
       <div className="category-tile families" onClick={() => setStep1("families")}>
         <div className="category-tile-icon">
