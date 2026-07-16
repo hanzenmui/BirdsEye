@@ -1,6 +1,6 @@
 # Exodus Data Audit — Findings
 
-Reviewed: 25 people, 34 relationships, 48 refs. 2 findings.
+Reviewed: 25 people, 34 relationships, 48 refs. 3 findings.
 
 Single-pass audit of `scripts/seed-exodus.ts` (per `docs/superpowers/specs/2026-07-15-exodus-data-audit-design.md`),
 cross-referenced against the ESV text fetched live (WebFetch and direct `curl` retrieval of
@@ -46,14 +46,26 @@ a different family line from the two the brief calls out by name, but the same c
 
 ---
 
+## Finding 3: Hur's description says "son of Caleb," but the only "Caleb" person record in the database is Caleb son of Jephunneh (the spy) — a different, much later individual from Hur's actual father, Caleb son of Hezron
+
+- **Category:** Unsupported
+- **Verse(s):** 1 Chronicles 2:18-20 ("Caleb the son of **Hezron**... Hur fathered Uri, and Uri fathered Bezalel"); contrast Numbers 13:6/14:6 ("Caleb the son of **Jephunneh**")
+- **Current DB state:** `hur.description` (seed-exodus.ts line 174) reads "From the tribe of Judah, **son of Caleb** and Ephrath." The only `key: "caleb"` record in the database (seed-exodus.ts line 182) is described as "Son of **Jephunneh** from the tribe of Judah. One of the twelve spies sent into Canaan" — Caleb son of Jephunneh, a contemporary of Moses and Joshua during the Exodus/conquest. These are two distinct, separately-named "Caleb"s in scripture (1 Chronicles 2:18 names Caleb son of Hezron; Numbers 13:6 names Caleb son of Jephunneh), generations apart — Hur (Bezalel's grandfather, alive during the tabernacle's construction in the wilderness) cannot be the son of a Caleb who was himself an adult contemporary of Moses in that same wilderness generation. Since the database currently has no separate person record for Caleb son of Hezron, Hur's unqualified "son of Caleb" reads as though it refers to the only Caleb on file — the spy — which is chronologically impossible and not what 1 Chronicles 2:18-20 says.
+- **Proposed correction:** Clarify `hur.description` to specify "son of Caleb **son of Hezron**" (or similar), explicitly distinguishing him from Caleb son of Jephunneh the spy — following the same "not to be confused with X" disambiguation pattern already used elsewhere in this app's data (e.g. the Genesis audit's Potiphera finding, or this database's existing `enoch_cain`/`enoch_seth` descriptions). This is a wording clarification only; no relationship in the database currently and incorrectly links Hur to the `caleb` (spy) person record, so no relationship change is needed — only the description text.
+- **Notes for collision check:** No new person or key is proposed by this finding.
+- **Severity:** Minor
+
+---
+
 ## Findings Summary Table
 
 | # | Finding | Category | Severity |
 |---|---------|----------|----------|
 | 1 | Bezalel recorded as Hur's direct son; Uri (the actual intermediate generation, per Ex 31:2 and 1 Chr 2:18-20) is entirely missing as a person record | Structural gap | Important |
 | 2 | Hobab described as only "Moses' brother-in-law" without acknowledging Judges 1:16/4:11's competing direct "father-in-law" identification | Unsupported | Minor |
+| 3 | Hur's "son of Caleb" description reads as the wrong Caleb (the only one in the DB, son of Jephunneh the spy) instead of the correct Caleb son of Hezron (1 Chr 2:18-20) | Unsupported | Minor |
 
-**Totals:** 0 Critical, 1 Important, 1 Minor. 1 Structural gap, 0 Incorrect, 0 Missing, 1 Unsupported.
+**Totals:** 0 Critical, 1 Important, 2 Minor. 1 Structural gap, 0 Incorrect, 0 Missing, 2 Unsupported.
 
 ---
 
