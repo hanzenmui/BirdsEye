@@ -1,6 +1,6 @@
 # Numbers Data Audit — Findings
 
-Reviewed: 28 people, 31 relationships, 50 refs. 6 findings.
+Reviewed: 28 people, 31 relationships, 50 refs. 7 findings.
 
 Single-pass audit of `scripts/seed-numbers.ts` (per `docs/superpowers/specs/2026-07-16-numbers-data-audit-design.md`),
 cross-referenced against the ESV text fetched live via WebFetch (biblegateway.com/ESV and esv.org pages)
@@ -97,6 +97,17 @@ and 2 below.
 
 ---
 
+## Finding 7: Zelophehad's own genealogy — Manasseh → Machir → Gilead → Hepher → Zelophehad — has three of its four named intermediate generations (Machir, Gilead, Hepher) missing as person records entirely, and the only relationship on file skips straight from Manasseh to Zelophehad
+
+- **Category:** Structural gap
+- **Verse(s):** Numbers 27:1 ("the daughters of Zelophehad the son of Hepher, son of Gilead, son of Machir, son of Manasseh, from the clans of Manasseh the son of Joseph"); Numbers 26:29-33 ("The sons of Manasseh: of Machir, the clan of the Machirites; and Machir was the father of Gilead; of Gilead, the clan of the Gileadites... and of Hepher, the clan of the Hepherites. Now Zelophehad the son of Hepher had no sons, but daughters.") — ESV, confirmed by live fetch in this session
+- **Current DB state:** `scripts/seed-numbers.ts` line 217's `zelophehad.description` asserts "Son of Hepher, from the clan of Gilead, tribe of Manasseh" — prose that itself names two of the three missing intermediate generations (Hepher, Gilead) plus the top-level tribe (Manasseh), but omits Machir by name. The two scripture refs cited for Zelophehad (`insertRef("zelophehad", "Numbers", 27, 1, 27, 11, ...)` and `insertRef("zelophehad", "Numbers", 36, 1, 36, 12, ...)`, lines 351-352) point directly at the passages that spell out the full four-generation chain. Yet none of Hepher, Gilead, or Machir exist as person records anywhere in the codebase (confirmed via full-repo grep — the only "Gilead" hits are an unrelated place-name/patronymic use in `seed-judges.ts` for Jephthah's father, and incidental "Gilead"/"Ramoth-gilead" place references in `seed-1kings.ts`/`seed-2kings.ts`; zero matches for "Hepher" or "Machir" anywhere). The only relationship connecting Zelophehad to his line at all is a single `insertRelNameToLocal("Manasseh", "ancestor_of", "zelophehad", "Zelophehad is from the clan of Manasseh (Num 27:1)")` (line 295), which uses the vaguer `ancestor_of` predicate specifically because it skips three explicitly-named intermediate generations rather than modeling a direct `parent_of` chain. This is the same "Structural gap" pattern as Finding 1 (Eliab/Dathan/Abiram) — a description and/or relationship asserts a genealogical link, but the underlying graph data omits the named intermediate generations — except here three full generations are missing rather than one individual.
+- **Proposed correction:** Add three new person records: `machir` ("Son of Manasseh, grandson of Joseph. Father of Gilead. Clan head of the Machirites (Num 26:29)."), `gilead` ("Son of Machir, grandson of Manasseh. Father of Hepher. Clan head of the Gileadites (Num 26:29); the region of Gilead in Transjordan is named after this clan, not to be confused with Jephthah's unrelated father of the same name in `seed-judges.ts`."), and `hepher` ("Son of Gilead, great-grandson of Manasseh. Father of Zelophehad. Clan head of the Hepherites (Num 26:32-33)."). Add the direct chain `manasseh → parent_of → machir`, `machir → parent_of → gilead`, `gilead → parent_of → hepher`, `hepher → parent_of → zelophehad`. On the existing `manasseh ancestor_of zelophehad` relationship: recommend **removing** it once the direct four-link `parent_of` chain is in place. The `ancestor_of` link was a coarse stand-in for exactly the chain this finding proposes to model explicitly; keeping both would leave a redundant, lower-precision edge duplicating information the new direct chain expresses more accurately, and no other finding or feature appears to depend on the `ancestor_of` edge specifically (unlike, say, a tribal-prince pattern where `ancestor_of` is the deliberate, permanent modeling choice for princes with no further traced lineage — see the twelve `insertRelNameToLocal(..., "ancestor_of", ...)` calls for the census princes, which are not proposed for replacement here since no intermediate generations are named in their case).
+- **Notes for collision check:** Confirmed via `grep -on 'key: "[a-z_0-9]*"'` across all seed files that no key `machir`, `gilead`, or `hepher` currently exists anywhere in the codebase. Note that a different "Gilead" (Jephthah's father, an unrelated individual, in `scripts/seed-judges.ts`) exists only as prose/description text, not as a `key:`-based person record, so there is no key collision, but the new `gilead` person's description should disambiguate from Jephthah's father as noted above to avoid reader confusion given the shared name.
+- **Severity:** Important
+
+---
+
 ## Findings Summary Table
 
 | # | Finding | Category | Severity |
@@ -107,8 +118,9 @@ and 2 below.
 | 4 | Gershon's sons (Libni, Shimei) and Merari's sons (Mahli, Mushi), Num 3:18/3:20, entirely unseeded — asymmetric with Kohath's line (Izhar) | Missing | Minor |
 | 5 | Mahlah "Eldest daughter" / Tirzah "Youngest daughter" claims not supported by any cited birth-order language in the text | Unsupported | Minor |
 | 6 | Izhar's description names Nepheg and Zichri as sons, but neither is seeded as a person | Missing | Minor |
+| 7 | Zelophehad's genealogy (Num 27:1, 26:29-33) — Machir, Gilead, Hepher — three intermediate generations missing; only a coarse `ancestor_of` link from Manasseh exists | Structural gap | Important |
 
-**Totals:** 0 Critical, 1 Important, 5 Minor. 1 Structural gap, 1 Incorrect, 3 Missing, 1 Unsupported.
+**Totals:** 0 Critical, 2 Important, 5 Minor. 2 Structural gap, 1 Incorrect, 3 Missing, 1 Unsupported.
 
 ---
 
