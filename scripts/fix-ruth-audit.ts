@@ -29,7 +29,7 @@ function newId(key: string) {
 // must never silently proceed against a live DB with an unresolved id.
 async function resolveExisting(key: string, name: string, alsoKnownAs?: string): Promise<string> {
   if (existingIds[key]) return existingIds[key];
-  const row = alsoKnownAs
+  const row = alsoKnownAs !== undefined
     ? await db.execute({
         sql: "SELECT id, name FROM people WHERE name = ? AND also_known_as = ? LIMIT 1",
         args: [name, alsoKnownAs],
