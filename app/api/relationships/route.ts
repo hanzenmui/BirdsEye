@@ -19,11 +19,22 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const body: Omit<Relationship, "id" | "createdAt"> = await req.json();
     const rel: Relationship = { ...body, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-    await db.run(
-      `INSERT INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [rel.id, rel.personAId, rel.personAName, rel.type, rel.personBId, rel.personBName, rel.notes, rel.createdAt]
-    );
+    try {
+      await db.run(
+        `INSERT INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [rel.id, rel.personAId, rel.personAName, rel.type, rel.personBId, rel.personBName, rel.notes, rel.createdAt]
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/UNIQUE constraint failed/i.test(msg)) {
+        return NextResponse.json(
+          { error: "This relationship already exists between these two people." },
+          { status: 409 }
+        );
+      }
+      throw e;
+    }
     return NextResponse.json(rel, { status: 201 });
   });
 }
