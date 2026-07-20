@@ -36,4 +36,13 @@ export const schema = [
   )`,
 ];
 
-export const MIGRATIONS: string[] = [];
+export const MIGRATIONS: string[] = [
+  // Prevents duplicate relationship rows: INSERT OR IGNORE with a fresh
+  // UUID id was never actually idempotent for (person_a_id, type,
+  // person_b_id) without this index. Run scripts/dedupe-relationships.ts
+  // before this migration is applied to a DB with existing duplicates,
+  // or this CREATE UNIQUE INDEX will fail and be skipped (see lib/db.ts's
+  // try/catch around migrations).
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_unique
+   ON relationships (person_a_id, type, person_b_id)`,
+];
