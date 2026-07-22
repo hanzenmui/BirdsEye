@@ -14,7 +14,7 @@ Reviewed: 5 people, 6 relationships, 10 refs. 2 findings.
 - **Current DB state:** `scripts/seed-job.ts` line 61, `job.description`: "...After his three friends and Elihu spoke, God spoke from the whirlwind and **rebuked them all** — but Job was vindicated. His fortunes were restored double."
 - **Why this is flagged:** The sentence's subject is "his three friends and Elihu," and "rebuked them all" grammatically refers back to that full group of four. But 42:7-9 addresses the rebuke explicitly and only to Eliphaz "and your two friends" (i.e., exactly three individuals, named again in full in 42:9 as Eliphaz, Bildad, and Zophar). Elihu is never named, addressed, rebuked, or even alluded to anywhere in chapter 42. This is not a matter of interpretation — the text is unambiguous that only three of the four post-friends speakers are rebuked. Notably, the DB's own `elihu.description` field gets this right ("Notably, God does not rebuke Elihu at the end as he does the three friends"), which directly contradicts the `job.description` field's "rebuked them all" — the two records disagree with each other, and the `elihu` record is the one that matches the source text.
 - **Proposed correction:** Replace "After his three friends and Elihu spoke, God spoke from the whirlwind and rebuked them all" with wording that limits the rebuke to the three friends, e.g.: "After his three friends and Elihu spoke, God spoke from the whirlwind — and afterward rebuked the three friends (though not Elihu) for not speaking rightly of him, as Job had." This preserves the sentence's flow while correcting the scope of "them" to match 42:7-9, and brings this field into agreement with the existing (correct) `elihu.description` field.
-- **Severity:** Critical — this is a specific, unambiguous, and easily verified factual claim (who did God rebuke) that the text directly contradicts, and it produces an internal inconsistency against the codebase's own `elihu` record, which already states the correct fact.
+- **Severity:** Important — this is a specific, unambiguous, and easily verified factual claim (who did God rebuke) that the text directly contradicts, and it produces an internal inconsistency against the codebase's own `elihu` record, which already states the correct fact. (Reserving Critical for structural gaps — missing people/relationships with cascading downstream effects — per this series' established severity convention; a single self-contained wrong clause fits Important.)
 
 ---
 
@@ -91,7 +91,7 @@ All 10 refs' chapter:verse ranges confirmed accurate against live-fetched verse 
 
 | # | Finding | Category | Severity |
 |---|---------|----------|----------|
-| 1 | Job's description says God "rebuked them all" (three friends + Elihu); 42:7-9 rebukes only the three friends, not Elihu — also contradicts the DB's own `elihu.description` | Incorrect | Critical |
+| 1 | Job's description says God "rebuked them all" (three friends + Elihu); 42:7-9 rebukes only the three friends, not Elihu — also contradicts the DB's own `elihu.description` | Incorrect | Important |
 | 2 | Zophar's description claims his silence "implies Job's responses silenced him"; this specific causal inference is not stated in the text and is one of several disputed scholarly explanations | Unsupported | Minor |
 
 ---
