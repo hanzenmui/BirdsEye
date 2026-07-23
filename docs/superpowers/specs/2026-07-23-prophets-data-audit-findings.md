@@ -4,7 +4,7 @@
 **Source of truth:** ESV, fetched live for every claim checked (WebFetch/WebSearch; no claim answered from training-data memory)
 **File audited:** `scripts/seed-prophets.ts` (314 lines) — Jeremiah, Ezekiel, and all twelve minor prophets
 
-Reviewed: 18 people, 13 relationships, 20 refs. 10 findings.
+Reviewed: 18 people, 13 relationships, 20 refs. 11 findings.
 
 Counts were grep-verified directly against the file, not taken from the task plan's stated expectations:
 - `grep -c "await safeInsertPerson("` → 18
@@ -114,6 +114,25 @@ Counts were grep-verified directly against the file, not taken from the task pla
 - **Why this is flagged as borderline:** 390 + 40 does equal 430, so the total is numerically correct, and this kind of aggregated summary is common in study-Bible descriptions. However, phrased as a single clause ("lay on his side for 430 days") it could be read as one continuous 430-day act on one side, when the text specifies two distinct acts — 390 days on the left side for Israel, then a separate 40 days on the right side for Judah. Flagging as a borderline precision issue for the controller/reviewer to judge whether the current phrasing is clear enough or should be split out.
 - **Proposed correction:** No single mandated fix — optionally: "lay on his left side 390 days for Israel's punishment, then his right side 40 days for Judah's (430 days total)."
 - **Severity:** Minor.
+
+---
+
+## Finding 11: Finding 8's "duplicate" premise was wrong — the deleted row was actually the only Jonah/Jeroboam II relationship, due to a seed-ordering + silent-no-op bug in `seed-2kings.ts`
+
+- **Category:** Missing
+- **Verse(s):** 2 Kings 14:25 (ESV, live-fetched, verbatim): "He restored the border of Israel from Lebo-hamath as far as the Sea of the Arabah, according to the word of the Lord, the God of Israel, which he spoke by his servant Jonah the son of Amittai, the prophet, who was from Gath-hepher."
+- **What was discovered:** Finding 8 (this same audit) assumed `scripts/seed-2kings.ts` line 244 — `insertRelNameToLocal("Jonah", "ally_of", "jeroboam2", "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)")` — had already created a live `Jonah "ally_of" Jeroboam II` relationship row, and flagged `scripts/seed-prophets.ts`'s near-duplicate (`Jeroboam II "other" Jonah`, reversed direction, different type) as redundant. Task 2/3 deleted that "duplicate" row live (commit 3faf301). Task 3's live verification for this task discovered the premise was false: `insertRelNameToLocal`'s implementation (`scripts/seed-2kings.ts` lines 73-81) does a live name lookup for `aName` via `lookupId()`, and when the name isn't found, it **silently `console.warn`s and returns without inserting anything** — it does not throw. Per `package.json`'s `scripts` section, `seed:2kings` runs before `seed:prophets` in the seed order, and Jonah is only ever inserted by `seed-prophets.ts` — meaning Jonah did not exist in the `people` table yet when `seed-2kings.ts` line 244 ran historically, so that call silently no-op'd and no row was ever created. The row Finding 8 deleted as a "duplicate" was, in fact, the only relationship ever created between Jonah and Jeroboam II. Re-querying the live `relationships` table (both directions, any type) after that deletion confirmed zero rows existed between the two.
+- **Root cause quoted:**
+  ```
+  async function insertRelNameToLocal(aName: string, type: string, bKey: string, notes?: string) {
+    const aId = await lookupId(aName);
+    if (!aId) { console.warn(`  ⚠ Could not find ${aName} for link to ${bKey}`); return; }
+    ...
+  }
+  ```
+  (`scripts/seed-2kings.ts` lines 73-77) — a silent no-op on a missing name, combined with `seed:2kings` preceding `seed:prophets` in `package.json`'s seed order (so `Jonah` didn't exist yet when this ran).
+- **Corrective action taken:** Live-verified zero relationship rows existed between Jonah and Jeroboam II (either direction, any type) and resolved both people's live ids directly against the DB (Jonah: `e08c2aa1-8a6b-4deb-b2fc-009704c06cb7`; Jeroboam II: `5e6cbb8f-c1bc-47ce-b24f-bd0db09e8496`, matched via `name = "Jeroboam" AND also_known_as = "Jeroboam II king of Israel"`). Inserted the missing relationship live via a one-off script matching `scripts/fix-prophets-audit.ts`'s connection pattern and `seed-2kings.ts`'s `relationships` INSERT shape, reproducing `seed-2kings.ts` line 244's original intent exactly: `person_a` = Jonah, `type` = `ally_of`, `person_b` = Jeroboam II, `notes` = "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)". Re-queried afterward and confirmed exactly one relationship row now exists between Jonah and Jeroboam II, with the correct direction, type, and notes. The throwaway verification/insert script was deleted; it was a one-off live action, not a repeatable fix script, so nothing was added to `scripts/`.
+- **Severity:** Important.
 
 ---
 
