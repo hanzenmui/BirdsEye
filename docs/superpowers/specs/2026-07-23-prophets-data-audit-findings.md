@@ -130,7 +130,7 @@ Counts were grep-verified directly against the file, not taken from the task pla
     ...
   }
   ```
-  (`scripts/seed-2kings.ts` lines 73-77) — a silent no-op on a missing name, combined with `seed:2kings` preceding `seed:prophets` in `package.json`'s seed order (so `Jonah` didn't exist yet when this ran).
+  (`scripts/seed-2kings.ts` lines 73-81) — a silent no-op on a missing name, combined with `seed:2kings` preceding `seed:prophets` in `package.json`'s seed order (so `Jonah` didn't exist yet when this ran).
 - **Corrective action taken:** Live-verified zero relationship rows existed between Jonah and Jeroboam II (either direction, any type) and resolved both people's live ids directly against the DB (Jonah: `e08c2aa1-8a6b-4deb-b2fc-009704c06cb7`; Jeroboam II: `5e6cbb8f-c1bc-47ce-b24f-bd0db09e8496`, matched via `name = "Jeroboam" AND also_known_as = "Jeroboam II king of Israel"`). Inserted the missing relationship live via a one-off script matching `scripts/fix-prophets-audit.ts`'s connection pattern and `seed-2kings.ts`'s `relationships` INSERT shape, reproducing `seed-2kings.ts` line 244's original intent exactly: `person_a` = Jonah, `type` = `ally_of`, `person_b` = Jeroboam II, `notes` = "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)". Re-queried afterward and confirmed exactly one relationship row now exists between Jonah and Jeroboam II, with the correct direction, type, and notes. The throwaway verification/insert script was deleted; it was a one-off live action, not a repeatable fix script, so nothing was added to `scripts/`.
 - **Severity:** Important.
 
