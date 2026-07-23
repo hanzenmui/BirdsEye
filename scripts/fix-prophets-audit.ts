@@ -66,6 +66,24 @@ async function resolveRelationship(aId: string, type: string, bId: string): Prom
   return (row.rows[0] as unknown as { id: string }).id;
 }
 
+// Same as resolveRelationship, but returns undefined (instead of throwing) when
+// zero matches are found — for corrections that may have already been applied
+// in a prior run against this same live DB. Still throws on >1 match, since
+// that's a genuine ambiguity bug, not an "already applied" state.
+async function resolveRelationshipOptional(aId: string, type: string, bId: string): Promise<string | undefined> {
+  const row = await db.execute({
+    sql: "SELECT id FROM relationships WHERE person_a_id = ? AND type = ? AND person_b_id = ?",
+    args: [aId, type, bId],
+  });
+  if (row.rows.length === 0) {
+    return undefined;
+  }
+  if (row.rows.length > 1) {
+    throw new Error(`resolveRelationshipOptional: ${row.rows.length} relationships found for (${aId}, ${type}, ${bId}) — ambiguous`);
+  }
+  return (row.rows[0] as unknown as { id: string }).id;
+}
+
 type Stmt = { sql: string; args: unknown[] };
 
 const plannedStatements: { citation: string; description: string; stmt: Stmt }[] = [];
@@ -208,11 +226,49 @@ async function main() {
   // ───────────────────────────────────────────────────────────────────────
 
   {
-    const dupRelId = await resolveRelationship(jeroboam2Id, "other", jonahId);
-    await run("Finding 8", `DELETE duplicate relationship row (id: ${dupRelId}) — Jeroboam II "other" Jonah, duplicating the pre-existing Jonah "ally_of" Jeroboam II row from seed-2kings.ts`, {
-      sql: `DELETE FROM relationships WHERE id = ?`,
-      args: [dupRelId],
-    });
+    const dupRelId = await resolveRelationshipOptional(jeroboam2Id, "other", jonahId);
+    if (dupRelId) {
+      await run("Finding 8", `DELETE duplicate relationship row (id: ${dupRelId}) — Jeroboam II "other" Jonah, duplicating the pre-existing Jonah "ally_of" Jeroboam II row from seed-2kings.ts`, {
+        sql: `DELETE FROM relationships WHERE id = ?`,
+        args: [dupRelId],
+      });
+    } else {
+      console.log(`\n[Finding 8] duplicate relationship (Jeroboam II "other" Jonah) already removed — skipping.`);
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Finding 11: Finding 8's premise turned out to be false — the "pre-
+  // existing" seed-2kings.ts relationship it believed already existed was
+  // never actually created live (seed-2kings.ts's insertRelNameToLocal
+  // silently no-ops when its target name isn't found yet, and Jonah didn't
+  // exist when that line ran, since seed:2kings runs before seed:prophets).
+  // So Finding 8's DELETE above left zero relationships between Jonah and
+  // Jeroboam II. This restores the relationship seed-2kings.ts line 244
+  // originally intended, guarded so it's a no-op if already present (e.g.
+  // if this script is re-run after the restore has already landed). See
+  // docs/superpowers/specs/2026-07-23-prophets-data-audit-findings.md,
+  // Finding 11, for the full discovery writeup.
+  // ───────────────────────────────────────────────────────────────────────
+
+  {
+    const existingRelId = await resolveRelationshipOptional(jonahId, "ally_of", jeroboam2Id);
+    if (!existingRelId) {
+      await run("Finding 11", `INSERT relationship — Jonah "ally_of" Jeroboam II (restores the relationship Finding 8 mistakenly deleted; see findings doc Finding 11)`, {
+        sql: `INSERT INTO relationships (id, person_a_id, person_a_name, type, person_b_id, person_b_name, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        args: [
+          crypto.randomUUID(),
+          jonahId,
+          names["jonah"] ?? "Jonah",
+          "ally_of",
+          jeroboam2Id,
+          names["jeroboam2"] ?? "Jeroboam",
+          "Jonah prophesied Jeroboam II's restoration of Israel's borders (2 Kgs 14:25)",
+        ],
+      });
+    } else {
+      console.log(`\n[Finding 11] Jonah "ally_of" Jeroboam II relationship already present — skipping.`);
+    }
   }
 
   console.log(`\n${DRY_RUN ? "[DRY RUN] Would execute" : "Executed"} ${plannedStatements.length} statements.`);
