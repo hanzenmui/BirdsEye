@@ -844,7 +844,10 @@ export function Explorer() {
       <div id="layout-root">
         {/* Sidebar */}
         <nav className={`app-sidebar${sidebarOpen ? " open" : ""}`} id="app-sidebar">
-          <div className="sidebar-logo">Birds<span className="logo-eye">eye</span></div>
+          <div className="sidebar-logo">
+            <img src="/logo-birdseye.png" alt="" className="sidebar-logo-icon" />
+            Birds<span className="logo-eye">eye</span>
+          </div>
           <div className="sidebar-nav">
             {NAV.map(n => (
               <div key={n.key} className={`sidebar-item${section === n.key ? " active" : ""}`}
