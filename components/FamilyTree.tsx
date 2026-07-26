@@ -65,6 +65,48 @@ function findLineagePath(people: Person[], rels: Relationship[], fromId: string,
   return new Set();
 }
 
+// Forward BFS over every parent_of edge (not just the one buildLayout keeps
+// per child) — used for the Solomon/Nathan royal-line split, where David's
+// two sons each carry their own gospel's genealogy down to Joseph rather
+// than the single tree-resolved chain findLineagePath follows. optional
+// excludeEdge drops one specific (parentId, childId) edge before searching,
+// which is how the Zerubbabel → Abiud/Rhesa fork is pinned to the correct
+// branch instead of BFS wandering onto the far shorter Matthew-side route
+// (Solomon→Jesus via Abiud is a much shorter graph distance than via Rhesa,
+// so an unconstrained shortest-path search from Nathan would incorrectly
+// jump onto Matthew's branch after Zerubbabel).
+function findForwardPath(
+  rels: Relationship[],
+  fromId: string,
+  toId: string,
+  excludeEdge?: [string, string],
+): string[] {
+  if (!fromId || !toId) return [];
+  const next = new Map<string, string[]>();
+  for (const r of rels) {
+    if (r.type !== "parent_of") continue;
+    if (excludeEdge && r.personAId === excludeEdge[0] && r.personBId === excludeEdge[1]) continue;
+    if (!next.has(r.personAId)) next.set(r.personAId, []);
+    next.get(r.personAId)!.push(r.personBId);
+  }
+  const prev = new Map<string, string>([[fromId, ""]]);
+  const queue = [fromId];
+  while (queue.length && !prev.has(toId)) {
+    const curr = queue.shift()!;
+    for (const c of (next.get(curr) ?? [])) {
+      if (!prev.has(c)) { prev.set(c, curr); queue.push(c); }
+    }
+  }
+  if (!prev.has(toId)) return [];
+  const path: string[] = [];
+  let node = toId;
+  while (node) { path.push(node); node = prev.get(node) ?? ""; }
+  return path.reverse();
+}
+
+const LINEAGE_SOLOMON_COLOR = "#dc2626"; // red — Matthew's genealogy, through Solomon
+const LINEAGE_NATHAN_COLOR  = "#1d4ed8"; // blue — Luke's genealogy, through Nathan
+
 
 const NW = 108;   // node width
 const NH = 34;    // node height
@@ -312,10 +354,56 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     () => (effectiveRootId ? people.find(p => p.id === effectiveRootId) ?? null : null),
     [people, effectiveRootId],
   );
-  const lineagePath = useMemo(
-    () => findLineagePath(people, relationships, adam?.id ?? "", jesus?.id ?? ""),
-    [people, relationships, adam, jesus],
+
+  // David's two genealogies (Matthew via Solomon, Luke via Nathan) share
+  // Adam→David and Joseph→Jesus but otherwise diverge; findLineagePath's
+  // single resolved-parent walk can only ever show one branch. Trace both
+  // explicitly instead: a shared purple trunk (Adam→David), then a red
+  // Solomon→Jesus path and a blue Nathan→Jesus path, each pinned at the
+  // Zerubbabel fork so neither one BFS-shortcuts onto the other's branch.
+  const david  = useMemo(() => people.find(p => p.name === "David") ?? null, [people]);
+  const solomon = useMemo(() => people.find(p => p.name === "Solomon") ?? null, [people]);
+  const nathanSon = useMemo(() => people.find(p => p.name === "Nathan" && p.alsoKnownAs.includes("son of David")) ?? null, [people]);
+  const zerubbabel = useMemo(() => people.find(p => p.name === "Zerubbabel") ?? null, [people]);
+  const abiud = useMemo(() => people.find(p => p.name === "Abiud") ?? null, [people]);
+  const rhesa = useMemo(() => people.find(p => p.name === "Rhesa") ?? null, [people]);
+
+  const trunkPath = useMemo(
+    () => findLineagePath(people, relationships, adam?.id ?? "", david?.id ?? ""),
+    [people, relationships, adam, david],
   );
+  const solomonPath = useMemo(
+    () => (zerubbabel && rhesa)
+      ? findForwardPath(relationships, solomon?.id ?? "", jesus?.id ?? "", [zerubbabel.id, rhesa.id])
+      : [],
+    [relationships, solomon, jesus, zerubbabel, rhesa],
+  );
+  const nathanPath = useMemo(
+    () => (zerubbabel && abiud)
+      ? findForwardPath(relationships, nathanSon?.id ?? "", jesus?.id ?? "", [zerubbabel.id, abiud.id])
+      : [],
+    [relationships, nathanSon, jesus, zerubbabel, abiud],
+  );
+  const solomonIds = useMemo(() => new Set(solomonPath), [solomonPath]);
+  const nathanIds = useMemo(() => new Set(nathanPath), [nathanPath]);
+  // Nodes both paths claim (Shealtiel, Zerubbabel, Joseph, Jesus) render as
+  // shared/purple rather than either branch color.
+  const lineagePath = useMemo(() => {
+    const shared = new Set(trunkPath);
+    for (const id of solomonIds) if (nathanIds.has(id)) shared.add(id);
+    return shared;
+  }, [trunkPath, solomonIds, nathanIds]);
+
+  // Consecutive-pair edge lists for drawing the red/blue overlays, each
+  // bridged from David (the last shared/purple node) into its branch.
+  const solomonEdges = useMemo(() => {
+    const chain = david ? [david.id, ...solomonPath] : solomonPath;
+    return chain.slice(1).map((id, i) => [chain[i], id] as [string, string]);
+  }, [david, solomonPath]);
+  const nathanEdges = useMemo(() => {
+    const chain = david ? [david.id, ...nathanPath] : nathanPath;
+    return chain.slice(1).map((id, i) => [chain[i], id] as [string, string]);
+  }, [david, nathanPath]);
 
   const pickerSuggestions = useMemo(
     () => pickerQuery
@@ -638,9 +726,33 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             );
           })}
 
+          {/* Solomon (red) / Nathan (blue) genealogy overlays — drawn on top of
+              the neutral connector lines above, including edges (e.g. Jacob→
+              Joseph, Jehoiachin→Shealtiel) that the single-parent tree layout
+              doesn't draw at all, since each branch keeps its own ancestor
+              positioned wherever its own unambiguous chain placed it. */}
+          {solomonEdges.filter(([a, b]) => posMap.has(a) && posMap.has(b)).map(([a, b]) => {
+            const nA = posMap.get(a)!, nB = posMap.get(b)!;
+            return (
+              <line key={`sol-${a}-${b}`}
+                x1={nA.x} y1={nA.y + NH} x2={nB.x} y2={nB.y}
+                stroke={LINEAGE_SOLOMON_COLOR} strokeWidth={1.75} opacity={0.55} />
+            );
+          })}
+          {nathanEdges.filter(([a, b]) => posMap.has(a) && posMap.has(b)).map(([a, b]) => {
+            const nA = posMap.get(a)!, nB = posMap.get(b)!;
+            return (
+              <line key={`nat-${a}-${b}`}
+                x1={nA.x} y1={nA.y + NH} x2={nB.x} y2={nB.y}
+                stroke={LINEAGE_NATHAN_COLOR} strokeWidth={1.75} opacity={0.55} />
+            );
+          })}
+
           {/* Person nodes */}
           {all.map(n => {
             const onLin = lineagePath.has(n.id);
+            const onSolomon = !onLin && solomonIds.has(n.id);
+            const onNathan = !onLin && nathanIds.has(n.id);
             const isHighlighted = highlightedIds.has(n.id);
             const isSelected = detailId === n.id;
             const isDimmed = hasFilter && !isHighlighted && !isSelected;
@@ -648,6 +760,10 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
               ? "#2563eb"
               : onLin
               ? RELATIONSHIP_COLORS.lineage
+              : onSolomon
+              ? LINEAGE_SOLOMON_COLOR
+              : onNathan
+              ? LINEAGE_NATHAN_COLOR
               : isHighlighted
               ? "#f59e0b"
               : undefined;
@@ -856,12 +972,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             <span>{label}</span>
           </div>
         ))}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, gridColumn: "1 / -1", marginTop: 2, paddingTop: 4, borderTop: "1px solid rgba(60,45,20,.1)" }}>
-          <svg width="14" height="10" style={{ flexShrink: 0 }}>
-            <rect x="1" y="1" width="12" height="8" rx="2" fill="none" stroke={RELATIONSHIP_COLORS.lineage} strokeWidth="1.8" />
-          </svg>
-          <span>Adam → Jesus lineage</span>
-        </div>
+        {([
+          [RELATIONSHIP_COLORS.lineage, "Adam ↔ David / Joseph ↔ Jesus"],
+          [LINEAGE_SOLOMON_COLOR, "Solomon line (Matthew)"],
+          [LINEAGE_NATHAN_COLOR, "Nathan line (Luke)"],
+        ] as [string, string][]).map(([color, label], i) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, gridColumn: "1 / -1", marginTop: i === 0 ? 2 : 0, paddingTop: i === 0 ? 4 : 0, borderTop: i === 0 ? "1px solid rgba(60,45,20,.1)" : undefined }}>
+            <svg width="14" height="10" style={{ flexShrink: 0 }}>
+              <rect x="1" y="1" width="12" height="8" rx="2" fill="none" stroke={color} strokeWidth="1.8" />
+            </svg>
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
 
       {/* ── Zoom + fit controls — bottom right ────────────────────────────────── */}
