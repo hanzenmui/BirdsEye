@@ -275,7 +275,8 @@ type ViewAction =
   | { type: "PINCH"; delta: number; cx: number; cy: number }
   | { type: "PAN";   dx: number; dy: number }
   | { type: "FIT";   treeW: number; treeH: number; vpW: number; vpH: number }
-  | { type: "CENTER"; nodeX: number; nodeY: number; vpW: number; vpH: number };
+  | { type: "CENTER"; nodeX: number; nodeY: number; vpW: number; vpH: number }
+  | { type: "FIT_BOX"; minX: number; minY: number; maxX: number; maxY: number; vpW: number; vpH: number };
 
 const CENTER_TOP_OFFSET = 90; // clears the top search/root-picker bars
 
@@ -313,6 +314,21 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
           y: CENTER_TOP_OFFSET - a.nodeY * s.zoom,
         },
       };
+    case "FIT_BOX": {
+      // Like FIT, but frames an arbitrary sub-region of the tree (e.g. every
+      // node matching the active book filter) instead of the whole thing —
+      // used so filtering naturally zooms to just the matches.
+      const boxW = Math.max(a.maxX - a.minX, 1);
+      const boxH = Math.max(a.maxY - a.minY, 1);
+      const scale = Math.min(a.vpW / boxW, a.vpH / boxH, 1);
+      return {
+        zoom: scale,
+        pan: {
+          x: a.vpW / 2 - ((a.minX + a.maxX) / 2) * scale,
+          y: a.vpH / 2 - ((a.minY + a.maxY) / 2) * scale,
+        },
+      };
+    }
   }
 }
 
@@ -514,6 +530,68 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, vpW: width, vpH: height });
     setDetailId(id);
   }, [posMap]);
+
+  // Bounding box (in tree coordinates) around every node the active book
+  // filter matches — only meaningful on the unscoped tree, since a scoped
+  // (book/family) view already lays out just its own members via
+  // buildForest and hides the book filter control entirely.
+  const BOX_PAD = 60;
+  const bookFilterBox = useMemo(() => {
+    if (scope || !bookFilter) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = false;
+    for (const id of bookHits) {
+      const n = posMap.get(id);
+      if (!n) continue;
+      found = true;
+      minX = Math.min(minX, n.x - NW / 2);
+      maxX = Math.max(maxX, n.x + NW / 2);
+      minY = Math.min(minY, n.y);
+      maxY = Math.max(maxY, n.y + NH);
+    }
+    if (!found) return null;
+    return { minX: minX - BOX_PAD, minY: minY - BOX_PAD, maxX: maxX + BOX_PAD, maxY: maxY + BOX_PAD };
+  }, [scope, bookFilter, bookHits, posMap]);
+
+  // Same idea as fitView, but frames the active book-filter's matches
+  // instead of the whole tree when one is set — the manual "Fit" button
+  // stays consistent with the automatic filter-driven fit below.
+  const fitToFilterOrView = useCallback(() => {
+    if (!containerRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    if (bookFilterBox) {
+      dispatch({ type: "FIT_BOX", ...bookFilterBox, vpW: width, vpH: height });
+    } else if (tree) {
+      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+    }
+  }, [bookFilterBox, tree]);
+
+  // Left-side name list: the scoped book/family roster when scoped, or the
+  // active book filter's matches when filtering the unscoped tree.
+  const sideList = useMemo(() => {
+    if (scope) return { title: scope.label, items: scopedPeopleSorted };
+    if (bookFilter && bookHits.size > 0) {
+      const items = people.filter(p => bookHits.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+      return { title: bookFilter, items };
+    }
+    return null;
+  }, [scope, scopedPeopleSorted, bookFilter, bookHits, people]);
+
+  // Picking a book filter naturally re-frames the view to just its matches;
+  // clearing it (bookFilterBox goes back to null while bookFilter is also
+  // empty) restores the full tree.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+    if (bookFilterBox) {
+      dispatch({ type: "FIT_BOX", ...bookFilterBox, vpW: width, vpH: height });
+    } else if (!bookFilter && hasFitted.current && tree) {
+      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookFilterBox]);
 
   // Fit-to-view on first load only (uses ResizeObserver because the container's
   // flex dimensions aren't available yet when the effect first runs). On every
@@ -819,8 +897,9 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         </svg>
       </div>
 
-      {/* ── Name list — left side, scoped (book/family) views only ────────────── */}
-      {scope && (
+      {/* ── Name list — left side, scoped (book/family) views or an active
+          book filter on the unscoped tree ─────────────────────────────── */}
+      {sideList && (
         <div
           className="ft-book-list"
           style={{
@@ -839,14 +918,14 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         >
           <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid rgba(60,45,20,.10)", flexShrink: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text, #1a1209)", fontFamily: "var(--font, serif)", lineHeight: 1.25 }}>
-              {scope.label}
+              {sideList.title}
             </div>
             <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 2 }}>
-              {scopedPeopleSorted.length} {scopedPeopleSorted.length === 1 ? "person" : "people"}
+              {sideList.items.length} {sideList.items.length === 1 ? "person" : "people"}
             </div>
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "6px 8px" }}>
-            {scopedPeopleSorted.map(p => {
+            {sideList.items.map(p => {
               const inTree = posMap.has(p.id);
               const isActive = detailId === p.id;
               return (
@@ -864,7 +943,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg2, #f5f0e8)"; }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
-                  title={!inTree ? `${p.name} isn't connected to anyone else in ${scope.label}` : undefined}
+                  title={!inTree ? `${p.name} isn't connected to anyone else in ${sideList.title}` : undefined}
                 >
                   {p.name}
                 </div>
@@ -875,7 +954,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       )}
 
       {/* ── Back-to-categories + root picker (unscoped) or breadcrumb (scoped) — top left ── */}
-      <div className="ft-topleft" style={{ position: "absolute", top: 14, left: scope ? 298 : 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <div className="ft-topleft" style={{ position: "absolute", top: 14, left: sideList ? 298 : 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
       {onExitCategory && (
         <button
           onClick={onExitCategory}
@@ -1033,7 +1112,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       {/* ── Relationship legend — bottom left ─────────────────────────────────── */}
       <div
         className="ft-legend"
-        style={{ position: "absolute", bottom: 16, left: scope ? 298 : 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
+        style={{ position: "absolute", bottom: 16, left: sideList ? 298 : 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
         onMouseDown={e => e.stopPropagation()}
       >
         {([
@@ -1092,7 +1171,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
           >{label}</button>
         ))}
         <button
-          onClick={fitView}
+          onClick={fitToFilterOrView}
           title="Fit to view"
           style={{ border: "none", background: "var(--surface, #fff)", color: "var(--text, #1a1209)", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}
           onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
