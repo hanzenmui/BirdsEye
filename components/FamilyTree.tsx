@@ -12,28 +12,57 @@ function formatRef(r: ScriptureRef): string {
   return `${r.book} ${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}`;
 }
 
-// BFS following only parent_of edges; returns Set of node IDs on the direct lineage path
-function findLineagePath(rels: Relationship[], fromId: string, toId: string): Set<string> {
-  if (!fromId || !toId || fromId === toId) return new Set();
-  const next = new Map<string, string[]>();
+// Resolves each person to at most one parent — male parents preferred, same
+// tie-break rule buildLayout/buildForest use to lay out the tree. Shared so
+// that any "is this node on the lineage path" computation walks exactly the
+// edges that actually get drawn, rather than an independently-discovered
+// path that the tree may not render (e.g. Joseph has parent_of edges from
+// both Jacob and Heli — the tree draws only one of them, so the lineage
+// path must resolve to that same one or the highlighted nodes won't connect).
+function computeParentMap(people: Person[], rels: Relationship[]): Map<string, string> {
+  const byId = new Map(people.map(p => [p.id, p]));
+  const hasMaleParent = new Set<string>();
+  const hasParent = new Set<string>();
+  const parentOf = new Map<string, string>();
+
+  // Pass 1: male parents (patrilineal preference)
   for (const r of rels) {
     if (r.type !== "parent_of") continue;
-    if (!next.has(r.personAId)) next.set(r.personAId, []);
-    next.get(r.personAId)!.push(r.personBId);
+    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
+    if (byId.get(r.personAId)!.gender !== "male") continue;
+    if (hasMaleParent.has(r.personBId)) continue;
+    hasMaleParent.add(r.personBId);
+    hasParent.add(r.personBId);
+    parentOf.set(r.personBId, r.personAId);
   }
-  const prev = new Map<string, string>([[fromId, ""]]);
-  const queue = [fromId];
-  while (queue.length && !prev.has(toId)) {
-    const curr = queue.shift()!;
-    for (const c of (next.get(curr) ?? [])) {
-      if (!prev.has(c)) { prev.set(c, curr); queue.push(c); }
-    }
+
+  // Pass 2: female parents only when no male parent assigned
+  for (const r of rels) {
+    if (r.type !== "parent_of") continue;
+    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
+    if (byId.get(r.personAId)!.gender === "male") continue;
+    if (hasParent.has(r.personBId)) continue;
+    hasParent.add(r.personBId);
+    parentOf.set(r.personBId, r.personAId);
   }
-  if (!prev.has(toId)) return new Set();
+
+  return parentOf;
+}
+
+// Walks the resolved parent-of-one map from toId up to fromId; returns the
+// Set of node IDs on that path (empty if fromId is never reached).
+function findLineagePath(people: Person[], rels: Relationship[], fromId: string, toId: string): Set<string> {
+  if (!fromId || !toId || fromId === toId) return new Set();
+  const parentOf = computeParentMap(people, rels);
   const nodes = new Set<string>();
-  let node = toId;
-  while (node) { nodes.add(node); node = prev.get(node) ?? ""; }
-  return nodes;
+  let node: string | undefined = toId;
+  while (node) {
+    if (nodes.has(node)) return new Set(); // defensive: no real cycles expected in the data
+    nodes.add(node);
+    if (node === fromId) return nodes;
+    node = parentOf.get(node);
+  }
+  return new Set();
 }
 
 
@@ -47,34 +76,11 @@ interface N { id: string; name: string; x: number; y: number; children: N[] }
 
 function buildLayout(people: Person[], rels: Relationship[], rootId: string) {
   const byId = new Map(people.map(p => [p.id, p]));
-  const hasMaleParent = new Set<string>();
-  const hasParent = new Set<string>();
+  const parentOf = computeParentMap(people, rels);
   const childrenOf = new Map<string, string[]>();
-
-  function addChild(parentId: string, childId: string) {
+  for (const [childId, parentId] of parentOf) {
     if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
     childrenOf.get(parentId)!.push(childId);
-  }
-
-  // Pass 1: assign male parents (patrilineal preference)
-  for (const r of rels) {
-    if (r.type !== "parent_of") continue;
-    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
-    if (byId.get(r.personAId)!.gender !== "male") continue;
-    if (hasMaleParent.has(r.personBId)) continue;
-    hasMaleParent.add(r.personBId);
-    hasParent.add(r.personBId);
-    addChild(r.personAId, r.personBId);
-  }
-
-  // Pass 2: female parents only when no male parent assigned
-  for (const r of rels) {
-    if (r.type !== "parent_of") continue;
-    if (!byId.has(r.personAId) || !byId.has(r.personBId)) continue;
-    if (byId.get(r.personAId)!.gender === "male") continue;
-    if (hasParent.has(r.personBId)) continue;
-    hasParent.add(r.personBId);
-    addChild(r.personAId, r.personBId);
   }
 
   const visited = new Set<string>();
@@ -307,8 +313,8 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     [people, effectiveRootId],
   );
   const lineagePath = useMemo(
-    () => findLineagePath(relationships, adam?.id ?? "", jesus?.id ?? ""),
-    [relationships, adam, jesus],
+    () => findLineagePath(people, relationships, adam?.id ?? "", jesus?.id ?? ""),
+    [people, relationships, adam, jesus],
   );
 
   const pickerSuggestions = useMemo(
