@@ -418,6 +418,14 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     [people, scope],
   );
 
+  // Alphabetical roster for the left-side name list shown in scoped
+  // (book/family) views — a persistent reference list separate from the
+  // node-search dropdown above.
+  const scopedPeopleSorted = useMemo(
+    () => (scope ? [...scopedPeople].sort((a, b) => a.name.localeCompare(b.name)) : []),
+    [scope, scopedPeople],
+  );
+
   const nodeSearchHits = useMemo(() => {
     if (!nodeSearch.trim()) return new Set<string>();
     const q = nodeSearch.toLowerCase();
@@ -494,6 +502,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     const { width, height } = containerRef.current.getBoundingClientRect();
     dispatch({ type: "PINCH", delta, cx: width / 2, cy: height / 2 });
   }, []);
+
+  // Pans the current tree so the given node lands near the top-center of the
+  // viewport (same CENTER behavior used when re-rooting) and opens its detail
+  // panel — used by the left-side name list's click-to-jump.
+  const jumpToPerson = useCallback((id: string) => {
+    if (!containerRef.current) return;
+    const node = posMap.get(id);
+    if (!node) return;
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, vpW: width, vpH: height });
+    setDetailId(id);
+  }, [posMap]);
 
   // Fit-to-view on first load only (uses ResizeObserver because the container's
   // flex dimensions aren't available yet when the effect first runs). On every
@@ -799,8 +819,63 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         </svg>
       </div>
 
+      {/* ── Name list — left side, scoped (book/family) views only ────────────── */}
+      {scope && (
+        <div
+          className="ft-book-list"
+          style={{
+            position: "absolute",
+            top: 0, left: 0, bottom: 0,
+            width: 280,
+            background: "var(--surface, #fff)",
+            borderRight: "1px solid rgba(60,45,20,.18)",
+            boxShadow: "4px 0 20px rgba(0,0,0,.10)",
+            zIndex: 25,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid rgba(60,45,20,.10)", flexShrink: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text, #1a1209)", fontFamily: "var(--font, serif)", lineHeight: 1.25 }}>
+              {scope.label}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 2 }}>
+              {scopedPeopleSorted.length} {scopedPeopleSorted.length === 1 ? "person" : "people"}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: "6px 8px" }}>
+            {scopedPeopleSorted.map(p => {
+              const inTree = posMap.has(p.id);
+              const isActive = detailId === p.id;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => { if (inTree) jumpToPerson(p.id); }}
+                  style={{
+                    padding: "7px 10px",
+                    fontSize: 13,
+                    borderRadius: 6,
+                    cursor: inTree ? "pointer" : "default",
+                    color: inTree ? "var(--text, #1a1209)" : "var(--text3, #888)",
+                    background: isActive ? "var(--bg2, #f5f0e8)" : "transparent",
+                    fontWeight: isActive ? 600 : 400,
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg2, #f5f0e8)"; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+                  title={!inTree ? `${p.name} isn't connected to anyone else in ${scope.label}` : undefined}
+                >
+                  {p.name}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Back-to-categories + root picker (unscoped) or breadcrumb (scoped) — top left ── */}
-      <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <div className="ft-topleft" style={{ position: "absolute", top: 14, left: scope ? 298 : 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
       {onExitCategory && (
         <button
           onClick={onExitCategory}
@@ -958,7 +1033,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       {/* ── Relationship legend — bottom left ─────────────────────────────────── */}
       <div
         className="ft-legend"
-        style={{ position: "absolute", bottom: 16, left: 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
+        style={{ position: "absolute", bottom: 16, left: scope ? 298 : 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
         onMouseDown={e => e.stopPropagation()}
       >
         {([

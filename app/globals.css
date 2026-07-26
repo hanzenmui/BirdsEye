@@ -407,6 +407,12 @@ select.form-input { cursor: pointer; }
   .ft-legend { display: none !important; }
   .ft-zoom { right: 16px !important; }
 
+  /* Book/family name list doesn't fit alongside the canvas on small screens —
+     hide it and reclaim the left offset it would otherwise reserve for the
+     breadcrumb above it. */
+  .ft-book-list { display: none !important; }
+  .ft-topleft { left: 14px !important; }
+
   /* FamilyTree detail panel: full-width bottom sheet */
   .ft-detail-panel {
     top: auto !important;
