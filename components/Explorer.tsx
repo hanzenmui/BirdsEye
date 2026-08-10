@@ -860,7 +860,7 @@ export function Explorer() {
         <nav className={`app-sidebar${sidebarOpen ? " open" : ""}`} id="app-sidebar">
           <div className="sidebar-logo">
             <img src="/logo-birdseye.png" alt="" className="sidebar-logo-icon" />
-            Birds<span className="logo-eye">eye</span>
+            <span>Birds<span className="logo-eye">eye</span></span>
           </div>
           <div className="sidebar-nav">
             {NAV.map(n => (

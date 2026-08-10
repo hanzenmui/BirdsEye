@@ -31,7 +31,7 @@ export function LoginForm() {
       <div className="login-card">
         <div className="login-logo">
           <img src="/logo-birdseye.png" alt="" className="login-logo-icon" />
-          Birds<span className="logo-eye">eye</span>
+          <span>Birds<span className="logo-eye">eye</span></span>
         </div>
         <div className="login-subtitle">People of the Bible, clearly mapped.</div>
         <form onSubmit={handleSubmit}>
