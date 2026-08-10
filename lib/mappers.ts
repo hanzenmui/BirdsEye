@@ -1,4 +1,31 @@
+import { GENDERS, TESTAMENTS, RELATIONSHIP_LABELS } from "./types";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "./types";
+
+export function formatRef(r: ScriptureRef): string {
+  const same = r.chapterStart === r.chapterEnd;
+  if (same && r.verseStart === r.verseEnd) return `${r.book} ${r.chapterStart}:${r.verseStart}`;
+  if (same) return `${r.book} ${r.chapterStart}:${r.verseStart}–${r.verseEnd}`;
+  return `${r.book} ${r.chapterStart}:${r.verseStart} – ${r.chapterEnd}:${r.verseEnd}`;
+}
+
+// Rejects unknown gender/testament values at the API boundary — this is how
+// the "adversary_of" relationship-type bug happened: a seed script wrote a
+// value the app's type union didn't know about, and it silently fell back to
+// a raw label + gray color instead of failing loudly.
+export function validatePersonFields(body: { gender?: string; testament?: string }): string | null {
+  if (body.gender !== undefined && !(GENDERS as readonly string[]).includes(body.gender)) {
+    return `Invalid gender: ${body.gender}`;
+  }
+  if (body.testament !== undefined && !(TESTAMENTS as readonly string[]).includes(body.testament)) {
+    return `Invalid testament: ${body.testament}`;
+  }
+  return null;
+}
+
+export function validateRelationshipType(type: string): string | null {
+  if (!(type in RELATIONSHIP_LABELS)) return `Invalid relationship type: ${type}`;
+  return null;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function personFromDb(r: any): Person {

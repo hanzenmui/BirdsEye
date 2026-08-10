@@ -2,27 +2,36 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { ScriptureRef } from "@/lib/types";
 
+async function fetchRefs(
+  gen: number,
+  genRef: { current: number },
+  setRefs: (r: ScriptureRef[]) => void,
+  setLoading: (l: boolean) => void,
+) {
+  try {
+    const res = await fetch("/api/refs");
+    if (!res.ok) {
+      if (res.status === 401) { window.location.href = "/login"; return; }
+      console.error("Failed to load refs:", res.status);
+      if (gen === genRef.current) setLoading(false);
+      return;
+    }
+    const data = await res.json();
+    if (gen === genRef.current) { setRefs(data); setLoading(false); }
+  } catch (e) {
+    console.error("Failed to load refs:", e);
+    if (gen === genRef.current) setLoading(false);
+  }
+}
+
 export function useRefs() {
   const [refs, setRefs] = useState<ScriptureRef[]>([]);
   const [loading, setLoading] = useState(true);
   const genRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(() => {
     const gen = ++genRef.current;
-    try {
-      const res = await fetch("/api/refs");
-      if (!res.ok) {
-        if (res.status === 401) { window.location.href = "/login"; return; }
-        console.error("Failed to load refs:", res.status);
-        if (gen === genRef.current) setLoading(false);
-        return;
-      }
-      const data = await res.json();
-      if (gen === genRef.current) { setRefs(data); setLoading(false); }
-    } catch (e) {
-      console.error("Failed to load refs:", e);
-      if (gen === genRef.current) setLoading(false);
-    }
+    fetchRefs(gen, genRef, setRefs, setLoading);
   }, []);
 
   useEffect(() => { load(); }, [load]);

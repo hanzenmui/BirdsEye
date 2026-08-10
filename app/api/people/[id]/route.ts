@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth, apiHandler } from "@/lib/auth";
-import { personFromDb, personToDb } from "@/lib/mappers";
+import { personFromDb, personToDb, validatePersonFields } from "@/lib/mappers";
 import type { Person } from "@/lib/types";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +12,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const raw: Partial<Person> = await req.json();
     // Strip immutable fields — client must not overwrite the primary key or timestamp
     const { id: _id, createdAt: _createdAt, ...patch } = raw;
+    const validationError = validatePersonFields(patch);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     const rows = await db.query<Record<string, unknown>>("SELECT * FROM people WHERE id = $1", [id]);
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const updated: Person = { ...personFromDb(rows[0]), ...patch };
@@ -20,6 +22,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
        WHERE id=$1`,
       personToDb(updated) as (string | number | null)[]
     );
+    // Keep the denormalized display names on relationships in sync — they're
+    // read directly in the UI rather than re-looked-up by id.
+    if (updated.name !== rows[0].name) {
+      await db.run("UPDATE relationships SET person_a_name = $2 WHERE person_a_id = $1", [id, updated.name]);
+      await db.run("UPDATE relationships SET person_b_name = $2 WHERE person_b_id = $1", [id, updated.name]);
+    }
     return NextResponse.json(updated);
   });
 }

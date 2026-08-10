@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth, apiHandler } from "@/lib/auth";
-import { personFromDb, personToDb } from "@/lib/mappers";
+import { personFromDb, personToDb, validatePersonFields } from "@/lib/mappers";
 import type { Person } from "@/lib/types";
 
 export async function GET() {
@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
     await requireAuth();
     const db = getDb();
     const body: Omit<Person, "id" | "createdAt"> = await req.json();
+    const validationError = validatePersonFields(body);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     const person: Person = {
       ...body,
       id: crypto.randomUUID(),

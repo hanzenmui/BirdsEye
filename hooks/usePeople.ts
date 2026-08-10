@@ -2,27 +2,36 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Person } from "@/lib/types";
 
+async function fetchPeople(
+  gen: number,
+  genRef: { current: number },
+  setPeople: (p: Person[]) => void,
+  setLoading: (l: boolean) => void,
+) {
+  try {
+    const res = await fetch("/api/people");
+    if (!res.ok) {
+      if (res.status === 401) { window.location.href = "/login"; return; }
+      console.error("Failed to load people:", res.status);
+      if (gen === genRef.current) setLoading(false);
+      return;
+    }
+    const data = await res.json();
+    if (gen === genRef.current) { setPeople(data); setLoading(false); }
+  } catch (e) {
+    console.error("Failed to load people:", e);
+    if (gen === genRef.current) setLoading(false);
+  }
+}
+
 export function usePeople() {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const genRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(() => {
     const gen = ++genRef.current;
-    try {
-      const res = await fetch("/api/people");
-      if (!res.ok) {
-        if (res.status === 401) { window.location.href = "/login"; return; }
-        console.error("Failed to load people:", res.status);
-        if (gen === genRef.current) setLoading(false);
-        return;
-      }
-      const data = await res.json();
-      if (gen === genRef.current) { setPeople(data); setLoading(false); }
-    } catch (e) {
-      console.error("Failed to load people:", e);
-      if (gen === genRef.current) setLoading(false);
-    }
+    fetchPeople(gen, genRef, setPeople, setLoading);
   }, []);
 
   useEffect(() => { load(); }, [load]);

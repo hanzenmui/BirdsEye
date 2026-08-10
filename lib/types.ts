@@ -1,9 +1,12 @@
+export const GENDERS = ["male", "female", "unknown"] as const;
+export const TESTAMENTS = ["OT", "NT", "both"] as const;
+
 export interface Person {
   id: string;
   name: string;
   alsoKnownAs: string;       // comma-separated aliases
-  gender: "male" | "female" | "unknown";
-  testament: "OT" | "NT" | "both";
+  gender: (typeof GENDERS)[number];
+  testament: (typeof TESTAMENTS)[number];
   birthYear: string;         // e.g. "c. 1526 BC" — display string
   deathYear: string;
   description: string;
@@ -33,6 +36,7 @@ export type RelationshipType =
   | "disciple_of"
   | "ally_of"
   | "enemy_of"
+  | "adversary_of"
   | "servant_of"
   | "ruler_of"
   | "other";
@@ -139,6 +143,7 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   disciple_of:   "Disciple of",
   ally_of:       "Ally of",
   enemy_of:      "Enemy of",
+  adversary_of:  "Adversary of",
   servant_of:    "Servant of",
   ruler_of:      "Ruler of",
   other:         "Related to",
@@ -156,6 +161,7 @@ export const RELATIONSHIP_COLORS: Record<RelationshipType | "lineage", string> =
   ally_of:       "#16a34a",             // green
   servant_of:    "#059669",             // emerald
   enemy_of:      "#dc2626",             // red
+  adversary_of:  "#9f1239",             // rose-maroon (distinct from enemy_of's red)
   ruler_of:      "#d97706",             // amber-gold
   other:         "#6b7280",             // gray
   lineage:       "#7c3aed",             // Adam → Jesus violet
@@ -173,6 +179,7 @@ export const RELATIONSHIP_INVERSE_LABELS: Record<RelationshipType, string> = {
   disciple_of:   "Mentor of",
   ally_of:       "Ally of",
   enemy_of:      "Enemy of",
+  adversary_of:  "Adversary of",
   servant_of:    "Master of",
   ruler_of:      "Subject of",
   other:         "Related to",

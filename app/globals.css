@@ -325,6 +325,8 @@ select.form-input { cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Family Tree (SVG) ───────────────────────────────────────────────────── */
+.ft-canvas { cursor: grab; }
+.ft-canvas:active { cursor: grabbing; }
 .ft-node { cursor: pointer; }
 .ft-node-rect { fill: var(--bg2); stroke: var(--border2); stroke-width: 1; rx: 8; transition: fill 120ms, stroke 120ms; }
 .ft-node:hover .ft-node-rect { fill: var(--accent-dim); stroke: var(--accent); }

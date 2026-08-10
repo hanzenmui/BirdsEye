@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { timingSafeEqual } from "crypto";
 
+// In-memory and per-process: resets on redeploy/cold start and isn't shared
+// across instances. Fine for a single-instance/local deploy; if this ever
+// runs on multi-instance serverless, move this to the DB or an external store.
 const attempts = new Map<string, { count: number; lockedUntil: number }>();
 
 export async function POST(req: NextRequest) {

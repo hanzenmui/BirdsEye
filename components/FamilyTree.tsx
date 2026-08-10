@@ -4,13 +4,7 @@ import type { Person, Relationship, ScriptureRef } from "@/lib/types";
 import {
   RELATIONSHIP_COLORS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, BIBLE_BOOKS,
 } from "@/lib/types";
-
-function formatRef(r: ScriptureRef): string {
-  const same = r.chapterStart === r.chapterEnd;
-  if (same && r.verseStart === r.verseEnd) return `${r.book} ${r.chapterStart}:${r.verseStart}`;
-  if (same) return `${r.book} ${r.chapterStart}:${r.verseStart}–${r.verseEnd}`;
-  return `${r.book} ${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}`;
-}
+import { formatRef } from "@/lib/mappers";
 
 // Resolves each person to at most one parent — male parents preferred, same
 // tie-break rule buildLayout/buildForest use to lay out the tree. Shared so
@@ -781,12 +775,12 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   return (
     <div
       ref={containerRef}
+      className="ft-canvas"
       style={{
         position: "relative",
         flex: 1,
         overflow: "hidden",
         background: "var(--bg)",
-        cursor: isDragging.current ? "grabbing" : "grab",
         userSelect: "none",
         touchAction: "none",
         overscrollBehavior: "none",

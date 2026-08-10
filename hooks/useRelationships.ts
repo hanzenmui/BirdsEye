@@ -2,27 +2,36 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Relationship } from "@/lib/types";
 
+async function fetchRelationships(
+  gen: number,
+  genRef: { current: number },
+  setRelationships: (r: Relationship[]) => void,
+  setLoading: (l: boolean) => void,
+) {
+  try {
+    const res = await fetch("/api/relationships");
+    if (!res.ok) {
+      if (res.status === 401) { window.location.href = "/login"; return; }
+      console.error("Failed to load relationships:", res.status);
+      if (gen === genRef.current) setLoading(false);
+      return;
+    }
+    const data = await res.json();
+    if (gen === genRef.current) { setRelationships(data); setLoading(false); }
+  } catch (e) {
+    console.error("Failed to load relationships:", e);
+    if (gen === genRef.current) setLoading(false);
+  }
+}
+
 export function useRelationships() {
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
   const genRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(() => {
     const gen = ++genRef.current;
-    try {
-      const res = await fetch("/api/relationships");
-      if (!res.ok) {
-        if (res.status === 401) { window.location.href = "/login"; return; }
-        console.error("Failed to load relationships:", res.status);
-        if (gen === genRef.current) setLoading(false);
-        return;
-      }
-      const data = await res.json();
-      if (gen === genRef.current) { setRelationships(data); setLoading(false); }
-    } catch (e) {
-      console.error("Failed to load relationships:", e);
-      if (gen === genRef.current) setLoading(false);
-    }
+    fetchRelationships(gen, genRef, setRelationships, setLoading);
   }, []);
 
   useEffect(() => { load(); }, [load]);

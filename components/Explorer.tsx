@@ -5,6 +5,7 @@ import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
+import { formatRef } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 
 // Returns the relationship label from the given person's perspective.
@@ -44,13 +45,6 @@ const NAV: { key: Section; label: string; icon: string }[] = [
 function TestamentBadge({ testament }: { testament: Person["testament"] }) {
   const cls = testament === "OT" ? "badge-ot" : testament === "NT" ? "badge-nt" : "badge-both";
   return <span className={`badge ${cls}`}>{testament === "both" ? "OT & NT" : testament}</span>;
-}
-
-function formatRef(r: ScriptureRef) {
-  const same = r.chapterStart === r.chapterEnd;
-  if (same && r.verseStart === r.verseEnd) return `${r.book} ${r.chapterStart}:${r.verseStart}`;
-  if (same) return `${r.book} ${r.chapterStart}:${r.verseStart}–${r.verseEnd}`;
-  return `${r.book} ${r.chapterStart}:${r.verseStart} – ${r.chapterEnd}:${r.verseEnd}`;
 }
 
 // ── Add / Edit Person Modal ───────────────────────────────────────────────────
@@ -180,8 +174,24 @@ interface AddRefProps {
 }
 function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
   const [form, setForm] = useState({ book: "Genesis", chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1, note: "" });
-  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(prev => ({ ...prev, [k]: k.includes("chapter") || k.includes("verse") ? Number(e.target.value) : e.target.value }));
+  // Mirrors chapterEnd/verseEnd to chapterStart/verseStart until the user
+  // explicitly edits an End field — without this, a quick single-verse entry
+  // (only filling "From") silently saves a backwards range since End defaults
+  // to 1 regardless of what Start is set to.
+  const [endTouched, setEndTouched] = useState(false);
+  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const isNumeric = k.includes("chapter") || k.includes("verse");
+    const value = isNumeric ? Number(e.target.value) : e.target.value;
+    if (k === "chapterEnd" || k === "verseEnd") setEndTouched(true);
+    setForm(prev => {
+      const next = { ...prev, [k]: value };
+      if (!endTouched) {
+        if (k === "chapterStart") next.chapterEnd = value as number;
+        if (k === "verseStart") next.verseEnd = value as number;
+      }
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,7 +313,11 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
                 <label className="form-label">The Other Person</label>
                 <select className="form-input" value={personBId} onChange={e => setPersonBId(e.target.value)} required>
                   <option value="">— Select person —</option>
-                  {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {others.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.alsoKnownAs ? `${p.name} — ${p.alsoKnownAs.split(",")[0].trim()}` : p.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group full">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth, apiHandler } from "@/lib/auth";
-import { relationshipFromDb } from "@/lib/mappers";
+import { relationshipFromDb, validateRelationshipType } from "@/lib/mappers";
 import type { Relationship } from "@/lib/types";
 
 export async function GET() {
@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
     await requireAuth();
     const db = getDb();
     const body: Omit<Relationship, "id" | "createdAt"> = await req.json();
+    const validationError = validateRelationshipType(body.type);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     const rel: Relationship = { ...body, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     try {
       await db.run(
