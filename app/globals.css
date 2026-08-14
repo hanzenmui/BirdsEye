@@ -333,6 +333,14 @@ select.form-input { cursor: pointer; }
 .tree-breadcrumb { display: flex; align-items: center; gap: 8px; background: var(--surface, #fff); border: 1px solid rgba(60,45,20,.18); border-radius: 8px; padding: 5px 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-size: 13px; color: var(--text2); font-family: var(--ui-font); }
 .tree-breadcrumb button { border: none; background: transparent; cursor: pointer; color: var(--accent); font-weight: 600; font-family: var(--ui-font); font-size: 13px; padding: 0; }
 
+/* The tree canvas sets touch-action:none on its container for custom
+   pan/pinch handling; that restriction is inherited by descendants unless
+   explicitly overridden, which would otherwise also block normal taps
+   (button presses, text input focus) on every UI panel drawn on top of it. */
+.ft-topleft, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, .tree-breadcrumb {
+  touch-action: manipulation;
+}
+
 /* ── Relationship browser tree nodes ────────────────────────────────────── */
 .tree-node { display: inline-flex; align-items: center; justify-content: center; padding: 7px 16px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; font-family: var(--font); color: var(--text2); cursor: pointer; user-select: none; transition: all 120ms; }
 .tree-node:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }

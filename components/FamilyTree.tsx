@@ -678,14 +678,29 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
   // Touch handlers for mobile pan + pinch-to-zoom — registered as non-passive
-  // so preventDefault() can block native browser scroll/zoom.
+  // so preventDefault() can block native browser scroll/zoom. Because these
+  // are raw addEventListener calls on the container (not React synthetic
+  // handlers), they fire on the way up the *real* DOM bubble chain before
+  // React's delegated listeners ever run — so the onMouseDown={stopPropagation}
+  // guards on the overlay panels (back button, search, legend, zoom controls,
+  // detail/name-list panels) can't protect them from these touch handlers the
+  // way they protect against the mouse-drag handlers. Every touch starting
+  // inside one of those panels must be recognized and ignored here directly,
+  // or taps there never reach the browser's normal tap-to-click synthesis.
   const lastTouches = useRef<{ x: number; y: number }[]>([]);
+
+  const isOverlayTouch = useCallback((target: EventTarget | null) => {
+    return target instanceof Element && !!target.closest(
+      ".ft-topleft, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, .tree-breadcrumb, button, input, select, a",
+    );
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onTouchStart = (e: TouchEvent) => {
+      if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
       isDragging.current = true;
@@ -693,6 +708,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       const touches = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
       if (touches.length === 1 && lastTouches.current.length >= 1) {
@@ -721,6 +737,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
       if (e.touches.length === 0) isDragging.current = false;
@@ -736,7 +753,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       el.removeEventListener("touchend",    onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [tree]);
+  }, [tree, isOverlayTouch]);
 
   if (people.length === 0) {
     return (
