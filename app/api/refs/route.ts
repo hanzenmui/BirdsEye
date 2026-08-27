@@ -8,7 +8,11 @@ export async function GET() {
   return apiHandler(async () => {
     await requireAuth();
     const db = getDb();
-    const rows = await db.query("SELECT * FROM scripture_refs ORDER BY book ASC, chapter_start ASC, verse_start ASC");
+    const rows = await db.query(
+      `SELECT * FROM scripture_refs
+       WHERE event_id IS NULL OR event_id = ''
+       ORDER BY book ASC, chapter_start ASC, verse_start ASC`
+    );
     return NextResponse.json(rows.map(scriptureRefFromDb));
   });
 }

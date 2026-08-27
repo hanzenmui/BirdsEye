@@ -45,4 +45,49 @@ export const MIGRATIONS: string[] = [
   // try/catch around migrations).
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_unique
    ON relationships (person_a_id, type, person_b_id)`,
+
+  // Timeline feature — additive, nullable. Existing rows keep NULL spans and
+  // are simply absent from the timeline view. Each ALTER is idempotent-by-
+  // failure: re-running throws "duplicate column name", which lib/db.ts's
+  // try/catch around migrations logs and skips.
+  `ALTER TABLE people ADD COLUMN timeline_start_bc INTEGER`,
+  `ALTER TABLE people ADD COLUMN timeline_end_bc INTEGER`,
+  `ALTER TABLE people ADD COLUMN timeline_track TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE people ADD COLUMN date_uncertainty_note TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE people ADD COLUMN date_confidence TEXT NOT NULL DEFAULT 'firm'`,
+
+  `CREATE TABLE IF NOT EXISTS historical_events (
+    id                    TEXT PRIMARY KEY,
+    title                 TEXT NOT NULL,
+    year_bc               INTEGER NOT NULL,
+    era                   TEXT NOT NULL DEFAULT '',
+    description           TEXT NOT NULL DEFAULT '',
+    date_uncertainty_note TEXT NOT NULL DEFAULT '',
+    date_confidence       TEXT NOT NULL DEFAULT 'firm',
+    created_at            TEXT NOT NULL
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS prophecy_links (
+    id                     TEXT PRIMARY KEY,
+    prophet_person_id      TEXT NOT NULL,
+    prophecy_book          TEXT NOT NULL,
+    prophecy_chapter_start INTEGER NOT NULL,
+    prophecy_verse_start   INTEGER NOT NULL,
+    prophecy_chapter_end   INTEGER NOT NULL,
+    prophecy_verse_end     INTEGER NOT NULL,
+    fulfillment_event_id   TEXT NOT NULL,
+    explanation            TEXT NOT NULL DEFAULT '',
+    created_at             TEXT NOT NULL
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_prophecy_links_unique
+   ON prophecy_links (prophet_person_id, prophecy_book, prophecy_chapter_start, prophecy_verse_start, fulfillment_event_id)`,
+
+  // Lets an event carry a book tag, so the UI's book checkboxes can filter
+  // events (not just people) by book. Reuses scripture_refs rather than
+  // forking a parallel table the filter would also have to know about.
+  // NOTE: scripture_refs.person_id is NOT NULL, so event-owned rows store
+  // person_id = '' and set event_id instead. Exactly one of the two is
+  // populated on any given row.
+  `ALTER TABLE scripture_refs ADD COLUMN event_id TEXT`,
 ];

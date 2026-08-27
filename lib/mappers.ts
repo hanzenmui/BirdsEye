@@ -1,5 +1,5 @@
 import { GENDERS, TESTAMENTS, RELATIONSHIP_LABELS } from "./types";
-import type { Person, Relationship, ScriptureRef, RelationshipType } from "./types";
+import type { Person, Relationship, ScriptureRef, RelationshipType, HistoricalEvent, ProphecyLink } from "./types";
 
 export function formatRef(r: ScriptureRef): string {
   const same = r.chapterStart === r.chapterEnd;
@@ -40,6 +40,11 @@ export function personFromDb(r: any): Person {
     description: r.description ?? "",
     tags:        (() => { try { return JSON.parse(r.tags ?? "[]"); } catch { return []; } })(),
     createdAt:   r.created_at,
+    timelineStartBc:     r.timeline_start_bc ?? null,
+    timelineEndBc:       r.timeline_end_bc ?? null,
+    timelineTrack:       r.timeline_track ?? "",
+    dateUncertaintyNote: r.date_uncertainty_note ?? "",
+    dateConfidence:      r.date_confidence ?? "firm",
   };
 }
 
@@ -78,5 +83,36 @@ export function scriptureRefFromDb(r: any): ScriptureRef {
     verseEnd:     r.verse_end ?? 1,
     note:         r.note ?? "",
     createdAt:    r.created_at,
+    eventId:      r.event_id ?? null,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function historicalEventFromDb(r: any): HistoricalEvent {
+  return {
+    id:                  r.id,
+    title:               r.title,
+    yearBc:              r.year_bc,
+    era:                 r.era ?? "",
+    description:         r.description ?? "",
+    dateUncertaintyNote: r.date_uncertainty_note ?? "",
+    dateConfidence:      r.date_confidence ?? "firm",
+    createdAt:           r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function prophecyLinkFromDb(r: any): ProphecyLink {
+  return {
+    id:                     r.id,
+    prophetPersonId:        r.prophet_person_id,
+    prophecyBook:           r.prophecy_book,
+    prophecyChapterStart:   r.prophecy_chapter_start,
+    prophecyVerseStart:     r.prophecy_verse_start,
+    prophecyChapterEnd:     r.prophecy_chapter_end,
+    prophecyVerseEnd:       r.prophecy_verse_end,
+    fulfillmentEventId:     r.fulfillment_event_id,
+    explanation:            r.explanation ?? "",
+    createdAt:              r.created_at,
   };
 }

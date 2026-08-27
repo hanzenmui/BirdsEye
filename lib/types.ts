@@ -1,6 +1,14 @@
 export const GENDERS = ["male", "female", "unknown"] as const;
 export const TESTAMENTS = ["OT", "NT", "both"] as const;
 
+export const TIMELINE_TRACKS = [
+  "judah_king", "israel_king", "united_king", "judge", "major_prophet", "minor_prophet",
+] as const;
+export type TimelineTrack = (typeof TIMELINE_TRACKS)[number] | "";
+
+export const DATE_CONFIDENCES = ["firm", "good", "uncertain"] as const;
+export type DateConfidence = (typeof DATE_CONFIDENCES)[number];
+
 export interface Person {
   id: string;
   name: string;
@@ -11,6 +19,36 @@ export interface Person {
   deathYear: string;
   description: string;
   tags: string[];            // e.g. ["patriarch", "prophet", "king"]
+  createdAt: string;
+  // Timeline fields — null/empty for people not placed on the timeline.
+  timelineStartBc: number | null;   // BC year as positive int; 931 = 931 BC
+  timelineEndBc: number | null;
+  timelineTrack: TimelineTrack;
+  dateUncertaintyNote: string;
+  dateConfidence: DateConfidence;
+}
+
+export interface HistoricalEvent {
+  id: string;
+  title: string;
+  yearBc: number;
+  era: string;
+  description: string;
+  dateUncertaintyNote: string;
+  dateConfidence: DateConfidence;
+  createdAt: string;
+}
+
+export interface ProphecyLink {
+  id: string;
+  prophetPersonId: string;
+  prophecyBook: string;
+  prophecyChapterStart: number;
+  prophecyVerseStart: number;
+  prophecyChapterEnd: number;
+  prophecyVerseEnd: number;
+  fulfillmentEventId: string;
+  explanation: string;
   createdAt: string;
 }
 
@@ -51,6 +89,7 @@ export interface ScriptureRef {
   verseEnd: number;
   note: string;              // brief context note
   createdAt: string;
+  eventId: string | null;
 }
 
 export interface BibleBook {

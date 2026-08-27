@@ -83,7 +83,17 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      await onSave(form);
+      // Timeline fields aren't editable in this modal (that's a later task) —
+      // preserve them on edit, default to empty/null on create so this stays
+      // additive without wiping data a seed script may have written.
+      await onSave({
+        ...form,
+        timelineStartBc: initial?.timelineStartBc ?? null,
+        timelineEndBc: initial?.timelineEndBc ?? null,
+        timelineTrack: initial?.timelineTrack ?? "",
+        dateUncertaintyNote: initial?.dateUncertaintyNote ?? "",
+        dateConfidence: initial?.dateConfidence ?? "firm",
+      });
       onClose();
     } catch {
       // onSave threw — stay open so the user can retry
@@ -195,7 +205,9 @@ function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSave({ ...form, personId });
+    // Always person-owned — event-owned refs are only written by later seed
+    // scripts, not this modal.
+    await onSave({ ...form, personId, eventId: null });
     onClose();
   };
 
