@@ -100,9 +100,154 @@ async function seedMissingPeople() {
     description: "Judge for eight years. Had forty sons and thirty grandsons who rode seventy donkeys." });
 }
 
+type Row = [string, string, number, number];
+
+// Thiele's chronology (The Mysterious Numbers of the Hebrew Kings) — the
+// standard reconstruction used by most study Bibles.
+const JUDAH_KINGS: Row[] = [
+  ["Rehoboam", "", 931, 913],
+  ["Abijah", "Abijam king of Judah, Abijah son of Rehoboam", 913, 911],
+  ["Asa", "Asa king of Judah, son of Abijam", 911, 870],
+  ["Jehoshaphat", "Jehoshaphat king of Judah, son of Asa", 870, 848],
+  ["Jehoram", "Jehoram king of Judah, Joram king of Judah", 848, 841],
+  ["Ahaziah", "Ahaziah king of Judah", 841, 841],
+  ["Athaliah", "", 841, 835],
+  ["Joash", "Joash king of Judah", 835, 796],
+  ["Amaziah", "Amaziah king of Judah, son of Joash", 796, 767],
+  ["Uzziah", "Uzziah king of Judah, Azariah king of Judah", 767, 740],
+  ["Jotham", "Jotham king of Judah, son of Uzziah", 740, 732],
+  ["Ahaz", "Ahaz king of Judah, son of Jotham", 732, 716],
+  ["Hezekiah", "", 716, 687],
+  ["Manasseh", "Manasseh king of Judah", 687, 643],
+  ["Amon", "Amon king of Judah", 643, 641],
+  ["Josiah", "", 641, 609],
+  ["Jehoahaz", "Jehoahaz king of Judah, Shallum son of Josiah", 609, 609],
+  ["Jehoiakim", "Jehoiakim king of Judah, Eliakim son of Josiah", 609, 598],
+  ["Jehoiachin", "Jehoiachin king of Judah, Jeconiah, Coniah", 598, 597],
+  ["Zedekiah", "Zedekiah king of Judah, Mattaniah son of Josiah", 597, 586],
+];
+
+const ISRAEL_KINGS: Row[] = [
+  ["Jeroboam", "Jeroboam son of Nebat", 931, 910],
+  ["Nadab", "Nadab king of Israel", 910, 909],
+  ["Baasha", "Baasha king of Israel", 909, 886],
+  ["Elah", "Elah king of Israel", 886, 885],
+  ["Zimri", "Zimri king of Israel", 885, 885],
+  ["Omri", "Omri king of Israel", 885, 874],
+  ["Ahab", "", 874, 853],
+  ["Ahaziah", "Ahaziah king of Israel", 853, 852],
+  ["Joram", "Joram king of Israel, Jehoram king of Israel", 852, 841],
+  ["Jehu", "Jehu son of Jehoshaphat", 841, 814],
+  ["Jehoahaz", "Jehoahaz king of Israel", 814, 798],
+  ["Jehoash", "Jehoash king of Israel", 798, 782],
+  ["Jeroboam", "Jeroboam II king of Israel", 782, 753],
+  ["Zechariah", "Zechariah king of Israel", 753, 752],
+  ["Shallum", "Shallum king of Israel", 752, 752],
+  ["Menahem", "Menahem king of Israel", 752, 742],
+  ["Pekahiah", "Pekahiah king of Israel", 742, 740],
+  ["Pekah", "Pekah king of Israel", 740, 732],
+  ["Hoshea", "Hoshea king of Israel", 732, 722],
+];
+
+const UNITED_KINGS: Row[] = [
+  ["Saul", "", 1047, 1010],
+  ["David", "", 1010, 970],
+  ["Solomon", "Jedidiah", 970, 931],
+];
+
+const MAJOR_PROPHETS: Row[] = [
+  ["Isaiah", "Isaiah son of Amoz", 740, 680],
+  ["Jeremiah", "", 627, 580],
+  ["Ezekiel", "", 593, 570],
+  ["Daniel", "Belteshazzar", 605, 530],
+];
+
+const MINOR_PROPHETS: Row[] = [
+  ["Hosea", "Hosea son of Beeri", 760, 710],
+  ["Amos", "", 760, 750],
+  ["Micah", "Micah of Moresheth", 740, 700],
+  ["Zephaniah", "", 630, 627],
+  ["Nahum", "Nahum the Elkoshite", 663, 612],
+  ["Habakkuk", "", 608, 598],
+  ["Haggai", "", 520, 520],
+  ["Zechariah", "Zechariah son of Berechiah", 520, 518],
+  ["Malachi", "", 450, 430],
+  ["Jonah", "Jonah son of Amittai", 780, 750],
+  ["Joel", "Joel son of Pethuel", 835, 796],
+  ["Obadiah", "Obadiah the prophet", 845, 840],
+];
+
+// One reconstruction among several — biblical durations (Judg 3–12) placed
+// within the overlapping blocks scholars propose. All marked uncertain.
+const JUDGES: Row[] = [
+  ["Othniel", "", 1350, 1310],
+  ["Ehud", "", 1309, 1229],
+  ["Shamgar", "Shamgar son of Anath", 1230, 1220],
+  ["Deborah", "Deborah wife of Lappidoth", 1209, 1169],
+  ["Gideon", "Jerubbaal", 1191, 1151],
+  ["Tola", "Tola son of Puah", 1149, 1126],
+  ["Jair", "Jair the Gileadite", 1126, 1104],
+  ["Samson", "", 1096, 1076],
+  ["Jephthah", "", 1093, 1087],
+  ["Ibzan", "Ibzan of Bethlehem", 1087, 1080],
+  ["Elon", "Elon the Zebulunite", 1080, 1070],
+  ["Abdon", "Abdon son of Hillel", 1070, 1062],
+];
+
+const JUDGES_NOTE = "The judges did not rule in a single sequence — several judged concurrently in different regions, and reconstructions differ by up to two centuries. The duration here follows the figure given in Judges; its placement follows one common reconstruction and should be treated as approximate.";
+
+const UNCERTAIN_NOTES: Record<string, string> = {
+  "Joel": "The book of Joel is not internally dated. Proposals range from the 9th century BC to the 2nd century BC. Placed here in the early pre-exilic range; a post-exilic date is equally defensible.",
+  "Obadiah": "The book of Obadiah is not internally dated. Some place him in the 840s BC, others after Jerusalem's fall in 586 BC. Placed here in the earlier range.",
+  "Habakkuk": "Sources split between c. 630 BC (before Babylon rose to power) and c. 608-598 BC (as the invasion loomed). Placed in the later window since the Chaldean threat is his central subject.",
+};
+
+async function stampDates(rows: Row[], track: string, confidence: string, noteFor: (name: string) => string) {
+  for (const [name, aka, startBc, endBc] of rows) {
+    const id = await resolvePerson(name, aka);
+    if (!id) {
+      console.warn(`  MISSING: ${name} (aka="${aka}") — not found, skipping`);
+      continue;
+    }
+    const note = noteFor(name);
+    console.log(`  ${DRY_RUN ? "would stamp" : "stamping"}: ${name} ${startBc}-${endBc} BC [${track}]`);
+    if (!DRY_RUN) {
+      await db.execute({
+        sql: `UPDATE people SET timeline_start_bc = ?, timeline_end_bc = ?, timeline_track = ?,
+              date_confidence = ?, date_uncertainty_note = ? WHERE id = ?`,
+        args: [startBc, endBc, track, confidence, note, id],
+      });
+    }
+  }
+}
+
+async function seedTimelineDates() {
+  console.log("Stamping timeline dates...");
+  await stampDates(JUDAH_KINGS,  "judah_king",    "firm", () => "");
+  await stampDates(ISRAEL_KINGS, "israel_king",   "firm", () => "");
+  await stampDates(UNITED_KINGS, "united_king",   "good", () => "");
+  await stampDates(MAJOR_PROPHETS, "major_prophet", "good", () => "");
+  await stampDates(MINOR_PROPHETS, "minor_prophet", "good",
+    (name) => UNCERTAIN_NOTES[name] ?? "");
+  await stampDates(JUDGES, "judge", "uncertain", () => JUDGES_NOTE);
+
+  // The three genuinely-disputed prophets are downgraded after the fact so
+  // the bulk minor-prophet pass stays simple.
+  if (!DRY_RUN) {
+    for (const name of Object.keys(UNCERTAIN_NOTES)) {
+      await db.execute({
+        sql: `UPDATE people SET date_confidence = 'uncertain'
+              WHERE name = ? AND timeline_track = 'minor_prophet'`,
+        args: [name],
+      });
+    }
+  }
+}
+
 async function main() {
   console.log(DRY_RUN ? "=== DRY RUN ===" : "=== LIVE RUN ===");
   await seedMissingPeople();
+  await seedTimelineDates();
   console.log("Done.");
   process.exit(0);
 }
