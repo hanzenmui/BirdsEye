@@ -1060,42 +1060,79 @@ git commit -m "feat: seed historical events and prophecy fulfillment links"
 ### Task 6: End-to-end API check
 
 **Files:**
-- Modify: `scripts/verify-timeline.ts`
+- None modified. This task is a verification gate — it proves the route works
+  against real seeded data and produces no commit of its own.
 
-- [ ] **Step 1: Start the dev server**
+**Interfaces:**
+- Consumes: `GET /api/timeline` (Task 2), seeded data (Tasks 3-5).
+
+**Note on running the dev server:** it must be backgrounded and then killed.
+Running `npm run dev` in the foreground blocks forever and will hang you.
+
+- [ ] **Step 1: Start the dev server in the background**
 
 ```bash
-npm run dev
+npm run dev > /tmp/tl-dev.log 2>&1 &
+echo $! > /tmp/tl-dev.pid
+for i in $(seq 1 40); do
+  PORT=$(grep -oE 'localhost:[0-9]+' /tmp/tl-dev.log | head -1 | cut -d: -f2)
+  [ -n "$PORT" ] && break
+  sleep 1
+done
+echo "PORT=$PORT"
 ```
 
-Leave running. (If port 3000 is taken, note the port it prints.)
+Expected: a port is printed (Next may pick something other than 3000 if it is
+busy). If `PORT` is empty after 40s, `cat /tmp/tl-dev.log` and report BLOCKED.
 
 - [ ] **Step 2: Confirm the route requires auth**
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/timeline
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:$PORT/api/timeline"
 ```
 
-Expected: `401` — the route is behind `requireAuth`, same as every other data route.
+Expected: `401` — the route sits behind `requireAuth`, like every other data route.
 
-- [ ] **Step 3: Confirm the route returns data when authenticated**
+- [ ] **Step 3: Confirm the route returns the seeded data when authenticated**
 
 ```bash
-curl -s -c /tmp/be.txt -X POST http://localhost:3000/api/auth/login \
+curl -s -c /tmp/tl-cookie.txt -X POST "http://localhost:$PORT/api/auth/login" \
   -H 'Content-Type: application/json' \
   -d "{\"passcode\":\"$(grep ADMIN_PASSCODE .env.local | cut -d= -f2)\"}" > /dev/null
-curl -s -b /tmp/be.txt http://localhost:3000/api/timeline \
+curl -s -b /tmp/tl-cookie.txt "http://localhost:$PORT/api/timeline" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('people',len(d['people']),'events',len(d['events']),'links',len(d['prophecyLinks']))"
-rm -f /tmp/be.txt
 ```
 
-Expected: `people 70 events 9 links 10`.
+Expected exactly: `people 70 events 9 links 10`
 
-- [ ] **Step 4: Stop the dev server and commit**
+- [ ] **Step 4: Confirm a sample record carries its timeline fields**
 
 ```bash
-git add -A && git commit -m "test: verify timeline API end to end" --allow-empty
+curl -s -b /tmp/tl-cookie.txt "http://localhost:$PORT/api/timeline" \
+  | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+hz=[p for p in d['people'] if p['name']=='Hezekiah'][0]
+print('Hezekiah', hz['timelineStartBc'], hz['timelineEndBc'], hz['timelineTrack'], hz['dateConfidence'])
+ju=[p for p in d['people'] if p['timelineTrack']=='judge'][0]
+print('a judge:', ju['name'], ju['dateConfidence'], 'note?', bool(ju['dateUncertaintyNote']))
+"
 ```
+
+Expected: `Hezekiah 716 687 judah_king firm`, and the judge line shows
+`uncertain` with `note? True`.
+
+- [ ] **Step 5: Stop the dev server and clean up**
+
+```bash
+kill "$(cat /tmp/tl-dev.pid)" 2>/dev/null
+rm -f /tmp/tl-dev.pid /tmp/tl-cookie.txt /tmp/tl-dev.log
+```
+
+- [ ] **Step 6: Report**
+
+No commit — this task changes no files. Report the three observed outputs
+(the 401, the counts line, the sample-record line) in your report file.
 
 ---
 
