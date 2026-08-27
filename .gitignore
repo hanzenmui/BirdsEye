@@ -49,3 +49,6 @@ next-env.d.ts
 
 # git worktrees
 /.worktrees/
+
+# brainstorming visual companion mockups
+/.superpowers/
