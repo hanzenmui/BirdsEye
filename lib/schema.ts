@@ -90,4 +90,10 @@ export const MIGRATIONS: string[] = [
   // person_id = '' and set event_id instead. Exactly one of the two is
   // populated on any given row.
   `ALTER TABLE scripture_refs ADD COLUMN event_id TEXT`,
+
+  // Lets a prophecy link record scholarly disagreement (e.g. over authorship
+  // or dating) without disturbing `explanation`, which stays the app's
+  // primary, single-viewpoint framing. Same additive/idempotent-by-failure
+  // pattern as the timeline columns above.
+  `ALTER TABLE prophecy_links ADD COLUMN uncertainty_note TEXT NOT NULL DEFAULT ''`,
 ];

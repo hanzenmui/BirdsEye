@@ -113,6 +113,7 @@ export function prophecyLinkFromDb(r: any): ProphecyLink {
     prophecyVerseEnd:       r.prophecy_verse_end,
     fulfillmentEventId:     r.fulfillment_event_id,
     explanation:            r.explanation ?? "",
+    uncertaintyNote:        r.uncertainty_note ?? "",
     createdAt:              r.created_at,
   };
 }

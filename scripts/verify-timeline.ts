@@ -43,6 +43,7 @@ async function checkLaneIntegrity() {
       args: [track],
     });
     check(`${track}: no overlapping reigns in single-row lane`, r.rows.length === 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       r.rows.map((x: any) => `${x.an}/${x.bn}`).join(", "));
   }
   // Every timeline person needs a valid track and a sane span.
@@ -51,13 +52,34 @@ async function checkLaneIntegrity() {
     WHERE timeline_start_bc IS NOT NULL
       AND (timeline_track = '' OR timeline_end_bc IS NULL OR timeline_end_bc > timeline_start_bc)`);
   check("every timeline person has a track and start >= end (BC counts down)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bad.rows.length === 0, bad.rows.map((x: any) => x.name).join(", "));
+
+  // Enum vocabularies aren't validated at the type level for seeded data —
+  // a typo like "minor_prophets" would typecheck and seed silently. Assert
+  // real membership here instead of trusting TypeScript alone.
+  const badTrack = await db.execute(`
+    SELECT name, timeline_track FROM people
+    WHERE timeline_start_bc IS NOT NULL
+      AND timeline_track NOT IN ('judah_king','israel_king','united_king','judge','major_prophet','minor_prophet')`);
+  check("every timeline person has a recognized timeline_track", badTrack.rows.length === 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    badTrack.rows.map((x: any) => `${x.name}=${x.timeline_track}`).join(", "));
+
+  const badConfidence = await db.execute(`
+    SELECT name, date_confidence FROM people
+    WHERE timeline_start_bc IS NOT NULL
+      AND date_confidence NOT IN ('firm','good','uncertain')`);
+  check("every timeline person has a recognized date_confidence", badConfidence.rows.length === 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    badConfidence.rows.map((x: any) => `${x.name}=${x.date_confidence}`).join(", "));
 
   // Uncertain-dated figures must carry an explanatory note — the whole point
   // of the confidence tier is that the UI can be honest about it.
   const noNote = await db.execute(`
     SELECT name FROM people WHERE date_confidence = 'uncertain' AND date_uncertainty_note = ''`);
   check("every uncertain figure has a note", noNote.rows.length === 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     noNote.rows.map((x: any) => x.name).join(", "));
 }
 
@@ -83,6 +105,7 @@ async function checkProphecyIntegrity() {
     JOIN historical_events e ON e.id = pl.fulfillment_event_id
     WHERE p.timeline_start_bc < e.year_bc`);
   check("no prophecy is fulfilled before its prophet began", backwards.rows.length === 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     backwards.rows.map((x: any) => `${x.name}->${x.title}`).join(", "));
 
   const noExplain = await db.execute(`SELECT id FROM prophecy_links WHERE explanation = ''`);
@@ -94,6 +117,7 @@ async function checkProphecyIntegrity() {
     LEFT JOIN scripture_refs sr ON sr.event_id = e.id
     WHERE sr.id IS NULL`);
   check("every event is tagged to a book", untagged.rows.length === 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     untagged.rows.map((x: any) => x.title).join(", "));
 
   // An event-owned ref must not also claim a person, and vice versa.
@@ -113,17 +137,20 @@ async function main() {
 
   // --- Schema present ---
   const cols = await db.execute("PRAGMA table_info(people)");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const colNames = cols.rows.map((r: any) => r.name);
   for (const c of ["timeline_start_bc","timeline_end_bc","timeline_track","date_uncertainty_note","date_confidence"]) {
     check(`people.${c} exists`, colNames.includes(c));
   }
   const refCols = await db.execute("PRAGMA table_info(scripture_refs)");
   check("scripture_refs.event_id exists",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     refCols.rows.map((r: any) => r.name).includes("event_id"));
 
   const tables = await db.execute(
     "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('historical_events','prophecy_links')"
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tNames = tables.rows.map((r: any) => r.name);
   check("historical_events table exists", tNames.includes("historical_events"));
   check("prophecy_links table exists", tNames.includes("prophecy_links"));

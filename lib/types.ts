@@ -49,6 +49,7 @@ export interface ProphecyLink {
   prophecyVerseEnd: number;
   fulfillmentEventId: string;
   explanation: string;
+  uncertaintyNote: string;
   createdAt: string;
 }
 
