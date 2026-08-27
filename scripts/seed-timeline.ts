@@ -202,13 +202,19 @@ const UNCERTAIN_NOTES: Record<string, string> = {
   "Habakkuk": "Sources split between c. 630 BC (before Babylon rose to power) and c. 608-598 BC (as the invasion loomed). Placed in the later window since the Chaldean threat is his central subject.",
 };
 
-async function stampDates(rows: Row[], track: string, confidence: string, noteFor: (name: string) => string) {
+async function stampDates(rows: Row[], track: string, confidence: string, noteFor: (name: string) => string): Promise<Map<string, string>> {
+  // Returns the resolved (name -> id) map so callers needing a follow-up
+  // update (e.g. the minor-prophet confidence downgrade below) can address
+  // rows by primary key instead of re-resolving by name, which can collide
+  // with other people sharing that name elsewhere in the DB.
+  const ids = new Map<string, string>();
   for (const [name, aka, startBc, endBc] of rows) {
     const id = await resolvePerson(name, aka);
     if (!id) {
       console.warn(`  MISSING: ${name} (aka="${aka}") — not found, skipping`);
       continue;
     }
+    ids.set(name, id);
     const note = noteFor(name);
     console.log(`  ${DRY_RUN ? "would stamp" : "stamping"}: ${name} ${startBc}-${endBc} BC [${track}]`);
     if (!DRY_RUN) {
@@ -219,6 +225,7 @@ async function stampDates(rows: Row[], track: string, confidence: string, noteFo
       });
     }
   }
+  return ids;
 }
 
 async function seedTimelineDates() {
@@ -227,18 +234,22 @@ async function seedTimelineDates() {
   await stampDates(ISRAEL_KINGS, "israel_king",   "firm", () => "");
   await stampDates(UNITED_KINGS, "united_king",   "good", () => "");
   await stampDates(MAJOR_PROPHETS, "major_prophet", "good", () => "");
-  await stampDates(MINOR_PROPHETS, "minor_prophet", "good",
+  const minorProphetIds = await stampDates(MINOR_PROPHETS, "minor_prophet", "good",
     (name) => UNCERTAIN_NOTES[name] ?? "");
   await stampDates(JUDGES, "judge", "uncertain", () => JUDGES_NOTE);
 
   // The three genuinely-disputed prophets are downgraded after the fact so
-  // the bulk minor-prophet pass stays simple.
+  // the bulk minor-prophet pass stays simple. Resolved by the id captured
+  // during the MINOR_PROPHETS pass above — never by name alone, since the
+  // DB contains other people sharing these names (e.g. multiple Obadiahs,
+  // multiple Zechariahs) outside the minor_prophet track.
   if (!DRY_RUN) {
     for (const name of Object.keys(UNCERTAIN_NOTES)) {
+      const id = minorProphetIds.get(name);
+      if (!id) continue; // already reported as MISSING above
       await db.execute({
-        sql: `UPDATE people SET date_confidence = 'uncertain'
-              WHERE name = ? AND timeline_track = 'minor_prophet'`,
-        args: [name],
+        sql: `UPDATE people SET date_confidence = 'uncertain' WHERE id = ?`,
+        args: [id],
       });
     }
   }
