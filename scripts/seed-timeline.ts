@@ -255,10 +255,136 @@ async function seedTimelineDates() {
   }
 }
 
+const EVENTS: { key: string; title: string; yearBc: number; era: string; description: string }[] = [
+  { key: "split", title: "The kingdom splits", yearBc: 931, era: "Divided Kingdom",
+    description: "After Rehoboam refuses to lighten Solomon's heavy labor demands, ten northern tribes break away under Jeroboam. Israel and Judah are never reunited." },
+  { key: "samaria", title: "Fall of Samaria", yearBc: 722, era: "Divided Kingdom",
+    description: "Assyria captures Samaria after a siege and deports the northern population, resettling foreign peoples in their place. The northern kingdom of Israel ends permanently." },
+  { key: "sennacherib", title: "Sennacherib's siege of Jerusalem fails", yearBc: 701, era: "Divided Kingdom",
+    description: "Assyria overruns Judah's fortified cities and surrounds Jerusalem, but the city is delivered and Sennacherib withdraws — an outcome recorded in both Scripture and Assyrian annals, which conspicuously never claim the city was taken." },
+  { key: "carchemish", title: "Babylon defeats Egypt at Carchemish", yearBc: 605, era: "Exile",
+    description: "Nebuchadnezzar's victory makes Babylon the dominant power and brings Judah under its control. The first group of exiles, including Daniel, is taken to Babylon." },
+  { key: "jerusalem", title: "Fall of Jerusalem and the Temple", yearBc: 586, era: "Exile",
+    description: "After a long siege, Babylon breaches Jerusalem, burns the Temple, and carries Judah into exile. Zedekiah is blinded and taken in chains." },
+  { key: "babylon", title: "Babylon falls to Cyrus", yearBc: 539, era: "Return",
+    description: "Persian forces under Cyrus take Babylon in a single night, diverting the Euphrates to enter under the river-gates. Belshazzar is killed and the Babylonian empire ends." },
+  { key: "decree", title: "Cyrus decrees the return", yearBc: 538, era: "Return",
+    description: "Cyrus issues a decree permitting the exiles to return to Jerusalem and rebuild the Temple, and restores the Temple vessels Nebuchadnezzar had carried off." },
+  { key: "temple", title: "The second Temple is completed", yearBc: 516, era: "Return",
+    description: "Spurred on by Haggai and Zechariah, the returned exiles finish rebuilding the Temple, roughly seventy years after its destruction." },
+  { key: "wall", title: "Nehemiah rebuilds Jerusalem's wall", yearBc: 445, era: "Return",
+    description: "Nehemiah leads the rebuilding of Jerusalem's wall in fifty-two days despite sustained opposition, restoring the city's security and identity." },
+];
+
+const eventIds: Record<string, string> = {};
+
+async function seedEvents() {
+  console.log("Seeding historical events...");
+  for (const e of EVENTS) {
+    const existing = await db.execute({
+      sql: "SELECT id FROM historical_events WHERE title = ? LIMIT 1", args: [e.title],
+    });
+    const row = existing.rows[0] as unknown as { id: string } | undefined;
+    if (row) { eventIds[e.key] = row.id; continue; }
+    const id = crypto.randomUUID();
+    eventIds[e.key] = id;
+    console.log(`  ${DRY_RUN ? "would insert" : "inserting"} event: ${e.title} (${e.yearBc} BC)`);
+    if (!DRY_RUN) {
+      await db.execute({
+        sql: `INSERT INTO historical_events (id,title,year_bc,era,description,date_uncertainty_note,date_confidence,created_at)
+              VALUES (?,?,?,?,?,'','firm',datetime('now'))`,
+        args: [id, e.title, e.yearBc, e.era, e.description],
+      });
+    }
+  }
+}
+
+const LINKS: { prophet: string; aka: string; book: string; cs: number; vs: number; ce: number; ve: number; eventKey: string; explanation: string }[] = [
+  { prophet: "Isaiah", aka: "Isaiah son of Amoz", book: "Isaiah", cs: 37, vs: 33, ce: 37, ve: 35, eventKey: "sennacherib",
+    explanation: "Isaiah told Hezekiah the Assyrian king would not shoot an arrow into Jerusalem or even reach it. Sennacherib withdrew without taking the city." },
+  { prophet: "Isaiah", aka: "Isaiah son of Amoz", book: "Isaiah", cs: 39, vs: 5, ce: 39, ve: 7, eventKey: "jerusalem",
+    explanation: "Isaiah warned Hezekiah that everything in his palace would one day be carried off to Babylon, and his own descendants taken. It happened roughly a century later." },
+  { prophet: "Isaiah", aka: "Isaiah son of Amoz", book: "Isaiah", cs: 44, vs: 28, ce: 45, ve: 1, eventKey: "decree",
+    explanation: "Isaiah named Cyrus as the ruler who would order Jerusalem rebuilt — written long before Cyrus came to power." },
+  { prophet: "Jeremiah", aka: "", book: "Jeremiah", cs: 25, vs: 11, ce: 25, ve: 12, eventKey: "jerusalem",
+    explanation: "Jeremiah foretold that Judah would serve Babylon and the land would lie desolate. Jerusalem fell in 586 BC." },
+  { prophet: "Jeremiah", aka: "", book: "Jeremiah", cs: 29, vs: 10, ce: 29, ve: 10, eventKey: "decree",
+    explanation: "Jeremiah promised God would bring the exiles back after seventy years in Babylon. Cyrus's decree in 538 BC began that return." },
+  { prophet: "Hosea", aka: "Hosea son of Beeri", book: "Hosea", cs: 13, vs: 16, ce: 13, ve: 16, eventKey: "samaria",
+    explanation: "Hosea warned that Samaria would bear its guilt for rebelling against God. Assyria destroyed the city in 722 BC." },
+  { prophet: "Micah", aka: "Micah of Moresheth", book: "Micah", cs: 3, vs: 12, ce: 3, ve: 12, eventKey: "jerusalem",
+    explanation: "Micah declared Jerusalem would become a heap of rubble. Jeremiah's hearers still remembered this prophecy a century later (Jer 26:18)." },
+  { prophet: "Nahum", aka: "Nahum the Elkoshite", book: "Nahum", cs: 3, vs: 18, ce: 3, ve: 19, eventKey: "carchemish",
+    explanation: "Nahum announced the end of Assyria's power. Nineveh fell in 612 BC, and Babylon's victory at Carchemish in 605 BC finished Assyria as a force entirely." },
+  { prophet: "Daniel", aka: "Belteshazzar", book: "Daniel", cs: 5, vs: 25, ce: 5, ve: 28, eventKey: "babylon",
+    explanation: "Reading the writing on the wall, Daniel told Belshazzar his kingdom was finished and given to the Medes and Persians. Babylon fell that same night." },
+  { prophet: "Haggai", aka: "", book: "Haggai", cs: 1, vs: 7, ce: 1, ve: 8, eventKey: "temple",
+    explanation: "Haggai rebuked the returned exiles for leaving the Temple in ruins while living in paneled houses, and urged them to rebuild. The Temple was finished in 516 BC." },
+];
+
+async function seedProphecyLinks() {
+  console.log("Seeding prophecy links...");
+  for (const l of LINKS) {
+    const prophetId = await resolvePerson(l.prophet, l.aka);
+    if (!prophetId) { console.warn(`  MISSING prophet: ${l.prophet} (aka="${l.aka}")`); continue; }
+    const eventId = eventIds[l.eventKey];
+    if (!eventId) { console.warn(`  MISSING event key: ${l.eventKey}`); continue; }
+    console.log(`  ${DRY_RUN ? "would link" : "linking"}: ${l.prophet} ${l.book} ${l.cs}:${l.vs} -> ${l.eventKey}`);
+    if (!DRY_RUN) {
+      await db.execute({
+        sql: `INSERT OR IGNORE INTO prophecy_links
+              (id,prophet_person_id,prophecy_book,prophecy_chapter_start,prophecy_verse_start,
+               prophecy_chapter_end,prophecy_verse_end,fulfillment_event_id,explanation,created_at)
+              VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))`,
+        args: [crypto.randomUUID(), prophetId, l.book, l.cs, l.vs, l.ce, l.ve, eventId, l.explanation],
+      });
+    }
+  }
+}
+
+// Which book narrates each event. Stored in scripture_refs with person_id=''
+// and event_id set, so the existing book-tag machinery covers events too.
+const EVENT_REFS: { key: string; book: string; cs: number; vs: number; ce: number; ve: number; note: string }[] = [
+  { key: "split",       book: "1 Kings",   cs: 12, vs: 1,  ce: 12, ve: 24, note: "The northern tribes reject Rehoboam" },
+  { key: "samaria",     book: "2 Kings",   cs: 17, vs: 1,  ce: 17, ve: 23, note: "Assyria captures Samaria and deports Israel" },
+  { key: "sennacherib", book: "2 Kings",   cs: 19, vs: 32, ce: 19, ve: 36, note: "Sennacherib withdraws from Jerusalem" },
+  { key: "carchemish",  book: "Daniel",    cs: 1,  vs: 1,  ce: 1,  ve: 2,  note: "Nebuchadnezzar besieges Jerusalem; first exiles taken" },
+  { key: "jerusalem",   book: "2 Kings",   cs: 25, vs: 1,  ce: 25, ve: 21, note: "Jerusalem falls and the Temple is burned" },
+  { key: "babylon",     book: "Daniel",    cs: 5,  vs: 30, ce: 5,  ve: 31, note: "Belshazzar is killed and Babylon falls" },
+  { key: "decree",      book: "Ezra",      cs: 1,  vs: 1,  ce: 1,  ve: 4,  note: "Cyrus decrees the return and rebuilding" },
+  { key: "temple",      book: "Ezra",      cs: 6,  vs: 14, ce: 6,  ve: 15, note: "The second Temple is completed" },
+  { key: "wall",        book: "Nehemiah",  cs: 6,  vs: 15, ce: 6,  ve: 15, note: "The wall is finished in fifty-two days" },
+];
+
+async function seedEventRefs() {
+  console.log("Tagging events with their narrating book...");
+  for (const r of EVENT_REFS) {
+    const eventId = eventIds[r.key];
+    if (!eventId) { console.warn(`  MISSING event key: ${r.key}`); continue; }
+    const existing = await db.execute({
+      sql: "SELECT id FROM scripture_refs WHERE event_id = ? AND book = ? AND chapter_start = ? LIMIT 1",
+      args: [eventId, r.book, r.cs],
+    });
+    if (existing.rows.length) continue;
+    console.log(`  ${DRY_RUN ? "would tag" : "tagging"}: ${r.key} -> ${r.book} ${r.cs}:${r.vs}`);
+    if (!DRY_RUN) {
+      await db.execute({
+        sql: `INSERT INTO scripture_refs
+              (id,person_id,event_id,book,chapter_start,verse_start,chapter_end,verse_end,note,created_at)
+              VALUES (?,'',?,?,?,?,?,?,?,datetime('now'))`,
+        args: [crypto.randomUUID(), eventId, r.book, r.cs, r.vs, r.ce, r.ve, r.note],
+      });
+    }
+  }
+}
+
 async function main() {
   console.log(DRY_RUN ? "=== DRY RUN ===" : "=== LIVE RUN ===");
   await seedMissingPeople();
   await seedTimelineDates();
+  await seedEvents();
+  await seedEventRefs();
+  await seedProphecyLinks();
   console.log("Done.");
   process.exit(0);
 }

@@ -61,6 +61,53 @@ async function checkLaneIntegrity() {
     noNote.rows.map((x: any) => x.name).join(", "));
 }
 
+async function checkProphecyIntegrity() {
+  const orphanEvent = await db.execute(`
+    SELECT pl.id FROM prophecy_links pl
+    LEFT JOIN historical_events e ON e.id = pl.fulfillment_event_id
+    WHERE e.id IS NULL`);
+  check("every prophecy link points at a real event", orphanEvent.rows.length === 0,
+    `${orphanEvent.rows.length} orphaned`);
+
+  const orphanProphet = await db.execute(`
+    SELECT pl.id FROM prophecy_links pl
+    LEFT JOIN people p ON p.id = pl.prophet_person_id
+    WHERE p.id IS NULL`);
+  check("every prophecy link points at a real person", orphanProphet.rows.length === 0,
+    `${orphanProphet.rows.length} orphaned`);
+
+  // A prophecy must be spoken before it is fulfilled. Catches transposed dates.
+  const backwards = await db.execute(`
+    SELECT p.name, e.title FROM prophecy_links pl
+    JOIN people p ON p.id = pl.prophet_person_id
+    JOIN historical_events e ON e.id = pl.fulfillment_event_id
+    WHERE p.timeline_start_bc < e.year_bc`);
+  check("no prophecy is fulfilled before its prophet began", backwards.rows.length === 0,
+    backwards.rows.map((x: any) => `${x.name}->${x.title}`).join(", "));
+
+  const noExplain = await db.execute(`SELECT id FROM prophecy_links WHERE explanation = ''`);
+  check("every prophecy link has a plain-language explanation", noExplain.rows.length === 0);
+
+  // Without a book tag an event can never appear under any book checkbox.
+  const untagged = await db.execute(`
+    SELECT e.title FROM historical_events e
+    LEFT JOIN scripture_refs sr ON sr.event_id = e.id
+    WHERE sr.id IS NULL`);
+  check("every event is tagged to a book", untagged.rows.length === 0,
+    untagged.rows.map((x: any) => x.title).join(", "));
+
+  // An event-owned ref must not also claim a person, and vice versa.
+  const bothOwners = await db.execute(`
+    SELECT id FROM scripture_refs WHERE event_id IS NOT NULL AND event_id != '' AND person_id != ''`);
+  check("no scripture_ref claims both a person and an event", bothOwners.rows.length === 0);
+
+  // Regression guard for the By Book counts: no person-owned ref may have an
+  // empty person_id, or Explorer's countByBook Set gets a phantom member.
+  const emptyPerson = await db.execute(`
+    SELECT id FROM scripture_refs WHERE person_id = '' AND (event_id IS NULL OR event_id = '')`);
+  check("no orphaned scripture_ref with neither owner", emptyPerson.rows.length === 0);
+}
+
 async function main() {
   console.log("Timeline data verification\n");
 
@@ -86,6 +133,9 @@ async function main() {
 
   // --- Lane integrity ---
   await checkLaneIntegrity();
+
+  // --- Prophecy / event referential integrity ---
+  await checkProphecyIntegrity();
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   process.exit(failures === 0 ? 0 : 1);
