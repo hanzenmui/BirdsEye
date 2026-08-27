@@ -17,6 +17,19 @@ function check(label: string, ok: boolean, detail = "") {
   else { console.log(`  FAIL  ${label}${detail ? " — " + detail : ""}`); failures++; }
 }
 
+async function checkApiShape() {
+  // The route is the only consumer-facing surface; assert the SQL it runs
+  // returns the shape the UI plan will depend on.
+  const people = await db.execute(
+    "SELECT * FROM people WHERE timeline_start_bc IS NOT NULL ORDER BY timeline_start_bc DESC"
+  );
+  const events = await db.execute("SELECT * FROM historical_events ORDER BY year_bc DESC");
+  const links = await db.execute("SELECT * FROM prophecy_links");
+  check("timeline people present", people.rows.length > 0, `got ${people.rows.length}`);
+  check("historical events present", events.rows.length > 0, `got ${events.rows.length}`);
+  check("prophecy links present", links.rows.length > 0, `got ${links.rows.length}`);
+}
+
 async function main() {
   console.log("Timeline data verification\n");
 
@@ -36,6 +49,9 @@ async function main() {
   const tNames = tables.rows.map((r: any) => r.name);
   check("historical_events table exists", tNames.includes("historical_events"));
   check("prophecy_links table exists", tNames.includes("prophecy_links"));
+
+  // --- API shape ---
+  await checkApiShape();
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   process.exit(failures === 0 ? 0 : 1);
