@@ -1038,7 +1038,7 @@ Expected: no output.
 npm run seed:timeline && npm run verify:timeline
 ```
 
-Expected: **ALL CHECKS PASSED**, exit code 0 — 9 events, 10 prophecy links, no orphans, no backwards prophecies.
+Expected: **ALL CHECKS PASSED**, exit code 0 — 10 events, 10 prophecy links, no orphans, no backwards prophecies.
 
 - [ ] **Step 6: Confirm idempotency**
 
@@ -1103,7 +1103,7 @@ curl -s -b /tmp/tl-cookie.txt "http://localhost:$PORT/api/timeline" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('people',len(d['people']),'events',len(d['events']),'links',len(d['prophecyLinks']))"
 ```
 
-Expected exactly: `people 70 events 9 links 10`
+Expected exactly: `people 70 events 10 links 10`
 
 - [ ] **Step 4: Confirm a sample record carries its timeline fields**
 

@@ -274,6 +274,8 @@ const EVENTS: { key: string; title: string; yearBc: number; era: string; descrip
     description: "Spurred on by Haggai and Zechariah, the returned exiles finish rebuilding the Temple, roughly seventy years after its destruction." },
   { key: "wall", title: "Nehemiah rebuilds Jerusalem's wall", yearBc: 445, era: "Return",
     description: "Nehemiah leads the rebuilding of Jerusalem's wall in fifty-two days despite sustained opposition, restoring the city's security and identity." },
+  { key: "nineveh", title: "Fall of Nineveh", yearBc: 612, era: "Divided Kingdom",
+    description: "A coalition of Babylonians and Medes storms Nineveh, Assyria's capital, and destroys it. The empire that had deported the northern kingdom nearly a century earlier collapses for good." },
 ];
 
 const eventIds: Record<string, string> = {};
@@ -314,8 +316,8 @@ const LINKS: { prophet: string; aka: string; book: string; cs: number; vs: numbe
     explanation: "Hosea warned that Samaria would bear its guilt for rebelling against God. Assyria destroyed the city in 722 BC." },
   { prophet: "Micah", aka: "Micah of Moresheth", book: "Micah", cs: 3, vs: 12, ce: 3, ve: 12, eventKey: "jerusalem",
     explanation: "Micah declared Jerusalem would become a heap of rubble. Jeremiah's hearers still remembered this prophecy a century later (Jer 26:18)." },
-  { prophet: "Nahum", aka: "Nahum the Elkoshite", book: "Nahum", cs: 3, vs: 18, ce: 3, ve: 19, eventKey: "carchemish",
-    explanation: "Nahum announced the end of Assyria's power. Nineveh fell in 612 BC, and Babylon's victory at Carchemish in 605 BC finished Assyria as a force entirely." },
+  { prophet: "Nahum", aka: "Nahum the Elkoshite", book: "Nahum", cs: 3, vs: 18, ce: 3, ve: 19, eventKey: "nineveh",
+    explanation: "Nahum announced the destruction of Nineveh, declaring that Assyria's wound was fatal and no one would mourn its fall. Nineveh fell to the Medo-Babylonian coalition in 612 BC." },
   { prophet: "Daniel", aka: "Belteshazzar", book: "Daniel", cs: 5, vs: 25, ce: 5, ve: 28, eventKey: "babylon",
     explanation: "Reading the writing on the wall, Daniel told Belshazzar his kingdom was finished and given to the Medes and Persians. Babylon fell that same night." },
   { prophet: "Haggai", aka: "", book: "Haggai", cs: 1, vs: 7, ce: 1, ve: 8, eventKey: "temple",
@@ -329,6 +331,31 @@ async function seedProphecyLinks() {
     if (!prophetId) { console.warn(`  MISSING prophet: ${l.prophet} (aka="${l.aka}")`); continue; }
     const eventId = eventIds[l.eventKey];
     if (!eventId) { console.warn(`  MISSING event key: ${l.eventKey}`); continue; }
+
+    // Look up by the prophecy's own identity (who said it, where it's
+    // recorded) rather than by fulfillment event, so a corrected
+    // misattribution repoints the existing row instead of leaving the old,
+    // wrong fulfillment_event_id behind as an orphaned duplicate.
+    const existing = await db.execute({
+      sql: `SELECT id, fulfillment_event_id FROM prophecy_links
+            WHERE prophet_person_id = ? AND prophecy_book = ? AND prophecy_chapter_start = ? AND prophecy_verse_start = ?
+            LIMIT 1`,
+      args: [prophetId, l.book, l.cs, l.vs],
+    });
+    const row = existing.rows[0] as unknown as { id: string; fulfillment_event_id: string } | undefined;
+
+    if (row && row.fulfillment_event_id !== eventId) {
+      console.log(`  ${DRY_RUN ? "would repoint" : "repointing"}: ${l.prophet} ${l.book} ${l.cs}:${l.vs} -> ${l.eventKey}`);
+      if (!DRY_RUN) {
+        await db.execute({
+          sql: `UPDATE prophecy_links SET fulfillment_event_id = ?, explanation = ? WHERE id = ?`,
+          args: [eventId, l.explanation, row.id],
+        });
+      }
+      continue;
+    }
+    if (row) continue; // already correct — idempotent no-op
+
     console.log(`  ${DRY_RUN ? "would link" : "linking"}: ${l.prophet} ${l.book} ${l.cs}:${l.vs} -> ${l.eventKey}`);
     if (!DRY_RUN) {
       await db.execute({
@@ -354,6 +381,7 @@ const EVENT_REFS: { key: string; book: string; cs: number; vs: number; ce: numbe
   { key: "decree",      book: "Ezra",      cs: 1,  vs: 1,  ce: 1,  ve: 4,  note: "Cyrus decrees the return and rebuilding" },
   { key: "temple",      book: "Ezra",      cs: 6,  vs: 14, ce: 6,  ve: 15, note: "The second Temple is completed" },
   { key: "wall",        book: "Nehemiah",  cs: 6,  vs: 15, ce: 6,  ve: 15, note: "The wall is finished in fifty-two days" },
+  { key: "nineveh",     book: "Nahum",     cs: 3,  vs: 1,  ce: 3,  ve: 7,  note: "Nahum describes Nineveh's fall" },
 ];
 
 async function seedEventRefs() {
