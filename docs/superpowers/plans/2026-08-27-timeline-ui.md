@@ -470,6 +470,17 @@ This task renders the lanes statically — no click interaction, no pan/zoom yet
 
 Create `components/Timeline.tsx`:
 
+
+> **Correction (applied during execution).** The `TRACK_COLORS` block below
+> hardcodes 18 hex values, 14 of which exist nowhere in `app/globals.css` —
+> which contradicts this plan's own Global Constraint against introducing new
+> colors. Task 4's review caught it. The shipped implementation instead
+> declares the lane palette as `--tl-*` CSS custom properties in
+> `app/globals.css` (reusing `--gold`, `--gold-deep`, `--gold-bright` and
+> `--accent` where those families already exist) and references
+> `var(--tl-...)` from the component. Follow the shipped code, not the block
+> below, if re-executing this task.
+
 ```typescript
 "use client";
 import { useMemo, useState, useEffect, useRef } from "react";
