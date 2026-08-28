@@ -343,6 +343,23 @@ select.form-input { cursor: pointer; }
   touch-action: manipulation;
 }
 
+/* ── Timeline: filter panel ─────────────────────────────────────────────── */
+.tl-filters { width: 232px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg2); overflow-y: auto; padding: 14px 0 24px; }
+.tl-filters-section { padding: 0 14px 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.tl-filters-section:last-child { border-bottom: none; margin-bottom: 0; }
+.tl-filters-heading { font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 8px; }
+.tl-filters-heading-row { display: flex; align-items: baseline; justify-content: space-between; }
+.tl-filters-all { border: none; background: transparent; color: var(--accent); font-family: var(--ui-font); font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; }
+.tl-filters-all:hover { text-decoration: underline; }
+.tl-switch { display: flex; align-items: center; gap: 7px; padding: 4px 0; cursor: pointer; font-size: 13px; color: var(--text); }
+.tl-switch-hint { margin-left: auto; font-size: 10px; color: var(--text3); }
+.tl-filter-group { margin-bottom: 10px; }
+.tl-filter-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); margin: 8px 0 3px; }
+.tl-check { display: flex; align-items: center; gap: 7px; padding: 3px 4px; border-radius: 5px; cursor: pointer; font-size: 12.5px; color: var(--text); }
+.tl-check:hover { background: var(--bg3); }
+.tl-check-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-check-years { margin-left: auto; font-size: 10px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; }
+
 /* ── Relationship browser tree nodes ────────────────────────────────────── */
 .tree-node { display: inline-flex; align-items: center; justify-content: center; padding: 7px 16px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-md); font-size: 13px; font-weight: 600; font-family: var(--font); color: var(--text2); cursor: pointer; user-select: none; transition: all 120ms; }
 .tree-node:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
