@@ -852,6 +852,13 @@ export function Explorer() {
   const [addRefFor, setAddRefFor] = useState<Person | null>(null);
   const [addRelFor, setAddRelFor] = useState<Person | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Desktop counterpart to sidebarOpen. The single menu button toggles both:
+  // on mobile only `open` has any effect (the collapse rule is scoped above
+  // the breakpoint), on desktop only `nav-collapsed` does. Both start false,
+  // which is closed-drawer on mobile and expanded on desktop — correct for
+  // each — and they stay in step from there.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => { setSidebarOpen(o => !o); setSidebarCollapsed(c => !c); };
 
   const selectPerson = useCallback((id: string) => {
     setSelectedId(prev => prev === id ? null : id);
@@ -871,7 +878,7 @@ export function Explorer() {
     <>
       <div id="layout-root">
         {/* Sidebar */}
-        <nav className={`app-sidebar${sidebarOpen ? " open" : ""}`} id="app-sidebar">
+        <nav className={`app-sidebar${sidebarOpen ? " open" : ""}${sidebarCollapsed ? " nav-collapsed" : ""}`} id="app-sidebar">
           <div className="sidebar-logo">
             <img src="/logo-birdseye.png" alt="" className="sidebar-logo-icon" />
             <span>Birds<span className="logo-eye">eye</span></span>
@@ -899,7 +906,7 @@ export function Explorer() {
         {/* People section */}
         <div className={`app-section${section === "people" ? " active" : ""}`}>
           <div className="section-header">
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -933,7 +940,7 @@ export function Explorer() {
         {/* Books section */}
         <div className={`app-section${section === "books" ? " active" : ""}`}>
           <div className="section-header">
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -950,7 +957,7 @@ export function Explorer() {
         {/* Tree section */}
         <div className={`app-section${section === "tree" ? " active" : ""}`}>
           <div className="section-header">
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -967,7 +974,7 @@ export function Explorer() {
         {/* Timeline section */}
         <div className={`app-section${section === "timeline" ? " active" : ""}`}>
           <div className="section-header">
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -984,7 +991,7 @@ export function Explorer() {
         {/* Stats section */}
         <div className={`app-section${section === "stats" ? " active" : ""}`}>
           <div className="section-header">
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>

@@ -98,6 +98,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 }
 .app-sidebar > * { position: relative; z-index: 1; }
 
+/* Desktop collapse. Scoped above the mobile breakpoint so it cannot interfere
+   with the overlay-drawer behaviour below, which uses `.open` instead. One
+   button drives both: starting from expanded-on-desktop / closed-on-mobile,
+   toggling both flags together lands each on the right state. */
+@media (min-width: 769px) {
+  .app-sidebar { transition: width .2s cubic-bezier(.4,0,.2,1); }
+  .app-sidebar.nav-collapsed { width: 0; }
+}
+.mob-menu-btn { display: flex; }
+
 .sidebar-logo {
   padding: 24px 20px 20px;
   font-size: 24px; font-weight: 700; color: var(--sb-logo);
@@ -391,12 +401,15 @@ select.form-input { cursor: pointer; }
 .mob-menu-btn:hover { background: var(--bg3); }
 .mob-only { display: none; }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 99; }
-.sidebar-backdrop.open { display: block; }
+/* .sidebar-backdrop.open is scoped to the mobile drawer — see the
+   max-width:768px block below. On desktop the same flag means collapsed,
+   where a full-screen scrim would be wrong. */
 
 /* ── Mobile overrides (≤ 768 px) ────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Sidebar */
   .mob-menu-btn { display: flex; }
+  .sidebar-backdrop.open { display: block; }
   .mob-only { display: flex; }
   .app-sidebar { position: fixed; top: 0; left: 0; height: 100dvh; transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 100; }
   .app-sidebar.open { transform: translateX(0); box-shadow: 6px 0 32px rgba(0,0,0,0.35); }
@@ -528,7 +541,7 @@ select.form-input { cursor: pointer; }
 }
 .tl-root { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px 0; position: relative; }
-.tl-scale { position: relative; height: 20px; margin-left: 100px; }
+.tl-scale { position: relative; height: 20px; margin-left: 74px; }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--border2); }
 .tl-tick-label { position: absolute; top: 0; left: 4px; font-size: 10px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
 .tl-lanes { position: relative; }
@@ -541,20 +554,20 @@ select.form-input { cursor: pointer; }
    pale hole in the middle of a taller lane instead of reading as a column,
    which is what made this look broken. Stretching it and giving it a right
    edge makes it read as the chart's fixed gutter. The reserved width
-   (92px + 8px gap = 100px) is mirrored by `.tl-scale`'s margin-left so the
+   (68px + 6px gap = 74px) is mirrored by `.tl-scale`'s margin-left so the
    century ticks stay aligned with where lane bodies actually begin. */
 .tl-lane-label {
   position: sticky;
   left: 0;
   align-self: stretch;
-  flex: 0 0 92px;
-  width: 92px;
-  margin-right: 8px;
+  flex: 0 0 68px;
+  width: 68px;
+  margin-right: 6px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  padding-right: 9px;
+  padding-right: 7px;
   box-sizing: border-box;
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--text2);
   line-height: 1.2;
@@ -655,3 +668,20 @@ select.form-input { cursor: pointer; }
 .tl-prophecy { margin-bottom: 12px; }
 .tl-prophet-link { display: block; text-align: left; border: none; background: transparent; padding: 0 0 2px; color: var(--accent); font-family: var(--mono); font-size: 11.5px; font-weight: 600; cursor: pointer; }
 .tl-prophet-link:hover { text-decoration: underline; }
+
+/* ── Timeline: collapsible controls panel ────────────────────────────────── */
+.tl-filters-topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 14px 10px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.tl-filters-title { font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--text2); }
+.tl-filters-close { border: none; background: transparent; color: var(--text3); font-size: 19px; line-height: 1; cursor: pointer; padding: 0 2px; border-radius: 5px; }
+.tl-filters-close:hover { background: var(--bg3); color: var(--text); }
+/* The collapsed state: a slim always-visible tab, so the controls are never
+   lost — just out of the way. */
+.tl-filters-tab { flex: 0 0 30px; width: 30px; border: none; border-right: 1px solid var(--border); background: var(--bg2); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 14px 0; color: var(--text3); font-family: var(--ui-font); }
+.tl-filters-tab:hover { background: var(--bg3); color: var(--text2); }
+.tl-filters-tab-icon { font-size: 13px; line-height: 1; }
+.tl-filters-tab-text { writing-mode: vertical-rl; font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+@media (max-width: 768px) {
+  /* Stacked layout: a full-width bar rather than a vertical spine. */
+  .tl-filters-tab { flex: 0 0 auto; width: 100%; flex-direction: row; justify-content: center; padding: 9px 0; border-right: none; border-bottom: 1px solid var(--border); }
+  .tl-filters-tab-text { writing-mode: horizontal-tb; }
+}

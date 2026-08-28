@@ -61,6 +61,7 @@ export function Timeline({ onSelectPerson }: Props) {
   // share of names legible on load; "Fit" (below) still zooms out to 1 for
   // the whole-picture view in one click.
   const [zoom, setZoom] = useState(3);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -310,6 +311,8 @@ export function Timeline({ onSelectPerson }: Props) {
         onZoomIn={() => setZoom(z => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
         onZoomOut={() => setZoom(z => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
         onZoomFit={() => setZoom(1)}
+        open={filtersOpen}
+        onToggleOpen={() => setFiltersOpen(v => !v)}
       />
 
       <div className="tl-main">

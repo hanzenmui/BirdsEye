@@ -24,17 +24,34 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomFit: () => void;
+  open: boolean;
+  onToggleOpen: () => void;
 }
 
 export function TimelineFilters({
   checkedBooks, showBooksLayer, showPeopleLayer,
   onToggleBook, onToggleAll, onToggleBooksLayer, onTogglePeopleLayer,
-  zoom, onZoomIn, onZoomOut, onZoomFit,
+  zoom, onZoomIn, onZoomOut, onZoomFit, open, onToggleOpen,
 }: Props) {
   const allChecked = TIMELINE_BOOKS.every(b => checkedBooks.has(b));
 
+  // Collapsed, the panel becomes a slim vertical tab so the chart gets the
+  // full width back — and so it is obvious how to bring the controls back.
+  if (!open) {
+    return (
+      <button className="tl-filters-tab" onClick={onToggleOpen} title="Show controls">
+        <span className="tl-filters-tab-icon" aria-hidden="true">☰</span>
+        <span className="tl-filters-tab-text">Controls</span>
+      </button>
+    );
+  }
+
   return (
     <div className="tl-filters">
+      <div className="tl-filters-topbar">
+        <span className="tl-filters-title">Controls</span>
+        <button className="tl-filters-close" onClick={onToggleOpen} title="Hide controls" aria-label="Hide controls">×</button>
+      </div>
       <div className="tl-filters-section">
         <div className="tl-filters-heading">Zoom</div>
         <div className="tl-zoom-row">
