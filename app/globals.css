@@ -685,3 +685,10 @@ select.form-input { cursor: pointer; }
   .tl-filters-tab { flex: 0 0 auto; width: 100%; flex-direction: row; justify-content: center; padding: 9px 0; border-right: none; border-bottom: 1px solid var(--border); }
   .tl-filters-tab-text { writing-mode: horizontal-tb; }
 }
+
+/* An event whose label could not be placed without overlapping keeps its dot
+   (still hoverable, clickable, and named in the tooltip and detail panel) but
+   drops the text, rather than stacking into an unreadable wall. */
+.tl-event-label-hidden .tl-event-label { display: none; }
+.tl-event-label-hidden .tl-event-dot { opacity: .75; }
+.tl-event-label-hidden:hover .tl-event-dot { opacity: 1; transform: scale(1.3); }

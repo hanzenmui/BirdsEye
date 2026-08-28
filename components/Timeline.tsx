@@ -515,38 +515,68 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selecte
   const laneRef = useRef<HTMLDivElement>(null);
 
   // Event labels are centred under their marker, so two events close in time
-  // collide even when their years differ — the fall of Samaria (722 BC) and
-  // Sennacherib's failed siege (701 BC) are only 21 years apart and their text
-  // overlaps at default zoom. Collision is a PIXEL problem, not a year problem
-  // (it depends on label width and zoom), so it can only be resolved after
-  // layout: measure each marker, then greedily push colliding ones onto a
-  // lower row. No dependency array — widths change with zoom and filtering.
+  // collide even when their years differ — Samaria (722 BC) and Sennacherib's
+  // failed siege (701 BC) are 21 years apart and their text overlaps. Collision
+  // is a PIXEL problem, not a year problem (it depends on label width and
+  // zoom), so it can only be settled after layout.
+  //
+  // Measure the LABEL, not the marker: `.tl-event` is deliberately zero-width
+  // so the dot can centre exactly on its year, which means measuring the host
+  // reports a point and nothing ever appears to collide — every label lands on
+  // row 0 and they pile on top of each other.
+  //
+  // Events are greedily pushed onto lower rows, but only up to MAX_ROWS. Past
+  // that the lane would be a wall of text taller than the chart it annotates,
+  // so any label that still will not fit is hidden and only its dot remains —
+  // the event stays visible, hoverable and clickable, with its title in the
+  // tooltip and the detail panel. A selected event always keeps its label.
+  //
+  // No dependency array: widths change with zoom and filtering.
+  const MAX_EVENT_ROWS = 3;
   useEffect(() => {
     const lane = laneRef.current;
     if (!lane) return;
     const markers = Array.from(lane.querySelectorAll<HTMLElement>(".tl-event"));
-    markers.forEach(m => { m.style.top = "0px"; });
+    markers.forEach(m => {
+      m.style.top = "0px";
+      m.classList.remove("tl-event-label-hidden");
+    });
     const laneLeft = lane.getBoundingClientRect().left;
     const placed = markers
       .map(el => {
-        const r = el.getBoundingClientRect();
+        const label = el.querySelector<HTMLElement>(".tl-event-label");
+        const r = (label ?? el).getBoundingClientRect();
         return { el, left: r.left - laneLeft, right: r.right - laneLeft };
       })
       .sort((a, b) => a.left - b.left);
 
     const EVENT_ROW_H = 54, GAP = 8;
     const rows: [number, number][][] = [];
+    let usedRows = 0;
     for (const p of placed) {
+      const isSelected = p.el.classList.contains("tl-event-selected");
       let row = 0;
-      for (;;) {
+      let fitted = false;
+      while (row < MAX_EVENT_ROWS) {
         const occupied = rows[row] ?? (rows[row] = []);
         const collides = occupied.some(([l, r]) => p.left < r + GAP && p.right > l - GAP);
-        if (!collides) { occupied.push([p.left, p.right]); break; }
+        if (!collides) { occupied.push([p.left, p.right]); fitted = true; break; }
         row++;
       }
-      p.el.style.top = `${row * EVENT_ROW_H}px`;
+      if (fitted) {
+        p.el.style.top = `${row * EVENT_ROW_H}px`;
+        usedRows = Math.max(usedRows, row + 1);
+      } else if (isSelected) {
+        // Never hide what the reader just clicked — give it the top row even
+        // if that means overlapping something else for the moment.
+        p.el.style.top = "0px";
+        usedRows = Math.max(usedRows, 1);
+      } else {
+        p.el.style.top = "0px";
+        p.el.classList.add("tl-event-label-hidden");
+      }
     }
-    lane.style.height = `${Math.max(rows.length, 1) * EVENT_ROW_H}px`;
+    lane.style.height = `${Math.max(usedRows, 1) * EVENT_ROW_H}px`;
   });
 
   return (
