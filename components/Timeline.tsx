@@ -198,6 +198,39 @@ export function Timeline({ onSelectPerson }: Props) {
     });
   });
 
+  // Mouse wheel pans the timeline left/right instead of scrolling it down.
+  //
+  // Telling a wheel from a trackpad: a mouse wheel reports movement only on
+  // deltaY, while a two-finger horizontal swipe reports deltaX. So a
+  // deltaY-dominant event is the wheel and gets translated to horizontal
+  // motion; anything deltaX-dominant is already a horizontal gesture and is
+  // left to the browser's native scrolling, which handles it (with momentum)
+  // better than we could.
+  //
+  // Shift+wheel stays vertical. The lanes are taller than the canvas on
+  // shorter screens, and the Events lane sits near the bottom — without an
+  // escape hatch a mouse-only user could not reach it at all.
+  //
+  // Registered here rather than via React's onWheel because preventDefault()
+  // requires a non-passive listener, and React attaches wheel handlers
+  // passively.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.shiftKey) return;                                  // deliberate vertical
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // trackpad swipe
+      if (el.scrollWidth <= el.clientWidth) return;            // nothing to pan
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // Not [] — the canvas does not exist during the loading and empty states
+    // above, so an on-mount-only effect would find a null ref and never
+    // attach. Re-running once those resolve is what actually binds it.
+  }, [loading, people.length]);
+
   if (loading) {
     return <div className="loading-wrap"><div className="spinner" /></div>;
   }

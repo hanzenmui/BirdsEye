@@ -43,7 +43,7 @@ export function TimelineFilters({
           <button type="button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">+</button>
           <button type="button" className="tl-zoom-fit" onClick={onZoomFit} title="Show the whole span">Fit all</button>
         </div>
-        <div className="tl-filters-hint">Drag the timeline to move left and right.</div>
+        <div className="tl-filters-hint">Drag, or scroll your mouse wheel, to move left and right. Hold Shift while scrolling to move up and down.</div>
       </div>
 
       <div className="tl-filters-section">
