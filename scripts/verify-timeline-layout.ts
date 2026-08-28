@@ -1,7 +1,7 @@
 // Assertion suite for the pure timeline layout math. This project has no test
 // framework; this script is the test suite. Run: npx tsx scripts/verify-timeline-layout.ts
 import {
-  yearToPct, spanToBox, spansOverlap, packRows, computeRange,
+  yearToPct, spanToBox, spansOverlap, packRows, computeRange, MIN_WIDTH_PCT,
   type TimelineRange, type Span,
 } from "../lib/timeline-layout";
 
@@ -22,12 +22,17 @@ check("yearToPct maps range end to 100%", near(yearToPct(500, RANGE), 100));
 check("yearToPct maps midpoint to 50%", near(yearToPct(750, RANGE), 50));
 check("yearToPct is monotonic left-to-right", yearToPct(900, RANGE) < yearToPct(600, RANGE));
 
+// yearToPct: degenerate range (startBc === endBc) must not divide by zero
+const DEGENERATE: TimelineRange = { startBc: 500, endBc: 500 };
+check("degenerate range does not divide by zero", yearToPct(500, DEGENERATE) === 0);
+check("degenerate range never yields NaN", !Number.isNaN(yearToPct(400, DEGENERATE)));
+
 // spanToBox
 const box = spanToBox({ id: "a", startBc: 900, endBc: 800 }, RANGE);
 check("spanToBox left edge uses startBc", near(box.leftPct, 20));
 check("spanToBox width covers the span", near(box.widthPct, 20));
 const zero = spanToBox({ id: "z", startBc: 700, endBc: 700 }, RANGE);
-check("zero-length span still gets a visible minimum width", zero.widthPct > 0);
+check("zero-length span is pinned to the guaranteed minimum width", near(zero.widthPct, MIN_WIDTH_PCT));
 
 // spansOverlap — BC semantics: [startBc..endBc] with startBc >= endBc
 check("overlapping spans detected",
@@ -70,6 +75,13 @@ check("computeRange starts at the earliest year plus padding", r.startBc === 910
 check("computeRange ends at the latest year minus padding", r.endBc === 590);
 check("computeRange includes bare point years",
   computeRange([], [800, 600], 0).startBc === 800);
+
+// computeRange: fully-empty input must fall back to a sane default
+const fallback = computeRange([], [], 20);
+check("computeRange falls back to a sane default when given nothing",
+  fallback.startBc === 1000 && fallback.endBc === 500);
+check("fallback range is well-formed (start is earlier than end)",
+  fallback.startBc > fallback.endBc);
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);

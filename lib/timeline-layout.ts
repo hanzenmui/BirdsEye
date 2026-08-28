@@ -28,7 +28,7 @@ export function yearToPct(year: number, range: TimelineRange): number {
  * reigned months, e.g. Zimri's seven days) would otherwise be invisible, so
  * width is floored at MIN_WIDTH_PCT.
  */
-const MIN_WIDTH_PCT = 0.35;
+export const MIN_WIDTH_PCT = 0.35;
 export function spanToBox(span: Span, range: TimelineRange): { leftPct: number; widthPct: number } {
   const leftPct = yearToPct(span.startBc, range);
   const rawWidth = yearToPct(span.endBc, range) - leftPct;
