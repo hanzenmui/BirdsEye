@@ -54,6 +54,7 @@ export function Timeline({ onSelectPerson }: Props) {
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   // Starts above "fit" (1) rather than at it: the full span is ~945 years
   // once judges and book coverage are included, so at zoom 1 every segment
   // is a blank sliver — nothing reads without hovering. 3x keeps a useful
@@ -63,6 +64,10 @@ export function Timeline({ onSelectPerson }: Props) {
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
   const lanesRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  // Drag-to-pan bookkeeping. `moved` is what stops a drag that happens to end
+  // on a segment from also registering as a click on it.
+  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
 
   // True once every book in the filter list is checked — the "no filtering
   // in effect" state, used below to skip the per-person/event book match
@@ -79,9 +84,26 @@ export function Timeline({ onSelectPerson }: Props) {
   }, [people, events]);
 
   const selectedPerson = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
+  const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) ?? null : null;
+
+  // The same prophecy_links rows read from either end. Picking a prophet asks
+  // "what did this foretell?"; picking an event asks the reverse — "who
+  // foretold this?" — which is the same set filtered on the other column, so
+  // one geometry pass serves both directions.
   const selectedLinks = selectedPerson
     ? prophecyLinks.filter(l => l.prophetPersonId === selectedPerson.id)
+    : selectedEvent
+    ? prophecyLinks.filter(l => l.fulfillmentEventId === selectedEvent.id)
     : [];
+
+  // Which books narrate the selected event.
+  const selectedEventBooks = selectedEvent
+    ? [...new Set(eventRefs.filter(r => r.eventId === selectedEvent.id).map(r => r.book))]
+    : [];
+
+  const selectPerson = (id: string) => { setSelectedEventId(null); setSelectedId(id); };
+  const selectEvent = (id: string) => { setSelectedId(null); setSelectedEventId(prev => prev === id ? null : id); };
+  const panelOpen = selectedPerson !== null || selectedEvent !== null;
 
   // Draw each fulfillment curve: from the selected prophet's segment to the
   // marker of the event their prophecy points at. Positions are read straight
@@ -100,7 +122,7 @@ export function Timeline({ onSelectPerson }: Props) {
       const lanesRect = lanesEl.getBoundingClientRect();
       setLanesHeight(lanesRect.height);
 
-      if (!selectedPerson || selectedLinks.length === 0) { setLinkGeoms([]); return; }
+      if ((!selectedPerson && !selectedEvent) || selectedLinks.length === 0) { setLinkGeoms([]); return; }
 
       // A zero-width box is a transient layout frame — e.g. the instant the
       // canvas's padding-right compensation (below) applies and `.tl-lanes`
@@ -112,24 +134,25 @@ export function Timeline({ onSelectPerson }: Props) {
       // without needing a second interaction to force it.
       if (lanesRect.width === 0) return;
 
-      const fromEl = lanesEl.querySelector<HTMLElement>(`[data-person-id="${selectedPerson.id}"]`);
-      if (!fromEl) { setLinkGeoms([]); return; }
-      const fromRect = fromEl.getBoundingClientRect();
-      const fromX = ((fromRect.left - lanesRect.left) + fromRect.width / 2) / lanesRect.width * 100;
-      const fromY = fromRect.top - lanesRect.top + fromRect.height / 2;
+      // Measure a point on either a prophet's segment or an event's marker.
+      const centreOf = (sel: string) => {
+        const el = lanesEl.querySelector<HTMLElement>(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return {
+          x: ((r.left - lanesRect.left) + r.width / 2) / lanesRect.width * 100,
+          y: r.top - lanesRect.top + r.height / 2,
+        };
+      };
 
       const geoms: LinkGeom[] = [];
       for (const link of selectedLinks) {
-        const ev = events.find(e => e.id === link.fulfillmentEventId);
-        if (!ev) continue;
-        const toEl = lanesEl.querySelector<HTMLElement>(`[data-event-dot="${ev.id}"]`);
-        if (!toEl) continue;
-        const toRect = toEl.getBoundingClientRect();
-        const toX = ((toRect.left - lanesRect.left) + toRect.width / 2) / lanesRect.width * 100;
-        const toY = toRect.top - lanesRect.top + toRect.height / 2;
+        const a = centreOf(`[data-person-id="${link.prophetPersonId}"]`);
+        const b = centreOf(`[data-event-dot="${link.fulfillmentEventId}"]`);
+        if (!a || !b) continue;
         geoms.push({
           id: link.id,
-          d: `M ${fromX} ${fromY} Q ${(fromX + toX) / 2} ${(fromY + toY) / 2 - 40} ${toX} ${toY}`,
+          d: `M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - 40} ${b.x} ${b.y}`,
         });
       }
       setLinkGeoms(geoms);
@@ -143,7 +166,7 @@ export function Timeline({ onSelectPerson }: Props) {
   // that element with no recompute needed (see LinkGeom above).
   useEffect(() => {
     measureLinksRef.current();
-  }, [selectedId, range, showBooksLayer, showPeopleLayer]);
+  }, [selectedId, selectedEventId, range, showBooksLayer, showPeopleLayer]);
 
   // ...and independently, whenever `.tl-lanes`' own box actually resizes —
   // covering both the zero-width frame described above (the box recovering
@@ -197,6 +220,44 @@ export function Timeline({ onSelectPerson }: Props) {
     setCheckedBooks(checked ? new Set(TIMELINE_BOOKS) : new Set());
 
   // Century gridlines give the eye something to measure against.
+  // Click-and-drag panning. Mouse only, by design: touch devices already pan
+  // this canvas with native overflow scrolling, and adding touch listeners
+  // here is what previously broke every tap on the Family Tree's overlay UI.
+  const onCanvasMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    // The segments and event markers ARE buttons, and they cover most of the
+    // canvas — excluding buttons here would mean dragging only worked on the
+    // empty gaps between kings. Start a drag anywhere on the canvas; the
+    // `moved` flag below is what keeps a drag from also selecting whatever it
+    // happened to start on. Only the detail panel, which overlays the canvas
+    // and has its own scrolling and controls, is excluded.
+    if ((e.target as Element).closest(".tl-detail-panel")) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    drag.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft, moved: false };
+  };
+
+  const onCanvasMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current.active) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    const dx = e.clientX - drag.current.startX;
+    if (Math.abs(dx) > 3) drag.current.moved = true;
+    el.scrollLeft = drag.current.startScroll - dx;
+  };
+
+  const endCanvasDrag = () => { drag.current.active = false; };
+
+  // Swallow the click that ends a drag, so panning past a king doesn't also
+  // select him. Runs in the capture phase to beat the segment's own onClick.
+  const onCanvasClickCapture = (e: React.MouseEvent) => {
+    if (drag.current.moved) {
+      e.stopPropagation();
+      e.preventDefault();
+      drag.current.moved = false;
+    }
+  };
+
   const ticks: number[] = [];
   for (let y = Math.floor(range.startBc / 100) * 100; y > range.endBc; y -= 100) {
     ticks.push(y);
@@ -212,6 +273,10 @@ export function Timeline({ onSelectPerson }: Props) {
         onToggleAll={toggleAll}
         onToggleBooksLayer={() => setShowBooksLayer(v => !v)}
         onTogglePeopleLayer={() => setShowPeopleLayer(v => !v)}
+        zoom={zoom}
+        onZoomIn={() => setZoom(z => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
+        onZoomOut={() => setZoom(z => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
+        onZoomFit={() => setZoom(1)}
       />
 
       <div className="tl-main">
@@ -224,6 +289,12 @@ export function Timeline({ onSelectPerson }: Props) {
         )}
 
         <div
+          ref={canvasRef}
+          onMouseDown={onCanvasMouseDown}
+          onMouseMove={onCanvasMouseMove}
+          onMouseUp={endCanvasDrag}
+          onMouseLeave={endCanvasDrag}
+          onClickCapture={onCanvasClickCapture}
           className="tl-canvas"
           // The detail panel docks over the canvas's right 280px. Later
           // events (Cyrus's decree is the latest date in the whole dataset)
@@ -232,7 +303,7 @@ export function Timeline({ onSelectPerson }: Props) {
           // at. Padding out the canvas's content box — border-box, so this
           // actually narrows it — reflows the percentage-positioned lanes to
           // fit beside the panel instead of under it.
-          style={{ paddingRight: selectedPerson ? 24 + 280 : 24 }}
+          style={{ paddingRight: panelOpen ? 24 + 280 : 24 }}
         >
           <div style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
             <div className="tl-scale">
@@ -256,13 +327,14 @@ export function Timeline({ onSelectPerson }: Props) {
                   allChecked={allChecked}
                   personBooks={personBooks}
                   selectedId={selectedId}
-                  onSelect={setSelectedId}
+                  onSelect={selectPerson}
                 />
               ))}
 
               {events.length > 0 && (
                 <EventLane events={events} range={range} eventRefs={eventRefs}
-                  checkedBooks={checkedBooks} allChecked={allChecked} />
+                  checkedBooks={checkedBooks} allChecked={allChecked}
+                  selectedEventId={selectedEventId} onSelectEvent={selectEvent} />
               )}
 
               {showBooksLayer && (
@@ -294,11 +366,16 @@ export function Timeline({ onSelectPerson }: Props) {
           </div>
         </div>
 
-        <div className="tl-zoom" style={{ right: selectedPerson ? 296 : 16 }}>
-          <button onClick={() => setZoom(z => Math.max(ZOOM_MIN, z - ZOOM_STEP))} title="Zoom out (−)">−</button>
-          <button onClick={() => setZoom(z => Math.min(ZOOM_MAX, z + ZOOM_STEP))} title="Zoom in (+)">+</button>
-          <button className="tl-zoom-fit" onClick={() => setZoom(1)} title="Reset zoom">Fit</button>
-        </div>
+        {selectedEvent && (
+          <EventDetailPanel
+            event={selectedEvent}
+            books={selectedEventBooks}
+            links={selectedLinks}
+            people={people}
+            onClose={() => setSelectedEventId(null)}
+            onSelectProphet={selectPerson}
+          />
+        )}
 
         {selectedPerson && (
           <PersonDetailPanel
@@ -394,9 +471,11 @@ interface EventLaneProps {
   events: HistoricalEvent[]; range: TimelineRange;
   eventRefs: { eventId: string | null; book: string }[];
   checkedBooks: Set<string>; allChecked: boolean;
+  selectedEventId: string | null;
+  onSelectEvent: (id: string) => void;
 }
 
-function EventLane({ events, range, eventRefs, checkedBooks, allChecked }: EventLaneProps) {
+function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selectedEventId, onSelectEvent }: EventLaneProps) {
   const laneRef = useRef<HTMLDivElement>(null);
 
   // Event labels are centred under their marker, so two events close in time
@@ -442,15 +521,17 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked }: Event
           const books = eventRefs.filter(r => r.eventId === ev.id).map(r => r.book);
           const dimmed = !allChecked && !books.some(b => checkedBooks.has(b));
           return (
-            <div
+            <button
               key={ev.id}
-              className={`tl-event${dimmed ? " tl-seg-dim" : ""}`}
+              type="button"
+              className={`tl-event${dimmed ? " tl-seg-dim" : ""}${ev.id === selectedEventId ? " tl-event-selected" : ""}`}
               style={{ left: `${yearToPct(ev.yearBc, range)}%` }}
               title={`${ev.title} (${ev.yearBc} BC)`}
+              onClick={() => onSelectEvent(ev.id)}
             >
               <span className="tl-event-dot" data-event-dot={ev.id}>◆</span>
               <span className="tl-event-label">{ev.title}<br />{ev.yearBc} BC</span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -503,6 +584,87 @@ function formatProphecyRef(l: ProphecyLink): string {
   }
   if (same) return `${l.prophecyBook} ${l.prophecyChapterStart}:${l.prophecyVerseStart}–${l.prophecyVerseEnd}`;
   return `${l.prophecyBook} ${l.prophecyChapterStart}:${l.prophecyVerseStart} – ${l.prophecyChapterEnd}:${l.prophecyVerseEnd}`;
+}
+
+interface EventDetailPanelProps {
+  event: HistoricalEvent;
+  books: string[];
+  links: ProphecyLink[];
+  people: Person[];
+  onClose: () => void;
+  onSelectProphet: (id: string) => void;
+}
+
+// The reverse of PersonDetailPanel: instead of "what did this prophet
+// foretell?", this answers "who foretold this, and where is it written?" —
+// reading the same prophecy_links rows from the fulfillment end.
+function EventDetailPanel({ event, books, links, people, onClose, onSelectProphet }: EventDetailPanelProps) {
+  return (
+    <div className="tl-detail-panel">
+      <div className="tl-detail-header">
+        <div>
+          <div className="tl-detail-name">{event.title}</div>
+          <div className="tl-detail-meta">
+            {event.yearBc} BC{event.era ? " · " + event.era : ""}
+          </div>
+        </div>
+        <button className="tl-detail-close" onClick={onClose} aria-label="Close">×</button>
+      </div>
+
+      <div className="tl-detail-body">
+        {event.description && (
+          <div className="tl-detail-section">
+            <div className="tl-detail-label">About</div>
+            <p className="tl-detail-text">{event.description}</p>
+          </div>
+        )}
+
+        {event.dateUncertaintyNote && (
+          <div className="tl-detail-section">
+            <div className="tl-detail-label">Dating note</div>
+            <p className="tl-detail-note">{event.dateUncertaintyNote}</p>
+          </div>
+        )}
+
+        {books.length > 0 && (
+          <div className="tl-detail-section">
+            <div className="tl-detail-label">Where it&apos;s written</div>
+            <div className="tl-detail-books">
+              {books.map(b => <span key={b} className="tl-book-chip">{b}</span>)}
+            </div>
+          </div>
+        )}
+
+        {links.length > 0 ? (
+          <div className="tl-detail-section">
+            <div className="tl-detail-label">Foretold by ({links.length})</div>
+            {links.map(link => {
+              const prophet = people.find(p => p.id === link.prophetPersonId);
+              return (
+                <div key={link.id} className="tl-prophecy">
+                  <button
+                    type="button"
+                    className="tl-prophet-link"
+                    onClick={() => onSelectProphet(link.prophetPersonId)}
+                    title={prophet ? "Show " + prophet.name + " on the timeline" : undefined}
+                  >
+                    {prophet ? prophet.name : "Unknown"} — {formatProphecyRef(link)}
+                  </button>
+                  <p className="tl-detail-text">{link.explanation}</p>
+                  {link.uncertaintyNote && <p className="tl-detail-note">{link.uncertaintyNote}</p>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="tl-detail-section">
+            <div className="tl-detail-label">Foretold by</div>
+            <p className="tl-detail-note">No prophecy in the timeline points at this event yet.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface PersonDetailPanelProps {

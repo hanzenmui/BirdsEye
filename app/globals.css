@@ -611,3 +611,32 @@ select.form-input { cursor: pointer; }
 .tl-detail-footer { padding: 10px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .tl-detail-footer button { width: 100%; font-size: 12px; padding: 7px 8px; background: var(--accent); border: none; border-radius: 6px; cursor: pointer; color: var(--accent-text); font-family: var(--ui-font); font-weight: 600; }
 .tl-detail-footer button:hover { opacity: .88; }
+
+/* ── Timeline: zoom controls in the filter panel ─────────────────────────── */
+.tl-zoom-row { display: flex; align-items: center; gap: 6px; }
+.tl-zoom-row button { border: 1px solid var(--border2); background: var(--bg2); color: var(--text); border-radius: 6px; height: 28px; min-width: 28px; font-size: 15px; line-height: 1; cursor: pointer; font-family: var(--ui-font); padding: 0 6px; }
+.tl-zoom-row button:hover { background: var(--bg3); }
+.tl-zoom-row .tl-zoom-fit { font-size: 11px; font-weight: 600; margin-left: auto; padding: 0 9px; }
+.tl-zoom-level { font-size: 11px; color: var(--text3); font-family: var(--mono); min-width: 30px; text-align: center; }
+.tl-filters-hint { font-size: 10.5px; color: var(--text3); margin-top: 7px; line-height: 1.4; }
+
+/* Drag-to-pan affordance. The grabbing state is applied via :active rather
+   than a React-tracked flag so it cannot go stale if a mouseup lands outside
+   the canvas. */
+.tl-canvas { cursor: grab; }
+.tl-canvas:active { cursor: grabbing; }
+/* ...but never over the panel or a real control, where the pointer should
+   still read as a pointer. */
+.tl-canvas .tl-seg, .tl-canvas .tl-event { cursor: pointer; }
+.tl-detail-panel, .tl-detail-panel * { cursor: auto; }
+.tl-detail-panel button { cursor: pointer; }
+
+/* ── Timeline: clickable events + event detail panel ─────────────────────── */
+.tl-event { border: none; background: transparent; padding: 0; font-family: var(--ui-font); }
+.tl-event-selected .tl-event-dot { color: var(--accent); transform: scale(1.35); }
+.tl-event-selected .tl-event-label { color: var(--text2); font-weight: 600; }
+.tl-detail-books { display: flex; flex-wrap: wrap; gap: 5px; }
+.tl-book-chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--bg3); color: var(--text2); font-family: var(--ui-font); }
+.tl-prophecy { margin-bottom: 12px; }
+.tl-prophet-link { display: block; text-align: left; border: none; background: transparent; padding: 0 0 2px; color: var(--accent); font-family: var(--mono); font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.tl-prophet-link:hover { text-decoration: underline; }

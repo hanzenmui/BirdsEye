@@ -20,16 +20,32 @@ interface Props {
   onToggleAll: (checked: boolean) => void;
   onToggleBooksLayer: () => void;
   onTogglePeopleLayer: () => void;
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomFit: () => void;
 }
 
 export function TimelineFilters({
   checkedBooks, showBooksLayer, showPeopleLayer,
   onToggleBook, onToggleAll, onToggleBooksLayer, onTogglePeopleLayer,
+  zoom, onZoomIn, onZoomOut, onZoomFit,
 }: Props) {
   const allChecked = TIMELINE_BOOKS.every(b => checkedBooks.has(b));
 
   return (
     <div className="tl-filters">
+      <div className="tl-filters-section">
+        <div className="tl-filters-heading">Zoom</div>
+        <div className="tl-zoom-row">
+          <button type="button" onClick={onZoomOut} title="Zoom out" aria-label="Zoom out">−</button>
+          <span className="tl-zoom-level">{zoom.toFixed(1)}×</span>
+          <button type="button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" className="tl-zoom-fit" onClick={onZoomFit} title="Show the whole span">Fit all</button>
+        </div>
+        <div className="tl-filters-hint">Drag the timeline to move left and right.</div>
+      </div>
+
       <div className="tl-filters-section">
         <div className="tl-filters-heading">Show</div>
         <label className="tl-switch">
