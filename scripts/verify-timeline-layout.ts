@@ -25,14 +25,22 @@ check("yearToPct is monotonic left-to-right", yearToPct(900, RANGE) < yearToPct(
 // yearToPct: degenerate range (startBc === endBc) must not divide by zero
 const DEGENERATE: TimelineRange = { startBc: 500, endBc: 500 };
 check("degenerate range does not divide by zero", yearToPct(500, DEGENERATE) === 0);
-check("degenerate range never yields NaN", !Number.isNaN(yearToPct(400, DEGENERATE)));
+// Using year 500 (equal to both startBc and endBc) makes the numerator
+// (range.startBc - year) genuinely 0 too, so the raw expression is 0/0 —
+// which evaluates to NaN without the guard. A different year (e.g. 400)
+// gives a nonzero numerator over a zero denominator, i.e. Infinity, and
+// Number.isNaN(Infinity) is false — so that version of the check would pass
+// regardless of whether the guard exists, gating nothing.
+check("degenerate range never yields NaN", !Number.isNaN(yearToPct(500, DEGENERATE)));
 
 // spanToBox
 const box = spanToBox({ id: "a", startBc: 900, endBc: 800 }, RANGE);
 check("spanToBox left edge uses startBc", near(box.leftPct, 20));
 check("spanToBox width covers the span", near(box.widthPct, 20));
+check("a span wide enough to need no flooring reports floored: false", box.floored === false);
 const zero = spanToBox({ id: "z", startBc: 700, endBc: 700 }, RANGE);
 check("zero-length span is pinned to the guaranteed minimum width", near(zero.widthPct, MIN_WIDTH_PCT));
+check("a floored span reports floored: true, so callers can break the paint-order tie", zero.floored === true);
 
 // spansOverlap — BC semantics: [startBc..endBc] with startBc >= endBc
 check("overlapping spans detected",

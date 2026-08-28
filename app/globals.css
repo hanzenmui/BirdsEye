@@ -531,10 +531,32 @@ select.form-input { cursor: pointer; }
 .tl-scale { position: relative; height: 20px; margin-left: 96px; }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--border2); }
 .tl-tick-label { position: absolute; top: 0; left: 4px; font-size: 10px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
-.tl-lanes { margin-left: 96px; position: relative; }
-.tl-lane { position: relative; margin-bottom: 12px; }
-.tl-lane-label { position: absolute; left: -96px; top: 0; width: 88px; text-align: right; font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--text2); line-height: 26px; }
-.tl-lane-body { position: relative; background: var(--bg3); border-radius: 5px; min-height: 26px; }
+.tl-lanes { position: relative; }
+.tl-lane { position: relative; margin-bottom: 12px; display: flex; align-items: flex-start; }
+/* Sticky, not the old absolute-in-a-96px-gutter trick: the default zoom (3x)
+   makes `.tl-canvas` scroll horizontally, and an absolutely-positioned label
+   scrolls out of view with everything else the moment the user pans right —
+   taking the lane's identity ("Judah", "Major Prophets"...) with it right
+   when zoom makes the contents worth reading. `left` matches `.tl-canvas`'s
+   own left padding so the label doesn't sit flush against the scrollport
+   edge; the opaque background keeps lane segments from showing through as
+   they scroll underneath a label that's now pinned in place; the reserved
+   width (88px flex-basis + 8px gap = 96px, matching `.tl-scale`'s own
+   margin-left) keeps the century ticks lined up with where the lane body
+   actually starts. */
+.tl-lane-label {
+  position: sticky;
+  left: 24px;
+  flex: 0 0 88px;
+  width: 88px;
+  margin-right: 8px;
+  text-align: right;
+  font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--text2);
+  line-height: 26px;
+  background: var(--bg);
+  z-index: 5;
+}
+.tl-lane-body { position: relative; background: var(--bg3); border-radius: 5px; min-height: 26px; flex: 1; min-width: 0; }
 .tl-seg { position: absolute; box-sizing: border-box; border: none; border-right: 2px solid var(--bg); border-radius: 3px; overflow: hidden; display: flex; align-items: center; padding-left: 6px; cursor: pointer; font-family: var(--ui-font); text-align: left; }
 .tl-seg-label { font-size: 11px; font-weight: 600; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.28); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tl-seg-dim { opacity: .22; }

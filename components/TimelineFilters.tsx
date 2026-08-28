@@ -46,7 +46,7 @@ export function TimelineFilters({
 
       <div className="tl-filters-section">
         <div className="tl-filters-heading-row">
-          <div className="tl-filters-heading">Books</div>
+          <div className="tl-filters-heading">Filter by book</div>
           <button className="tl-filters-all" onClick={() => onToggleAll(!allChecked)}>
             {allChecked ? "Clear all" : "Select all"}
           </button>

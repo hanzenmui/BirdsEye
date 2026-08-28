@@ -64,10 +64,9 @@ export function Timeline({ onSelectPerson }: Props) {
   const [lanesHeight, setLanesHeight] = useState(0);
   const lanesRef = useRef<HTMLDivElement>(null);
 
-  // Which people survive the book filter. A person is kept when any of their
-  // scripture refs is tagged to a checked book. People are matched through
-  // eventRefs' sibling data — person refs come from the people payload's own
-  // book tags, so we derive the set from the refs the API already returned.
+  // True once every book in the filter list is checked — the "no filtering
+  // in effect" state, used below to skip the per-person/event book match
+  // entirely. See personMatchesBooks() for how the actual filtering works.
   const allChecked = checkedBooks.size === TIMELINE_BOOKS.length;
 
   const range: TimelineRange = useMemo(() => {
@@ -342,7 +341,7 @@ function PersonLane({ label, track, multiRow, people, range, checkedBooks, allCh
       <div className="tl-lane-body" style={{ height: rows.length * (ROW_H + ROW_GAP) }}>
         {rows.map((row, ri) =>
           row.map((s, si) => {
-            const { leftPct, widthPct } = spanToBox(s, range);
+            const { leftPct, widthPct, floored } = spanToBox(s, range);
             // The book filter dims rather than removes, so a person's place in
             // the sequence stays legible even when filtered out.
             const dimmed = !allChecked && !personMatchesBooks(s.person, checkedBooks, personBooks);
@@ -355,6 +354,12 @@ function PersonLane({ label, track, multiRow, people, range, checkedBooks, allCh
                   left: `${leftPct}%`, width: `${widthPct}%`,
                   top: ri * (ROW_H + ROW_GAP), height: ROW_H,
                   background: palette[si % palette.length],
+                  // A floored (zero-length) reign shares its exact leftPct with
+                  // the next king, who is wider — e.g. Zimri vs Omri. Without a
+                  // deterministic stacking order the wider neighbour, painted
+                  // later or earlier depending on incidental array order, can
+                  // bury the narrow one entirely. Floored segments always win.
+                  zIndex: floored ? 2 : 1,
                 }}
                 title={segTitle(s.person)}
                 onClick={() => onSelect(s.person.id)}
@@ -414,7 +419,7 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked }: Event
       })
       .sort((a, b) => a.left - b.left);
 
-    const ROW_H = 46, GAP = 6;
+    const EVENT_ROW_H = 46, GAP = 6;
     const rows: [number, number][][] = [];
     for (const p of placed) {
       let row = 0;
@@ -424,9 +429,9 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked }: Event
         if (!collides) { occupied.push([p.left, p.right]); break; }
         row++;
       }
-      p.el.style.top = `${row * ROW_H}px`;
+      p.el.style.top = `${row * EVENT_ROW_H}px`;
     }
-    lane.style.height = `${Math.max(rows.length, 1) * ROW_H}px`;
+    lane.style.height = `${Math.max(rows.length, 1) * EVENT_ROW_H}px`;
   });
 
   return (

@@ -29,10 +29,11 @@ export function yearToPct(year: number, range: TimelineRange): number {
  * width is floored at MIN_WIDTH_PCT.
  */
 export const MIN_WIDTH_PCT = 0.35;
-export function spanToBox(span: Span, range: TimelineRange): { leftPct: number; widthPct: number } {
+export function spanToBox(span: Span, range: TimelineRange): { leftPct: number; widthPct: number; floored: boolean } {
   const leftPct = yearToPct(span.startBc, range);
   const rawWidth = yearToPct(span.endBc, range) - leftPct;
-  return { leftPct, widthPct: Math.max(rawWidth, MIN_WIDTH_PCT) };
+  const floored = rawWidth < MIN_WIDTH_PCT;
+  return { leftPct, widthPct: Math.max(rawWidth, MIN_WIDTH_PCT), floored };
 }
 
 /**
