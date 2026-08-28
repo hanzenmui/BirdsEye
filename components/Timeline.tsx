@@ -54,7 +54,12 @@ export function Timeline({ onSelectPerson }: Props) {
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  // Starts above "fit" (1) rather than at it: the full span is ~945 years
+  // once judges and book coverage are included, so at zoom 1 every segment
+  // is a blank sliver — nothing reads without hovering. 3x keeps a useful
+  // share of names legible on load; "Fit" (below) still zooms out to 1 for
+  // the whole-picture view in one click.
+  const [zoom, setZoom] = useState(3);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -84,46 +89,75 @@ export function Timeline({ onSelectPerson }: Props) {
   // off the DOM (post row-packing, post collision-stacking) rather than
   // re-derived from the layout math, so the arrows always land on the actual
   // rendered segment/marker — including multi-row lanes and stacked event
-  // labels. Deliberately excludes `zoom` from the deps: x is stored as a
+  // labels. Stored in a ref (updated every render, below) rather than called
+  // directly, so the mount-once ResizeObserver further down always invokes
+  // today's closure — selectedPerson/selectedLinks/events included — instead
+  // of the one captured when the observer was created.
+  const measureLinksRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    measureLinksRef.current = () => {
+      const lanesEl = lanesRef.current;
+      if (!lanesEl) return;
+      const lanesRect = lanesEl.getBoundingClientRect();
+      setLanesHeight(lanesRect.height);
+
+      if (!selectedPerson || selectedLinks.length === 0) { setLinkGeoms([]); return; }
+
+      // A zero-width box is a transient layout frame — e.g. the instant the
+      // canvas's padding-right compensation (below) applies and `.tl-lanes`
+      // hasn't settled into its new size yet — not a dead end. Dividing by
+      // it would put Infinity into an SVG path's `d`, so this bails for now,
+      // but the ResizeObserver effect further down re-invokes this same
+      // closure the moment `.tl-lanes`' box actually changes, including the
+      // moment it recovers from zero, so the curves still land correctly
+      // without needing a second interaction to force it.
+      if (lanesRect.width === 0) return;
+
+      const fromEl = lanesEl.querySelector<HTMLElement>(`[data-person-id="${selectedPerson.id}"]`);
+      if (!fromEl) { setLinkGeoms([]); return; }
+      const fromRect = fromEl.getBoundingClientRect();
+      const fromX = ((fromRect.left - lanesRect.left) + fromRect.width / 2) / lanesRect.width * 100;
+      const fromY = fromRect.top - lanesRect.top + fromRect.height / 2;
+
+      const geoms: LinkGeom[] = [];
+      for (const link of selectedLinks) {
+        const ev = events.find(e => e.id === link.fulfillmentEventId);
+        if (!ev) continue;
+        const toEl = lanesEl.querySelector<HTMLElement>(`[data-event-dot="${ev.id}"]`);
+        if (!toEl) continue;
+        const toRect = toEl.getBoundingClientRect();
+        const toX = ((toRect.left - lanesRect.left) + toRect.width / 2) / lanesRect.width * 100;
+        const toY = toRect.top - lanesRect.top + toRect.height / 2;
+        geoms.push({
+          id: link.id,
+          d: `M ${fromX} ${fromY} Q ${(fromX + toX) / 2} ${(fromY + toY) / 2 - 40} ${toX} ${toY}`,
+        });
+      }
+      setLinkGeoms(geoms);
+    };
+  });
+
+  // Re-measure on the state changes that can move a segment or event marker
+  // vertically (a new selection, the range recomputing, either layer's
+  // visibility flipping). Deliberately excludes `zoom`: x is stored as a
   // fraction of `.tl-lanes`' own width, which stays correct as zoom widens
-  // that element without any recompute (see LinkGeom above); only a change
-  // that can move something vertically needs a re-measure.
+  // that element with no recompute needed (see LinkGeom above).
+  useEffect(() => {
+    measureLinksRef.current();
+  }, [selectedId, range, showBooksLayer, showPeopleLayer]);
+
+  // ...and independently, whenever `.tl-lanes`' own box actually resizes —
+  // covering both the zero-width frame described above (the box recovering
+  // from 0 fires this, retrying the measurement that bailed) and the window
+  // being resized while a person is already selected, which the deps list
+  // above has no way to see and would otherwise leave curves stale.
   useEffect(() => {
     const lanesEl = lanesRef.current;
     if (!lanesEl) return;
-    const lanesRect = lanesEl.getBoundingClientRect();
-    setLanesHeight(lanesRect.height);
-
-    // Guards a real edge case, not a hypothetical one: on a narrow viewport
-    // the canvas's own padding-right compensation (below) can outgrow the
-    // canvas itself, collapsing its content box to 0 for a frame. Dividing
-    // by that width would put Infinity into an SVG path's `d` and the
-    // browser drops the element with a console error.
-    if (!selectedPerson || selectedLinks.length === 0 || lanesRect.width === 0) { setLinkGeoms([]); return; }
-
-    const fromEl = lanesEl.querySelector<HTMLElement>(`[data-person-id="${selectedPerson.id}"]`);
-    if (!fromEl) { setLinkGeoms([]); return; }
-    const fromRect = fromEl.getBoundingClientRect();
-    const fromX = ((fromRect.left - lanesRect.left) + fromRect.width / 2) / lanesRect.width * 100;
-    const fromY = fromRect.top - lanesRect.top + fromRect.height / 2;
-
-    const geoms: LinkGeom[] = [];
-    for (const link of selectedLinks) {
-      const ev = events.find(e => e.id === link.fulfillmentEventId);
-      if (!ev) continue;
-      const toEl = lanesEl.querySelector<HTMLElement>(`[data-event-dot="${ev.id}"]`);
-      if (!toEl) continue;
-      const toRect = toEl.getBoundingClientRect();
-      const toX = ((toRect.left - lanesRect.left) + toRect.width / 2) / lanesRect.width * 100;
-      const toY = toRect.top - lanesRect.top + toRect.height / 2;
-      geoms.push({
-        id: link.id,
-        d: `M ${fromX} ${fromY} Q ${(fromX + toX) / 2} ${(fromY + toY) / 2 - 40} ${toX} ${toY}`,
-      });
-    }
-    setLinkGeoms(geoms);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, range, showBooksLayer, showPeopleLayer]);
+    const ro = new ResizeObserver(() => measureLinksRef.current());
+    ro.observe(lanesEl);
+    return () => ro.disconnect();
+  }, []);
 
   // Hide any segment label that would otherwise clip mid-word. No dependency
   // array intentional — must re-measure after every render, since zoom and

@@ -480,6 +480,17 @@ select.form-input { cursor: pointer; }
     border-left: none !important;
     box-shadow: 0 -4px 20px rgba(0,0,0,.10) !important;
   }
+
+  /* Timeline filters: side-by-side with the canvas, `.tl-filters`' fixed
+     232px leaves a 390px phone only ~158px for the actual timeline —
+     unusable. Stack instead, the same idiom the Books section already uses
+     for its own list+detail split (`.books-layout` / `.books-list-col`
+     above): the filter list becomes a bounded, independently-scrollable
+     strip above the canvas rather than a column beside it, so every
+     checkbox stays reachable but the lanes get the full screen width. */
+  .tl-root { flex-direction: column; }
+  .tl-filters { width: 100% !important; flex-shrink: 0; max-height: 34vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .tl-main { min-height: 0; }
 }
 
 /* ── Timeline: lanes ────────────────────────────────────────────────────── */
