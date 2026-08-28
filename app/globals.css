@@ -527,33 +527,40 @@ select.form-input { cursor: pointer; }
   --tl-minor-prophet-2: #7E6BA0;
 }
 .tl-root { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px; position: relative; }
-.tl-scale { position: relative; height: 20px; margin-left: 96px; }
+.tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px 0; position: relative; }
+.tl-scale { position: relative; height: 20px; margin-left: 100px; }
 .tl-tick { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--border2); }
 .tl-tick-label { position: absolute; top: 0; left: 4px; font-size: 10px; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
 .tl-lanes { position: relative; }
-.tl-lane { position: relative; margin-bottom: 12px; display: flex; align-items: flex-start; }
-/* Sticky, not the old absolute-in-a-96px-gutter trick: the default zoom (3x)
-   makes `.tl-canvas` scroll horizontally, and an absolutely-positioned label
-   scrolls out of view with everything else the moment the user pans right —
-   taking the lane's identity ("Judah", "Major Prophets"...) with it right
-   when zoom makes the contents worth reading. `left` matches `.tl-canvas`'s
-   own left padding so the label doesn't sit flush against the scrollport
-   edge; the opaque background keeps lane segments from showing through as
-   they scroll underneath a label that's now pinned in place; the reserved
-   width (88px flex-basis + 8px gap = 96px, matching `.tl-scale`'s own
-   margin-left) keeps the century ticks lined up with where the lane body
-   actually starts. */
+.tl-lane { position: relative; margin-bottom: 12px; display: flex; align-items: stretch; }
+/* A frozen left column, not a floating tag. The label is sticky so it stays
+   put while the lanes scroll horizontally under it — but it must also span
+   the lane's FULL height and paint an opaque background across all of it.
+   An earlier version was a fixed 26px tall inside lanes that can be three
+   rows deep (judges, prophets, events), so its background punched a small
+   pale hole in the middle of a taller lane instead of reading as a column,
+   which is what made this look broken. Stretching it and giving it a right
+   edge makes it read as the chart's fixed gutter. The reserved width
+   (92px + 8px gap = 100px) is mirrored by `.tl-scale`'s margin-left so the
+   century ticks stay aligned with where lane bodies actually begin. */
 .tl-lane-label {
   position: sticky;
-  left: 24px;
-  flex: 0 0 88px;
-  width: 88px;
+  left: 0;
+  align-self: stretch;
+  flex: 0 0 92px;
+  width: 92px;
   margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   text-align: right;
+  padding-right: 9px;
+  box-sizing: border-box;
   font-family: var(--font); font-size: 11px; font-weight: 700; color: var(--text2);
-  line-height: 26px;
+  line-height: 1.2;
   background: var(--bg);
+  border-right: 1px solid var(--border);
+  box-shadow: 3px 0 6px -3px rgba(60,45,20,.16);
   z-index: 5;
 }
 .tl-lane-body { position: relative; background: var(--bg3); border-radius: 5px; min-height: 26px; flex: 1; min-width: 0; }
@@ -567,9 +574,17 @@ select.form-input { cursor: pointer; }
 .tl-seg-book .tl-seg-label { color: var(--text2); text-shadow: none; }
 .tl-seg-selected { outline: 2px solid var(--gold-deep); outline-offset: 1px; }
 .tl-events { background: transparent; min-height: 46px; }
-.tl-event { position: absolute; top: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; }
-.tl-event-dot { color: var(--gold-deep); font-size: 13px; display: block; line-height: 1; }
-.tl-event-label { font-size: 9.5px; color: var(--text3); line-height: 1.3; display: block; }
+.tl-event { position: absolute; top: 0; width: 0; text-align: center; }
+.tl-event-dot { color: var(--gold-deep); font-size: 13px; display: block; line-height: 1; width: 14px; margin-left: -7px; }
+/* Event titles used to be nowrap, which made each marker's box as wide as
+   its longest title ("Fall of Jerusalem and the Temple"). The collision
+   stacker measures real boxes, so those over-wide labels collided even when
+   the events were far apart in time and pushed the lane to six stacked rows
+   of mostly empty space. Clamping the title to a narrow two-line block keeps
+   it readable while letting genuinely separate events sit on one row. */
+.tl-event-label { font-size: 9.5px; color: var(--text3); line-height: 1.25; display: block; width: 104px; margin-left: -52px; text-align: center; }
+.tl-event-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.tl-event-year { display: block; font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 1px; }
 
 /* ── Timeline: prophecy connectors ──────────────────────────────────────── */
 /* Overlays `.tl-lanes` at full size. Its viewBox spans 0–100 horizontally

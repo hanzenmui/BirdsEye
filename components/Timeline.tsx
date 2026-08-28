@@ -22,7 +22,7 @@ const TRACK_COLORS: Record<string, string[]> = {
 
 const LANES: { track: string; label: string; multiRow: boolean }[] = [
   { track: "judge",         label: "Judges",          multiRow: true  },
-  { track: "united_king",   label: "United Kingdom",  multiRow: false },
+  { track: "united_king",   label: "United",  multiRow: false },
   { track: "judah_king",    label: "Judah",           multiRow: false },
   { track: "israel_king",   label: "Israel",          multiRow: false },
   { track: "major_prophet", label: "Major Prophets",  multiRow: true  },
@@ -531,7 +531,7 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selecte
       })
       .sort((a, b) => a.left - b.left);
 
-    const EVENT_ROW_H = 46, GAP = 6;
+    const EVENT_ROW_H = 54, GAP = 8;
     const rows: [number, number][][] = [];
     for (const p of placed) {
       let row = 0;
@@ -563,7 +563,10 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selecte
               onClick={() => onSelectEvent(ev.id)}
             >
               <span className="tl-event-dot" data-event-dot={ev.id}>◆</span>
-              <span className="tl-event-label">{ev.title}<br />{ev.yearBc} BC</span>
+              <span className="tl-event-label">
+                <span className="tl-event-title">{ev.title}</span>
+                <span className="tl-event-year">{ev.yearBc} BC</span>
+              </span>
             </button>
           );
         })}
