@@ -3,6 +3,7 @@
 import { createClient } from "@libsql/client";
 import * as dotenv from "dotenv";
 import { resolve } from "path";
+import { BOOK_COVERAGE } from "../lib/types";
 
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
@@ -132,6 +133,49 @@ async function checkProphecyIntegrity() {
   check("no orphaned scripture_ref with neither owner", emptyPerson.rows.length === 0);
 }
 
+// The Books layer's prophetic spans (lib/types.ts BOOK_COVERAGE) intentionally
+// mirror each prophet's ministry dates in the DB. Nothing enforces that at the
+// type level, so assert it here — otherwise editing a prophet's dates in the
+// seed would silently leave the book's bar pointing somewhere else.
+async function checkBookCoverageMatchesProphets() {
+  const PROPHET_BOOKS: [string, string, string][] = [
+    // [book, prophet name, prophet also_known_as]
+    ["Isaiah", "Isaiah", "Isaiah son of Amoz"],
+    ["Jeremiah", "Jeremiah", ""],
+    ["Ezekiel", "Ezekiel", ""],
+    ["Daniel", "Daniel", "Belteshazzar"],
+    ["Hosea", "Hosea", "Hosea son of Beeri"],
+    ["Joel", "Joel", "Joel son of Pethuel"],
+    ["Amos", "Amos", ""],
+    ["Obadiah", "Obadiah", "Obadiah the prophet"],
+    ["Jonah", "Jonah", "Jonah son of Amittai"],
+    ["Micah", "Micah", "Micah of Moresheth"],
+    ["Nahum", "Nahum", "Nahum the Elkoshite"],
+    ["Habakkuk", "Habakkuk", ""],
+    ["Zephaniah", "Zephaniah", ""],
+    ["Haggai", "Haggai", ""],
+    ["Zechariah", "Zechariah", "Zechariah son of Berechiah"],
+    ["Malachi", "Malachi", ""],
+  ];
+  const mismatches: string[] = [];
+  for (const [book, name, aka] of PROPHET_BOOKS) {
+    const cov = BOOK_COVERAGE[book];
+    if (!cov) { mismatches.push(`${book}: no BOOK_COVERAGE entry`); continue; }
+    const r = await db.execute({
+      sql: "SELECT timeline_start_bc s, timeline_end_bc e FROM people WHERE name = ? AND also_known_as = ?",
+      args: [name, aka],
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = r.rows[0] as any;
+    if (!row) { mismatches.push(`${book}: prophet ${name} not found`); continue; }
+    if (row.s !== cov.startBc || row.e !== cov.endBc) {
+      mismatches.push(`${book}: coverage ${cov.startBc}-${cov.endBc} vs prophet ${row.s}-${row.e}`);
+    }
+  }
+  check("prophetic book coverage matches each prophet's ministry dates",
+    mismatches.length === 0, mismatches.join("; "));
+}
+
 async function main() {
   console.log("Timeline data verification\n");
 
@@ -163,6 +207,7 @@ async function main() {
 
   // --- Prophecy / event referential integrity ---
   await checkProphecyIntegrity();
+  await checkBookCoverageMatchesProphets();
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   process.exit(failures === 0 ? 0 : 1);

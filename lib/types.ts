@@ -172,6 +172,65 @@ export const BIBLE_BOOKS: BibleBook[] = [
   { name: "Revelation",      testament: "NT", order: 66, abbrev: "Rev",    summary: "Apocalyptic visions given to John — the cosmic war between good and evil, and Christ's ultimate victory." },
 ];
 
+// ── Book coverage spans (for the timeline's Books layer) ────────────────────
+// The period each book NARRATES — deliberately not the date it was written.
+// Composition dates are heavily disputed for many books (whether Moses wrote
+// the Torah, whether Isaiah 40-66 is exilic, and so on); the period a book
+// covers is not. Keeping to coverage lets the Books layer sit honestly
+// alongside the people without taking a position on authorship.
+//
+// Prophetic books span their prophet's active ministry, and those values
+// intentionally mirror the ministry dates in scripts/seed-timeline.ts —
+// scripts/verify-timeline.ts asserts the two agree so they cannot drift.
+//
+// Only books overlapping Phase 1 (roughly 1350-430 BC) are listed. Genesis
+// through Joshua and the entire New Testament arrive with later phases.
+export interface BookCoverage {
+  startBc: number;
+  endBc: number;
+  note?: string;
+}
+
+export const BOOK_COVERAGE: Record<string, BookCoverage> = {
+  // ── Narrative ─────────────────────────────────────────────────────────
+  "Judges":          { startBc: 1350, endBc: 1050, note: "The judges did not rule in sequence — several overlapped — so this span is the era as a whole, not a chain." },
+  "Ruth":            { startBc: 1120, endBc: 1100, note: "Set 'in the days when the judges ruled'; placed by working back from Boaz being David's great-grandfather." },
+  "1 Samuel":        { startBc: 1100, endBc: 1010 },
+  "2 Samuel":        { startBc: 1010, endBc:  970 },
+  "1 Kings":         { startBc:  970, endBc:  850 },
+  "2 Kings":         { startBc:  850, endBc:  586 },
+  "1 Chronicles":    { startBc: 1010, endBc:  970, note: "The narrative covers David's reign; its opening genealogies reach much further back, to Adam." },
+  "2 Chronicles":    { startBc:  970, endBc:  538 },
+  "Ezra":            { startBc:  538, endBc:  458 },
+  "Nehemiah":        { startBc:  445, endBc:  432 },
+  "Esther":          { startBc:  483, endBc:  473, note: "Set in the reign of Xerxes I (486-465 BC); the events span his third through twelfth years." },
+  "Lamentations":    { startBc:  586, endBc:  585, note: "Written in the immediate aftermath of Jerusalem's fall." },
+
+  // ── Wisdom & poetry ───────────────────────────────────────────────────
+  "Psalms":          { startBc: 1010, endBc:  430, note: "A collection assembled over centuries — from David's psalms through post-exilic additions — rather than a single moment." },
+  "Proverbs":        { startBc:  970, endBc:  931, note: "Placed at Solomon's reign, though the book itself notes later material collected under Hezekiah (Prov 25:1)." },
+  "Ecclesiastes":    { startBc:  970, endBc:  931 },
+  "Song of Solomon": { startBc:  970, endBc:  931 },
+
+  // ── Prophets (span = the prophet's active ministry) ───────────────────
+  "Isaiah":          { startBc:  740, endBc:  680 },
+  "Jeremiah":        { startBc:  627, endBc:  580 },
+  "Ezekiel":         { startBc:  593, endBc:  570 },
+  "Daniel":          { startBc:  605, endBc:  530 },
+  "Hosea":           { startBc:  760, endBc:  710 },
+  "Joel":            { startBc:  835, endBc:  796, note: "Joel is not internally dated; proposals range from the 9th century BC to the 2nd. Placed here in the early pre-exilic range." },
+  "Amos":            { startBc:  760, endBc:  750 },
+  "Obadiah":         { startBc:  845, endBc:  840, note: "Obadiah is not internally dated; some place him in the 840s BC, others after Jerusalem's fall in 586 BC." },
+  "Jonah":           { startBc:  780, endBc:  750 },
+  "Micah":           { startBc:  740, endBc:  700 },
+  "Nahum":           { startBc:  663, endBc:  612, note: "Bracketed by events he names: Thebes' fall (663 BC) is already past, Nineveh's fall (612 BC) still future." },
+  "Habakkuk":        { startBc:  608, endBc:  598, note: "Sources split between c. 630 BC and c. 608-598 BC. Placed in the later window, since the Chaldean threat is his subject." },
+  "Zephaniah":       { startBc:  630, endBc:  627 },
+  "Haggai":          { startBc:  520, endBc:  520, note: "A ministry of only about four months." },
+  "Zechariah":       { startBc:  520, endBc:  518 },
+  "Malachi":         { startBc:  450, endBc:  430 },
+};
+
 export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   parent_of:     "Parent of",
   child_of:      "Child of",
