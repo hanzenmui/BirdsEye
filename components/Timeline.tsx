@@ -8,13 +8,16 @@ import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 // Lane colours drawn from the app's palette: terracotta family for Judah,
 // teal/plum for Israel, muted purple for prophets, warm sand for judges.
+// The actual values live in app/globals.css as --tl-* custom properties so
+// the palette stays themeable with the rest of the app; these are just the
+// var() references, keyed by track.
 const TRACK_COLORS: Record<string, string[]> = {
-  judah_king:    ["#CF6B4F", "#B5532F", "#E08A5E", "#A9663F"],
-  israel_king:   ["#2E7167", "#1F5450", "#4E8B80", "#3D6E64"],
-  united_king:   ["#8A6A4F", "#A07C5C", "#75593F"],
-  judge:         ["#9A8259", "#B09468", "#87724D"],
-  major_prophet: ["#8B5A6B", "#A06B7D"],
-  minor_prophet: ["#6B5A8B", "#7E6BA0"],
+  judah_king:    ["var(--tl-judah-1)", "var(--tl-judah-2)", "var(--tl-judah-3)", "var(--tl-judah-4)"],
+  israel_king:   ["var(--tl-israel-1)", "var(--tl-israel-2)", "var(--tl-israel-3)", "var(--tl-israel-4)"],
+  united_king:   ["var(--tl-united-1)", "var(--tl-united-2)", "var(--tl-united-3)"],
+  judge:         ["var(--tl-judge-1)", "var(--tl-judge-2)", "var(--tl-judge-3)"],
+  major_prophet: ["var(--tl-major-prophet-1)", "var(--tl-major-prophet-2)"],
+  minor_prophet: ["var(--tl-minor-prophet-1)", "var(--tl-minor-prophet-2)"],
 };
 
 const LANES: { track: string; label: string; multiRow: boolean }[] = [
@@ -76,7 +79,7 @@ export function Timeline({ onSelectPerson }: Props) {
   // Century gridlines give the eye something to measure against.
   const ticks: number[] = [];
   for (let y = Math.floor(range.startBc / 100) * 100; y > range.endBc; y -= 100) {
-    if (y <= range.startBc) ticks.push(y);
+    ticks.push(y);
   }
 
   return (
@@ -106,6 +109,7 @@ export function Timeline({ onSelectPerson }: Props) {
               key={lane.track}
               label={lane.label}
               track={lane.track}
+              multiRow={lane.multiRow}
               people={people}
               range={range}
               checkedBooks={checkedBooks}
@@ -136,14 +140,14 @@ function laneRows(people: Person[], track: string, multiRow: boolean) {
 }
 
 interface PersonLaneProps {
-  label: string; track: string; people: Person[]; range: TimelineRange;
+  label: string; track: string; multiRow: boolean; people: Person[]; range: TimelineRange;
   checkedBooks: Set<string>; allChecked: boolean; onSelect: (id: string) => void;
 }
 
-function PersonLane({ label, track, people, range, checkedBooks, allChecked, onSelect }: PersonLaneProps) {
+function PersonLane({ label, track, multiRow, people, range, checkedBooks, allChecked, onSelect }: PersonLaneProps) {
   const rows = useMemo(
-    () => laneRows(people, track, LANES.find(l => l.track === track)?.multiRow ?? false),
-    [people, track],
+    () => laneRows(people, track, multiRow),
+    [people, track, multiRow],
   );
   if (rows.length === 0 || rows[0].length === 0) return null;
   const palette = TRACK_COLORS[track] ?? ["#6b7280"];

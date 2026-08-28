@@ -454,6 +454,38 @@ select.form-input { cursor: pointer; }
 }
 
 /* ── Timeline: lanes ────────────────────────────────────────────────────── */
+/* Lane palettes — terracotta for Judah, teal for Israel, and muted
+   earth/plum families for the united monarchy, judges and prophets.
+   Declared here (not in the component) so they stay themeable with the
+   rest of the palette; each family reuses a real token where one already
+   exists (--gold/--gold-deep/--gold-bright for Judah, --accent for
+   Israel) and keeps its remaining shades as literals, same as the rest of
+   this file. */
+:root {
+  --tl-judah-1: var(--gold);
+  --tl-judah-2: var(--gold-deep);
+  --tl-judah-3: var(--gold-bright);
+  --tl-judah-4: #A9663F;
+
+  --tl-israel-1: var(--accent);
+  --tl-israel-2: #1F5450;
+  --tl-israel-3: #4E8B80;
+  --tl-israel-4: #3D6E64;
+
+  --tl-united-1: #8A6A4F;
+  --tl-united-2: #A07C5C;
+  --tl-united-3: #75593F;
+
+  --tl-judge-1: #9A8259;
+  --tl-judge-2: #B09468;
+  --tl-judge-3: #87724D;
+
+  --tl-major-prophet-1: #8B5A6B;
+  --tl-major-prophet-2: #A06B7D;
+
+  --tl-minor-prophet-1: #6B5A8B;
+  --tl-minor-prophet-2: #7E6BA0;
+}
 .tl-root { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px; position: relative; }
 .tl-scale { position: relative; height: 20px; margin-left: 96px; }
