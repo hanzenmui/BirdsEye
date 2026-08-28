@@ -7,9 +7,10 @@ interface TimelineData {
   events: HistoricalEvent[];
   prophecyLinks: ProphecyLink[];
   eventRefs: ScriptureRef[];
+  personBooks: Record<string, string[]>;
 }
 
-const EMPTY: TimelineData = { people: [], events: [], prophecyLinks: [], eventRefs: [] };
+const EMPTY: TimelineData = { people: [], events: [], prophecyLinks: [], eventRefs: [], personBooks: {} };
 
 async function fetchTimeline(
   gen: number,

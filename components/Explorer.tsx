@@ -7,6 +7,7 @@ import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
 import { formatRef } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
+import { Timeline } from "./Timeline";
 
 // Returns the relationship label from the given person's perspective.
 // When the person is person_a they are the actor; when person_b they are the target.
@@ -32,12 +33,13 @@ function showToast(msg: string, type: "success" | "error" = "success") {
 const CARD_COLORS = ['#1F5450', '#ABD3C8', '#CF6B4F', '#2E7167', '#70566D'];
 
 // ── Sidebar nav sections ─────────────────────────────────────────────────────
-type Section = "people" | "books" | "tree" | "stats";
+type Section = "people" | "books" | "tree" | "timeline" | "stats";
 
 const NAV: { key: Section; label: string; icon: string }[] = [
   { key: "people", label: "People",      icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
   { key: "books",  label: "By Book",     icon: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" },
   { key: "tree",   label: "Family Tree", icon: "M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12" },
+  { key: "timeline", label: "Timeline",  icon: "M12 8v4l3 2M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0" },
   { key: "stats",  label: "Insights",    icon: "M18 20V10M12 20V4M6 20v-6" },
 ];
 
@@ -960,6 +962,23 @@ export function Explorer() {
             </div>
           </div>
           <TreeCategoryPicker people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
+        </div>
+
+        {/* Timeline section */}
+        <div className={`app-section${section === "timeline" ? " active" : ""}`}>
+          <div className="section-header">
+            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <div>
+              <div className="section-eyebrow">Explore</div>
+              <div className="section-title">Timeline</div>
+              <div className="section-subtitle">Who lived when, and when prophecy came true</div>
+            </div>
+          </div>
+          <Timeline onSelectPerson={selectPerson} />
         </div>
 
         {/* Stats section */}

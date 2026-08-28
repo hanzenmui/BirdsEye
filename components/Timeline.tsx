@@ -35,7 +35,7 @@ const ROW_GAP = 3;
 interface Props { onSelectPerson: (id: string) => void }
 
 export function Timeline({ onSelectPerson }: Props) {
-  const { people, events, eventRefs, loading } = useTimeline();
+  const { people, events, eventRefs, personBooks, loading } = useTimeline();
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
@@ -114,6 +114,7 @@ export function Timeline({ onSelectPerson }: Props) {
               range={range}
               checkedBooks={checkedBooks}
               allChecked={allChecked}
+              personBooks={personBooks}
               onSelect={onSelectPerson}
             />
           ))}
@@ -141,10 +142,10 @@ function laneRows(people: Person[], track: string, multiRow: boolean) {
 
 interface PersonLaneProps {
   label: string; track: string; multiRow: boolean; people: Person[]; range: TimelineRange;
-  checkedBooks: Set<string>; allChecked: boolean; onSelect: (id: string) => void;
+  checkedBooks: Set<string>; allChecked: boolean; personBooks: Record<string, string[]>; onSelect: (id: string) => void;
 }
 
-function PersonLane({ label, track, multiRow, people, range, checkedBooks, allChecked, onSelect }: PersonLaneProps) {
+function PersonLane({ label, track, multiRow, people, range, checkedBooks, allChecked, personBooks, onSelect }: PersonLaneProps) {
   const rows = useMemo(
     () => laneRows(people, track, multiRow),
     [people, track, multiRow],
@@ -161,7 +162,7 @@ function PersonLane({ label, track, multiRow, people, range, checkedBooks, allCh
             const { leftPct, widthPct } = spanToBox(s, range);
             // The book filter dims rather than removes, so a person's place in
             // the sequence stays legible even when filtered out.
-            const dimmed = !allChecked && !personMatchesBooks(s.person, checkedBooks);
+            const dimmed = !allChecked && !personMatchesBooks(s.person, checkedBooks, personBooks);
             return (
               <button
                 key={s.id}
@@ -191,11 +192,13 @@ function segTitle(p: Person) {
 }
 
 // A person passes the filter when any book they're tagged to is checked.
-// Book tags live in scripture_refs, which the timeline payload does not carry
-// per-person; Task 5 threads them through. Until then every person matches,
-// which keeps this task's deliverable independently viewable.
-function personMatchesBooks(_p: Person, _checked: Set<string>): boolean {
-  return true;
+// Book tags come from the API's personBooks map (person id -> book names,
+// derived from scripture_refs). A person with no tagged books never matches
+// once any filtering is in effect.
+function personMatchesBooks(p: Person, checked: Set<string>, personBooks: Record<string, string[]>): boolean {
+  const books = personBooks[p.id];
+  if (!books || books.length === 0) return false;
+  return books.some(b => checked.has(b));
 }
 
 interface EventLaneProps {
