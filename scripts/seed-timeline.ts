@@ -507,12 +507,93 @@ async function seedEventRefs() {
   }
 }
 
+// ── Scripture refs for the 16 people this script inserted ──────────────────
+// Task 3 created these people but gave them no scripture references, which
+// left them unreachable by the timeline's book-checkbox filter: checking
+// "Judges" surfaced 7 of 12 judges, and 1+2 Kings surfaced 28 of 39 kings.
+// Every one of these is the passage that actually narrates that reign.
+const PERSON_REFS: { name: string; aka: string; book: string; cs: number; vs: number; ce: number; ve: number; note: string }[] = [
+  // Kings of Israel — 1 Kings
+  { name: "Nadab", aka: "Nadab king of Israel", book: "1 Kings", cs: 15, vs: 25, ce: 15, ve: 31,
+    note: "Two-year reign; assassinated by Baasha at Gibbethon, ending Jeroboam's house" },
+  { name: "Baasha", aka: "Baasha king of Israel", book: "1 Kings", cs: 15, vs: 27, ce: 16, ve: 7,
+    note: "Seizes the throne, destroys the house of Jeroboam, wars with Asa of Judah" },
+  { name: "Elah", aka: "Elah king of Israel", book: "1 Kings", cs: 16, vs: 8, ce: 16, ve: 14,
+    note: "Assassinated by Zimri while drinking in Tirzah" },
+  { name: "Zimri", aka: "Zimri king of Israel", book: "1 Kings", cs: 16, vs: 9, ce: 16, ve: 20,
+    note: "Reigns seven days, then burns the palace down over himself" },
+  { name: "Omri", aka: "Omri king of Israel", book: "1 Kings", cs: 16, vs: 15, ce: 16, ve: 28,
+    note: "Founds Samaria as Israel's capital and begins the Omride dynasty" },
+  // Kings of Israel — 2 Kings
+  { name: "Jehoahaz", aka: "Jehoahaz king of Israel", book: "2 Kings", cs: 13, vs: 1, ce: 13, ve: 9,
+    note: "Reigns during Aramean oppression, left with only fifty horsemen" },
+  { name: "Jehoash", aka: "Jehoash king of Israel", book: "2 Kings", cs: 13, vs: 10, ce: 13, ve: 25,
+    note: "Recovers cities lost to Aram; weeps at Elisha's deathbed" },
+  { name: "Jehoash", aka: "Jehoash king of Israel", book: "2 Kings", cs: 14, vs: 8, ce: 14, ve: 16,
+    note: "Defeats Amaziah of Judah and breaks down Jerusalem's wall" },
+  { name: "Zechariah", aka: "Zechariah king of Israel", book: "2 Kings", cs: 15, vs: 8, ce: 15, ve: 12,
+    note: "Six-month reign ends Jehu's dynasty in the fourth generation, as promised" },
+  { name: "Shallum", aka: "Shallum king of Israel", book: "2 Kings", cs: 15, vs: 13, ce: 15, ve: 15,
+    note: "Assassinates Zechariah, reigns one month, killed by Menahem" },
+  { name: "Menahem", aka: "Menahem king of Israel", book: "2 Kings", cs: 15, vs: 16, ce: 15, ve: 22,
+    note: "Buys off Tiglath-pileser III with a thousand talents of silver" },
+  { name: "Pekahiah", aka: "Pekahiah king of Israel", book: "2 Kings", cs: 15, vs: 23, ce: 15, ve: 26,
+    note: "Two-year reign; assassinated by his officer Pekah in the palace citadel" },
+  // Minor judges — Judges
+  { name: "Tola", aka: "Tola son of Puah", book: "Judges", cs: 10, vs: 1, ce: 10, ve: 2,
+    note: "Judges Israel twenty-three years from Shamir in Ephraim" },
+  { name: "Jair", aka: "Jair the Gileadite", book: "Judges", cs: 10, vs: 3, ce: 10, ve: 5,
+    note: "Judges twenty-two years; thirty sons with thirty towns in Gilead" },
+  { name: "Ibzan", aka: "Ibzan of Bethlehem", book: "Judges", cs: 12, vs: 8, ce: 12, ve: 10,
+    note: "Judges seven years; marries thirty sons and thirty daughters outside his clan" },
+  { name: "Elon", aka: "Elon the Zebulunite", book: "Judges", cs: 12, vs: 11, ce: 12, ve: 12,
+    note: "Judges Israel ten years" },
+  { name: "Abdon", aka: "Abdon son of Hillel", book: "Judges", cs: 12, vs: 13, ce: 12, ve: 15,
+    note: "Judges eight years; forty sons and thirty grandsons on seventy donkeys" },
+];
+
+async function seedPersonRefs() {
+  console.log("Adding scripture refs for previously untagged timeline people...");
+  for (const r of PERSON_REFS) {
+    const personId = await resolvePerson(r.name, r.aka);
+    if (!personId) { console.warn(`  MISSING person: ${r.name} (aka="${r.aka}")`); continue; }
+    const existing = await db.execute({
+      sql: `SELECT id, note FROM scripture_refs
+            WHERE person_id = ? AND book = ? AND chapter_start = ? AND verse_start = ? AND chapter_end = ? AND verse_end = ?
+            LIMIT 1`,
+      args: [personId, r.book, r.cs, r.vs, r.ce, r.ve],
+    });
+    const row = existing.rows[0] as unknown as { id: string; note: string } | undefined;
+
+    if (row) {
+      if (row.note !== r.note) {
+        console.log(`  ${DRY_RUN ? "would update" : "updating"}: ${r.name} ${r.book} ${r.cs}:${r.vs} note`);
+        if (!DRY_RUN) {
+          await db.execute({ sql: "UPDATE scripture_refs SET note = ? WHERE id = ?", args: [r.note, row.id] });
+        }
+      }
+      continue;
+    }
+
+    console.log(`  ${DRY_RUN ? "would add" : "adding"}: ${r.name} -> ${r.book} ${r.cs}:${r.vs}-${r.ce}:${r.ve}`);
+    if (!DRY_RUN) {
+      await db.execute({
+        sql: `INSERT INTO scripture_refs
+              (id,person_id,event_id,book,chapter_start,verse_start,chapter_end,verse_end,note,created_at)
+              VALUES (?,?,NULL,?,?,?,?,?,?,datetime('now'))`,
+        args: [crypto.randomUUID(), personId, r.book, r.cs, r.vs, r.ce, r.ve, r.note],
+      });
+    }
+  }
+}
+
 async function main() {
   console.log(DRY_RUN ? "=== DRY RUN ===" : "=== LIVE RUN ===");
   await seedMissingPeople();
   await seedTimelineDates();
   await seedEvents();
   await seedEventRefs();
+  await seedPersonRefs();
   await seedProphecyLinks();
   console.log("Done.");
   process.exit(0);
