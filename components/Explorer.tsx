@@ -985,7 +985,7 @@ export function Explorer() {
               <div className="section-subtitle">Who lived when, and when prophecy came true</div>
             </div>
           </div>
-          <Timeline onSelectPerson={selectPerson} />
+          <Timeline onSelectPerson={selectPerson} active={section === "timeline"} />
         </div>
 
         {/* Stats section */}

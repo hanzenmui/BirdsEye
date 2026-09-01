@@ -16,6 +16,8 @@ interface Props {
   showBooksLayer: boolean;
   showPeopleLayer: boolean;
   showEventsLayer: boolean;
+  showLinksLayer: boolean;
+  zoom: number;
   query: string;
   resultCount: number;
   onQueryChange: (query: string) => void;
@@ -24,6 +26,10 @@ interface Props {
   onToggleBooksLayer: () => void;
   onTogglePeopleLayer: () => void;
   onToggleEventsLayer: () => void;
+  onToggleLinksLayer: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
   open: boolean;
   onToggleOpen: () => void;
 }
@@ -33,6 +39,8 @@ export function TimelineFilters({
   showBooksLayer,
   showPeopleLayer,
   showEventsLayer,
+  showLinksLayer,
+  zoom,
   query,
   resultCount,
   onQueryChange,
@@ -41,6 +49,10 @@ export function TimelineFilters({
   onToggleBooksLayer,
   onTogglePeopleLayer,
   onToggleEventsLayer,
+  onToggleLinksLayer,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
   open,
   onToggleOpen,
 }: Props) {
@@ -70,6 +82,7 @@ export function TimelineFilters({
           <button type="button" className={showPeopleLayer ? "active" : ""} aria-pressed={showPeopleLayer} onClick={onTogglePeopleLayer}>People</button>
           <button type="button" className={showEventsLayer ? "active" : ""} aria-pressed={showEventsLayer} onClick={onToggleEventsLayer}>Events</button>
           <button type="button" className={showBooksLayer ? "active" : ""} aria-pressed={showBooksLayer} onClick={onToggleBooksLayer}>Book bands</button>
+          <button type="button" className={showLinksLayer ? "active" : ""} aria-pressed={showLinksLayer} onClick={onToggleLinksLayer} title="Show prophecy connector lines">Links</button>
         </div>
 
         <button type="button" className={`tlv-books-trigger${open ? " active" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
@@ -79,6 +92,13 @@ export function TimelineFilters({
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
+
+        <div className="tl-zoom-row tlv-zoom-row" title="Zoom out to see more of the story at once">
+          <button type="button" onClick={onZoomOut} aria-label="Zoom out">−</button>
+          <span className="tl-zoom-level">{Math.round(zoom * 100)}%</span>
+          <button type="button" onClick={onZoomIn} aria-label="Zoom in">+</button>
+          {zoom !== 1 && <button type="button" className="tl-zoom-fit" onClick={onZoomReset}>Reset</button>}
+        </div>
       </div>
 
       <div className="tlv-result-count" aria-live="polite">

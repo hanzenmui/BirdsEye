@@ -746,6 +746,7 @@ select.form-input { cursor: pointer; }
 .tlv-books-trigger svg.open { transform: rotate(180deg); }
 .tlv-books-count { padding: 3px 6px; border-radius: 999px; background: var(--bg3); color: var(--text3); font: 600 9.5px/1 var(--mono); }
 .tlv-result-count { max-width: 1160px; min-height: 15px; margin: 5px auto 0; color: var(--text3); font: 600 10px/1.2 var(--ui-font); text-align: right; }
+.tlv-zoom-row { margin-left: auto; background: var(--bg2); border-radius: 8px; padding: 2px; }
 
 .tlv-book-drawer { max-width: 1160px; max-height: min(54vh, 480px); overflow-y: auto; margin: 9px auto 0; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--tlv-paper); box-shadow: var(--shadow-md); }
 .tlv-book-drawer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 11px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -783,7 +784,11 @@ select.form-input { cursor: pointer; }
 .tlv-column-key span:nth-child(2) { text-align: center; color: var(--tlv-gold); }
 .tlv-column-key span:last-child { padding-left: 28px; }
 
-.tlv-story { max-width: 1100px; margin: 0 auto; padding: 0 24px 100px; }
+.tlv-story-scaler { max-width: 1100px; margin: 0 auto; overflow: hidden; }
+.tlv-story { position: relative; padding: 0 24px 100px; transform-origin: top center; }
+.tlv-links-overlay { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 1; }
+.tlv-link-halo { fill: none; stroke: var(--tlv-paper); stroke-width: 5; opacity: .85; }
+.tlv-link-line { fill: none; stroke: var(--tlv-gold); stroke-width: 1.75; stroke-dasharray: 6 4; opacity: .55; }
 .tlv-era { scroll-margin-top: 18px; }
 .tlv-era-header { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; padding: 32px 0 24px; text-align: center; }
 .tlv-era-header > div:last-child { max-width: 560px; padding: 13px 24px 15px; border: 1px solid var(--tlv-gold-soft); border-radius: 14px; background: var(--tlv-paper); box-shadow: 0 8px 24px rgba(63,58,40,.07); }
@@ -833,6 +838,13 @@ select.form-input { cursor: pointer; }
 .tlv-profile-link { margin-top: 12px; padding: 0; border: none; background: transparent; color: var(--accent); cursor: pointer; font: 750 10px/1.2 var(--ui-font); }
 .tlv-profile-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .tlv-era-empty { position: relative; z-index: 3; max-width: 260px; margin: 8px auto 28px; padding: 8px 12px; border-radius: 999px; background: var(--bg3); color: var(--text3); text-align: center; font-size: 10px; }
+.tlv-kingdom-split-label { position: relative; z-index: 3; display: grid; grid-template-columns: minmax(0,1fr) 104px minmax(0,1fr); align-items: center; padding: 0 0 6px; color: var(--tlv-gold); font: 750 9.5px/1 var(--ui-font); letter-spacing: .1em; text-transform: uppercase; }
+.tlv-kingdom-split-label span:first-child { grid-column: 1; text-align: right; padding-right: 28px; }
+.tlv-kingdom-split-label span:last-child { grid-column: 3; text-align: left; padding-left: 28px; }
+.tlv-card-continues { padding: 9px 14px; opacity: .78; border-style: dashed; box-shadow: none; }
+.tlv-card-continues:hover { transform: none; box-shadow: none; }
+.tlv-card-continues h4 { font-size: 15px; }
+.tlv-card-continues .tlv-role { text-transform: none; letter-spacing: 0; font-style: italic; }
 .tlv-empty-results { max-width: 520px; display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 60px auto; padding: 30px; border: 1px dashed var(--border2); border-radius: 16px; background: var(--bg2); color: var(--text3); }
 .tlv-empty-results button { padding: 8px 12px; border: none; border-radius: 7px; background: var(--accent); color: #fff; cursor: pointer; font: 700 11px/1 var(--ui-font); }
 
@@ -886,6 +898,11 @@ select.form-input { cursor: pointer; }
   .tlv-card h4 { font-size: 19px; }
   .tlv-description { font-size: 12px; }
   .tlv-era-empty { margin-left: 44px; }
+  .tlv-kingdom-split-label { display: none; }
+  .tlv-row-kingdoms { grid-template-rows: auto auto; row-gap: 10px; }
+  .tlv-row-kingdoms .tlv-card.left { grid-row: 1; }
+  .tlv-row-kingdoms .tlv-card.right { grid-row: 2; }
+  .tlv-row-kingdoms .tlv-axis-point { grid-row: 1 / span 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {

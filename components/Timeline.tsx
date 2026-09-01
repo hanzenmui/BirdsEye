@@ -6,13 +6,14 @@ import { TimelineHorizontal } from "./TimelineHorizontal";
 
 interface Props {
   onSelectPerson: (id: string) => void;
+  active?: boolean;
 }
 
 type Orientation = "vertical" | "horizontal";
 
 const STORAGE_KEY = "birdseye-timeline-orientation";
 
-export function Timeline({ onSelectPerson }: Props) {
+export function Timeline({ onSelectPerson, active }: Props) {
   const [orientation, setOrientation] = useState<Orientation>("vertical");
 
   // Read the saved preference after mount rather than in useState's
@@ -47,7 +48,7 @@ export function Timeline({ onSelectPerson }: Props) {
         </button>
       </div>
       {orientation === "vertical" ? (
-        <TimelineVertical onSelectPerson={onSelectPerson} />
+        <TimelineVertical onSelectPerson={onSelectPerson} active={active} />
       ) : (
         <TimelineHorizontal onSelectPerson={onSelectPerson} />
       )}

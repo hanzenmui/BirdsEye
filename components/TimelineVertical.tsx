@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { HistoricalEvent, Person, ProphecyLink } from "@/lib/types";
@@ -8,6 +8,12 @@ import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 interface Props {
   onSelectPerson: (id: string) => void;
+  // Explorer keeps every section mounted and just toggles CSS display, so a
+  // measurement taken while this section is display:none reads every offset
+  // as zero. Re-measuring when this flips to true catches the tab actually
+  // becoming visible, which no ResizeObserver reliably fires on across an
+  // ancestor's display:none → flex transition.
+  active?: boolean;
 }
 
 interface Era {
@@ -36,21 +42,97 @@ const TRACK_META: Record<string, { label: string; family: "leader" | "prophet"; 
   minor_prophet: { label: "Minor prophet", family: "prophet", color: "var(--tl-minor-prophet-1)" },
 };
 
+// When a kingdom is split, one row can hold both a Judah king and an Israel
+// king who were on their thrones at the same time. `isNew` marks which side
+// just took power on this row (a full card) versus which side is only shown
+// because they were still reigning across the border when the other kingdom's
+// throne changed hands (a condensed "still reigning" reference).
+interface KingdomRow {
+  key: string;
+  yearBc: number;
+  judah?: Person;
+  judahIsNew: boolean;
+  israel?: Person;
+  israelIsNew: boolean;
+}
+
 type TimelineEntry =
   | { key: string; kind: "person"; yearBc: number; side: "left" | "right"; person: Person }
-  | { key: string; kind: "event"; yearBc: number; side: "left" | "right"; event: HistoricalEvent };
+  | { key: string; kind: "event"; yearBc: number; side: "left" | "right"; event: HistoricalEvent }
+  | { key: string; kind: "kingdoms"; yearBc: number; row: KingdomRow };
 
-export function TimelineVertical({ onSelectPerson }: Props) {
+// Merges two kingdoms' king lists into rows so contemporaneous reigns land on
+// the same row (side by side) instead of one long single-file list — e.g.
+// Rehoboam and Jeroboam, who both took their thrones the same year the
+// kingdom split. A new row is emitted at every reign change on EITHER side;
+// the side that didn't just change carries its still-reigning king forward
+// as a reference rather than repeating their full card.
+function pairKingdoms(judah: Person[], israel: Person[]): KingdomRow[] {
+  const chronological = (a: Person, b: Person) => (b.timelineStartBc ?? 0) - (a.timelineStartBc ?? 0);
+  const j = [...judah].sort(chronological);
+  const i = [...israel].sort(chronological);
+  const rows: KingdomRow[] = [];
+  let ji = 0, ii = 0;
+  let currentJudah: Person | undefined;
+  let currentIsrael: Person | undefined;
+
+  while (ji < j.length || ii < i.length) {
+    const jNext = j[ji];
+    const iNext = i[ii];
+    if (jNext && iNext && jNext.timelineStartBc === iNext.timelineStartBc) {
+      currentJudah = jNext;
+      currentIsrael = iNext;
+      rows.push({ key: `${jNext.id}+${iNext.id}`, yearBc: jNext.timelineStartBc as number, judah: jNext, judahIsNew: true, israel: iNext, israelIsNew: true });
+      ji++; ii++;
+    } else if (iNext === undefined || (jNext && (jNext.timelineStartBc as number) > (iNext.timelineStartBc as number))) {
+      currentJudah = jNext;
+      rows.push({ key: jNext.id, yearBc: jNext.timelineStartBc as number, judah: jNext, judahIsNew: true, israel: currentIsrael, israelIsNew: false });
+      ji++;
+    } else {
+      currentIsrael = iNext;
+      rows.push({ key: iNext.id, yearBc: iNext.timelineStartBc as number, israel: iNext, israelIsNew: true, judah: currentJudah, judahIsNew: false });
+      ii++;
+    }
+  }
+  return rows;
+}
+
+// offsetTop/offsetLeft are unaffected by CSS transforms on any ancestor
+// (transform only changes paint, never layout), so walking the offsetParent
+// chain gives a stable position for a card even while the whole story is
+// visually scaled down by the zoom control below.
+function offsetWithin(el: HTMLElement, ancestor: HTMLElement) {
+  let top = 0, left = 0;
+  let node: HTMLElement | null = el;
+  while (node && node !== ancestor) {
+    top += node.offsetTop;
+    left += node.offsetLeft;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  return { top, left, width: el.offsetWidth, height: el.offsetHeight };
+}
+
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 1;
+const ZOOM_STEP = 0.1;
+
+export function TimelineVertical({ onSelectPerson, active }: Props) {
   const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
   const [showEventsLayer, setShowEventsLayer] = useState(true);
+  const [showLinksLayer, setShowLinksLayer] = useState(true);
+  const [zoom, setZoom] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
+
+  const storyRef = useRef<HTMLDivElement>(null);
+  const [linkGeoms, setLinkGeoms] = useState<{ id: string; d: string }[]>([]);
+  const [naturalHeight, setNaturalHeight] = useState(0);
 
   const peopleById = useMemo(() => new Map(people.map(person => [person.id, person])), [people]);
   const eventsById = useMemo(() => new Map(events.map(event => [event.id, event])), [events]);
@@ -89,31 +171,105 @@ export function TimelineVertical({ onSelectPerson }: Props) {
   }, [allBooksChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
 
   const eraEntries = useMemo(() => ERAS.map(era => {
-    const peopleEntries: TimelineEntry[] = visiblePeople
-      .filter(person => person.timelineStartBc !== null && yearFallsInEra(person.timelineStartBc, era))
-      .map(person => ({
-        key: `person-${person.id}`,
-        kind: "person",
-        yearBc: person.timelineStartBc as number,
-        side: TRACK_META[person.timelineTrack]?.family === "prophet" ? "right" : "left",
-        person,
-      }));
+    const peopleInEra = visiblePeople.filter(person => person.timelineStartBc !== null && yearFallsInEra(person.timelineStartBc, era));
+    const judahKings = peopleInEra.filter(person => person.timelineTrack === "judah_king");
+    const israelKings = peopleInEra.filter(person => person.timelineTrack === "israel_king");
+    // Only worth splitting into two columns once both thrones actually
+    // coexist in this era — Judah-alone, for instance, has no Israel column
+    // left to pair against.
+    const splitKingdoms = judahKings.length > 0 && israelKings.length > 0;
+
+    const leaderPeople = peopleInEra.filter(person => {
+      if (TRACK_META[person.timelineTrack]?.family === "prophet") return false;
+      if (splitKingdoms && (person.timelineTrack === "judah_king" || person.timelineTrack === "israel_king")) return false;
+      return true;
+    });
+    const prophetPeople = peopleInEra.filter(person => TRACK_META[person.timelineTrack]?.family === "prophet");
+
+    const peopleEntries: TimelineEntry[] = [
+      ...leaderPeople.map(person => ({ key: `person-${person.id}`, kind: "person" as const, yearBc: person.timelineStartBc as number, side: "left" as const, person })),
+      ...prophetPeople.map(person => ({ key: `person-${person.id}`, kind: "person" as const, yearBc: person.timelineStartBc as number, side: "right" as const, person })),
+    ];
+
+    const kingdomEntries: TimelineEntry[] = splitKingdoms
+      ? pairKingdoms(judahKings, israelKings).map(row => ({ key: `kingdoms-${row.key}`, kind: "kingdoms" as const, yearBc: row.yearBc, row }))
+      : [];
+
     const eventEntries: TimelineEntry[] = visibleEvents
       .filter(event => yearFallsInEra(event.yearBc, era))
       .map((event, index) => ({
         key: `event-${event.id}`,
-        kind: "event",
+        kind: "event" as const,
         yearBc: event.yearBc,
-        side: index % 2 === 0 ? "right" : "left",
+        side: index % 2 === 0 ? "right" as const : "left" as const,
         event,
       }));
+
     return {
       era,
-      entries: [...peopleEntries, ...eventEntries].sort((a, b) => b.yearBc - a.yearBc || (a.kind === "event" ? -1 : 1)),
+      splitKingdoms,
+      entries: [...peopleEntries, ...kingdomEntries, ...eventEntries].sort((a, b) => b.yearBc - a.yearBc || (a.kind === "event" ? -1 : 1)),
     };
   }), [visibleEvents, visiblePeople]);
 
   const resultCount = visiblePeople.length + visibleEvents.length;
+
+  // Draws a curve for every prophecy link whose prophet AND fulfillment event
+  // both currently render, so the connections are visible at a glance while
+  // scrolling — not just for the one you happen to have clicked. Positions
+  // are read straight off the DOM (post-filtering, post-layout) via
+  // offsetWithin, which stays correct regardless of the zoom scale below
+  // because it's measuring layout, not paint.
+  const measureLinks = useCallback(() => {
+    const story = storyRef.current;
+    if (!story) return;
+    let maxBottom = 0;
+    const geoms: { id: string; d: string }[] = [];
+    if (showLinksLayer) {
+      for (const link of prophecyLinks) {
+        const fromEl = document.getElementById(`tlv-person-${link.prophetPersonId}`);
+        const toEl = document.getElementById(`tlv-event-${link.fulfillmentEventId}`);
+        if (!fromEl || !toEl) continue;
+        const a = offsetWithin(fromEl, story);
+        const b = offsetWithin(toEl, story);
+        const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+        const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
+        maxBottom = Math.max(maxBottom, a.top + a.height, b.top + b.height);
+        const midY = (y1 + y2) / 2;
+        geoms.push({ id: link.id, d: `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}` });
+      }
+    }
+    setLinkGeoms(geoms);
+    // scrollHeight itself is unreliable to read here (observed transient
+    // zero reads mid-reflow); getBoundingClientRect is measured the same
+    // way as every card above and hasn't shown that flakiness.
+    // Measuring `.tlv-story` itself (scrollHeight or getBoundingClientRect)
+    // has shown transient zero reads in testing; each era section's own
+    // bottom edge is a plainer element to measure and just as sufficient,
+    // since eras render in order and the last one's bottom is the full height.
+    for (const eraEl of story.querySelectorAll<HTMLElement>(".tlv-era")) {
+      const rect = offsetWithin(eraEl, story);
+      maxBottom = Math.max(maxBottom, rect.top + rect.height);
+    }
+    if (maxBottom > 0) setNaturalHeight(maxBottom);
+  }, [prophecyLinks, showLinksLayer]);
+
+  useEffect(() => {
+    measureLinks();
+    // A measurement taken the instant a fresh mount commits can land before
+    // the browser has settled layout for newly-inserted content; one short
+    // retry catches that without needing to poll indefinitely.
+    const retry = window.setTimeout(measureLinks, 120);
+    return () => window.clearTimeout(retry);
+  }, [measureLinks, eraEntries, active]);
+
+  useEffect(() => {
+    const story = storyRef.current;
+    if (!story) return;
+    const observer = new ResizeObserver(() => measureLinks());
+    observer.observe(story);
+    return () => observer.disconnect();
+  }, [measureLinks]);
 
   useEffect(() => {
     if (!pendingScrollKey) return;
@@ -178,6 +334,8 @@ export function TimelineVertical({ onSelectPerson }: Props) {
         showBooksLayer={showBooksLayer}
         showPeopleLayer={showPeopleLayer}
         showEventsLayer={showEventsLayer}
+        showLinksLayer={showLinksLayer}
+        zoom={zoom}
         query={query}
         resultCount={resultCount}
         onQueryChange={setQuery}
@@ -186,6 +344,10 @@ export function TimelineVertical({ onSelectPerson }: Props) {
         onToggleBooksLayer={() => setShowBooksLayer(value => !value)}
         onTogglePeopleLayer={() => setShowPeopleLayer(value => !value)}
         onToggleEventsLayer={() => setShowEventsLayer(value => !value)}
+        onToggleLinksLayer={() => setShowLinksLayer(value => !value)}
+        onZoomIn={() => setZoom(value => Math.min(ZOOM_MAX, Math.round((value + ZOOM_STEP) * 10) / 10))}
+        onZoomOut={() => setZoom(value => Math.max(ZOOM_MIN, Math.round((value - ZOOM_STEP) * 10) / 10))}
+        onZoomReset={() => setZoom(1)}
         open={filtersOpen}
         onToggleOpen={() => setFiltersOpen(value => !value)}
       />
@@ -224,25 +386,38 @@ export function TimelineVertical({ onSelectPerson }: Props) {
             <button type="button" onClick={resetFilters}>Show the full timeline</button>
           </div>
         ) : (
-          <div className="tlv-story">
-            {eraEntries.map(({ era, entries }) => (
-              <EraSection
-                key={era.id}
-                era={era}
-                entries={entries}
-                checkedBooks={checkedBooks}
-                showBooksLayer={showBooksLayer}
-                focusedKey={focusedKey}
-                personBooks={personBooks}
-                eventBooks={eventBooks}
-                peopleById={peopleById}
-                eventsById={eventsById}
-                linksByPerson={linksByPerson}
-                linksByEvent={linksByEvent}
-                onSelectPerson={onSelectPerson}
-                onScrollToEntry={scrollToEntry}
-              />
-            ))}
+          <div className="tlv-story-scaler" style={naturalHeight ? { height: naturalHeight * zoom } : undefined}>
+            <div className="tlv-story" ref={storyRef} style={{ transform: `scale(${zoom})` }}>
+              {linkGeoms.length > 0 && (
+                <svg className="tlv-links-overlay" style={{ height: naturalHeight || undefined }} aria-hidden="true">
+                  {linkGeoms.map(g => (
+                    <g key={g.id}>
+                      <path d={g.d} className="tlv-link-halo" />
+                      <path d={g.d} className="tlv-link-line" />
+                    </g>
+                  ))}
+                </svg>
+              )}
+              {eraEntries.map(({ era, entries, splitKingdoms }) => (
+                <EraSection
+                  key={era.id}
+                  era={era}
+                  entries={entries}
+                  splitKingdoms={splitKingdoms}
+                  checkedBooks={checkedBooks}
+                  showBooksLayer={showBooksLayer}
+                  focusedKey={focusedKey}
+                  personBooks={personBooks}
+                  eventBooks={eventBooks}
+                  peopleById={peopleById}
+                  eventsById={eventsById}
+                  linksByPerson={linksByPerson}
+                  linksByEvent={linksByEvent}
+                  onSelectPerson={onSelectPerson}
+                  onScrollToEntry={scrollToEntry}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -253,6 +428,7 @@ export function TimelineVertical({ onSelectPerson }: Props) {
 function EraSection({
   era,
   entries,
+  splitKingdoms,
   checkedBooks,
   showBooksLayer,
   focusedKey,
@@ -267,6 +443,7 @@ function EraSection({
 }: {
   era: Era;
   entries: TimelineEntry[];
+  splitKingdoms: boolean;
   checkedBooks: Set<string>;
   showBooksLayer: boolean;
   focusedKey: string | null;
@@ -281,6 +458,7 @@ function EraSection({
 }) {
   const coveringBooks = Object.entries(BOOK_COVERAGE)
     .filter(([book, coverage]) => checkedBooks.has(book) && spansOverlapEra(coverage.startBc, coverage.endBc, era));
+  const firstKingdomIndex = entries.findIndex(entry => entry.kind === "kingdoms");
 
   return (
     <section id={`tlv-era-${era.id}`} className="tlv-era" aria-labelledby={`tlv-era-title-${era.id}`}>
@@ -307,33 +485,70 @@ function EraSection({
       <div className="tlv-era-flow">
         {entries.length === 0 ? (
           <div className="tlv-era-empty">No matching entries in this era</div>
-        ) : entries.map(entry => (
-          <div key={entry.key} className="tlv-row">
-            {entry.kind === "person" ? (
-              <PersonCard
-                person={entry.person}
-                side={entry.side}
-                books={personBooks[entry.person.id] ?? []}
-                links={linksByPerson.get(entry.person.id) ?? []}
-                eventsById={eventsById}
-                focused={focusedKey === entry.key}
-                onViewProfile={() => onSelectPerson(entry.person.id)}
-                onScrollToEvent={id => onScrollToEntry(`event-${id}`)}
-              />
-            ) : (
-              <EventCard
-                event={entry.event}
-                side={entry.side}
-                books={eventBooks[entry.event.id] ?? []}
-                links={linksByEvent.get(entry.event.id) ?? []}
-                peopleById={peopleById}
-                focused={focusedKey === entry.key}
-                onScrollToProphet={id => onScrollToEntry(`person-${id}`)}
-              />
+        ) : entries.map((entry, index) => (
+          <div key={entry.key}>
+            {splitKingdoms && index === firstKingdomIndex && (
+              <div className="tlv-kingdom-split-label" aria-hidden="true">
+                <span>Judah</span>
+                <span>Israel</span>
+              </div>
             )}
-            <div className={`tlv-axis-point ${entry.kind}`} aria-hidden="true">
-              <span className="tlv-axis-dot" />
-              <span className="tlv-axis-year">{entry.yearBc} BC</span>
+            <div className={`tlv-row${entry.kind === "kingdoms" ? " tlv-row-kingdoms" : ""}`}>
+              {entry.kind === "person" ? (
+                <PersonCard
+                  person={entry.person}
+                  side={entry.side}
+                  books={personBooks[entry.person.id] ?? []}
+                  links={linksByPerson.get(entry.person.id) ?? []}
+                  eventsById={eventsById}
+                  focused={focusedKey === entry.key}
+                  onViewProfile={() => onSelectPerson(entry.person.id)}
+                  onScrollToEvent={id => onScrollToEntry(`event-${id}`)}
+                />
+              ) : entry.kind === "kingdoms" ? (
+                <>
+                  {entry.row.judah && (
+                    <PersonCard
+                      person={entry.row.judah}
+                      side="left"
+                      variant={entry.row.judahIsNew ? "full" : "continues"}
+                      books={personBooks[entry.row.judah.id] ?? []}
+                      links={linksByPerson.get(entry.row.judah.id) ?? []}
+                      eventsById={eventsById}
+                      focused={focusedKey === `person-${entry.row.judah.id}`}
+                      onViewProfile={() => onSelectPerson(entry.row.judah!.id)}
+                      onScrollToEvent={id => onScrollToEntry(`event-${id}`)}
+                    />
+                  )}
+                  {entry.row.israel && (
+                    <PersonCard
+                      person={entry.row.israel}
+                      side="right"
+                      variant={entry.row.israelIsNew ? "full" : "continues"}
+                      books={personBooks[entry.row.israel.id] ?? []}
+                      links={linksByPerson.get(entry.row.israel.id) ?? []}
+                      eventsById={eventsById}
+                      focused={focusedKey === `person-${entry.row.israel.id}`}
+                      onViewProfile={() => onSelectPerson(entry.row.israel!.id)}
+                      onScrollToEvent={id => onScrollToEntry(`event-${id}`)}
+                    />
+                  )}
+                </>
+              ) : (
+                <EventCard
+                  event={entry.event}
+                  side={entry.side}
+                  books={eventBooks[entry.event.id] ?? []}
+                  links={linksByEvent.get(entry.event.id) ?? []}
+                  peopleById={peopleById}
+                  focused={focusedKey === entry.key}
+                  onScrollToProphet={id => onScrollToEntry(`person-${id}`)}
+                />
+              )}
+              <div className={`tlv-axis-point ${entry.kind === "kingdoms" ? "person" : entry.kind}`} aria-hidden="true">
+                <span className="tlv-axis-dot" />
+                <span className="tlv-axis-year">{entry.yearBc} BC</span>
+              </div>
             </div>
           </div>
         ))}
@@ -342,7 +557,7 @@ function EraSection({
   );
 }
 
-function PersonCard({ person, side, books, links, eventsById, focused, onViewProfile, onScrollToEvent }: {
+function PersonCard({ person, side, books, links, eventsById, focused, onViewProfile, onScrollToEvent, variant = "full" }: {
   person: Person;
   side: "left" | "right";
   books: string[];
@@ -351,9 +566,25 @@ function PersonCard({ person, side, books, links, eventsById, focused, onViewPro
   focused: boolean;
   onViewProfile: () => void;
   onScrollToEvent: (id: string) => void;
+  variant?: "full" | "continues";
 }) {
   const meta = TRACK_META[person.timelineTrack] ?? { label: "Timeline figure", family: "leader" as const, color: "var(--accent)" };
   const style = { "--tlv-accent": meta.color } as CSSProperties;
+
+  // A king still on the throne while the OTHER kingdom's changed hands gets a
+  // condensed reference rather than a repeated full card — the full card (and
+  // its DOM id, which links and jump-to-scroll target) lives only at the row
+  // where they actually took power.
+  if (variant === "continues") {
+    return (
+      <article tabIndex={-1} className={`tlv-card tlv-person-card tlv-card-continues ${side}${focused ? " focused" : ""}`} style={style}>
+        <div className="tlv-card-topline"><span className="tlv-role">{meta.label} · still reigning</span></div>
+        <h4>{person.name}</h4>
+        <div className="tlv-card-years">{formatSpan(person.timelineStartBc, person.timelineEndBc)}</div>
+      </article>
+    );
+  }
+
   return (
     <article id={`tlv-person-${person.id}`} tabIndex={-1} className={`tlv-card tlv-person-card ${side}${focused ? " focused" : ""}`} style={style}>
       <div className="tlv-card-topline">
