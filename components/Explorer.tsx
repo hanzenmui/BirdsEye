@@ -982,7 +982,7 @@ export function Explorer() {
             <div>
               <div className="section-eyebrow">Explore</div>
               <div className="section-title">Timeline</div>
-              <div className="section-subtitle">Scroll from the judges through exile and return</div>
+              <div className="section-subtitle">Who lived when, and when prophecy came true</div>
             </div>
           </div>
           <Timeline onSelectPerson={selectPerson} />

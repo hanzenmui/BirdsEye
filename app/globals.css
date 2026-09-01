@@ -686,6 +686,21 @@ select.form-input { cursor: pointer; }
   .tl-filters-tab-text { writing-mode: horizontal-tb; }
 }
 
+/* ── Timeline: orientation toggle ────────────────────────────────────────── */
+.tlv-orient-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tlv-orient-toggle { display: inline-flex; gap: 0; padding: 8px 10px; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tlv-orient-toggle button {
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--text3);
+  font-family: var(--ui-font); font-size: 12px; font-weight: 600; padding: 7px 14px; cursor: pointer;
+}
+.tlv-orient-toggle button:first-child { border-radius: var(--radius) 0 0 var(--radius); border-right: none; }
+.tlv-orient-toggle button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.tlv-orient-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tlv-orient-toggle button:hover:not(.active) { background: var(--bg3); color: var(--text2); }
+@media (max-width: 768px) {
+  .tlv-orient-toggle button { flex: 1; padding: 8px 6px; }
+}
+
 /* ── Vertical timeline: the river of time ───────────────────────────────── */
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 
