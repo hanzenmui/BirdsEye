@@ -552,7 +552,8 @@ async function seedRelationships() {
   const josephNTRow = await db.execute(
     "SELECT id FROM people WHERE also_known_as='Joseph husband of Mary, Joseph of Nazareth' LIMIT 1"
   );
-  const josephNTId = (josephNTRow.rows[0] as any)?.id;
+  const josephNTValue = josephNTRow.rows[0]?.id;
+  const josephNTId = typeof josephNTValue === "string" ? josephNTValue : undefined;
   if (josephNTId) {
     await db.execute({
       sql: `INSERT OR IGNORE INTO relationships (id,person_a_id,person_a_name,type,person_b_id,person_b_name,notes,created_at)

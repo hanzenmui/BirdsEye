@@ -1,114 +1,122 @@
 "use client";
+
 import { BIBLE_BOOKS, BOOK_COVERAGE } from "@/lib/types";
 
-// Only books with a coverage span can appear on this timeline. Grouping
-// mirrors how a reader thinks about them, not canonical order.
 const GROUPS: { label: string; books: string[] }[] = [
-  { label: "Kings & History", books: ["Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther"] },
-  { label: "Wisdom & Poetry", books: ["Psalms","Proverbs","Ecclesiastes","Song of Solomon","Lamentations"] },
-  { label: "Major Prophets",  books: ["Isaiah","Jeremiah","Ezekiel","Daniel"] },
-  { label: "Minor Prophets",  books: ["Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi"] },
+  { label: "Kings & History", books: ["Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther"] },
+  { label: "Wisdom & Poetry", books: ["Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Lamentations"] },
+  { label: "Major Prophets", books: ["Isaiah", "Jeremiah", "Ezekiel", "Daniel"] },
+  { label: "Minor Prophets", books: ["Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi"] },
 ];
 
-export const TIMELINE_BOOKS: string[] = GROUPS.flatMap(g => g.books);
+export const TIMELINE_BOOKS: string[] = GROUPS.flatMap(group => group.books);
 
 interface Props {
   checkedBooks: Set<string>;
   showBooksLayer: boolean;
   showPeopleLayer: boolean;
+  showEventsLayer: boolean;
+  query: string;
+  resultCount: number;
+  onQueryChange: (query: string) => void;
   onToggleBook: (book: string) => void;
   onToggleAll: (checked: boolean) => void;
   onToggleBooksLayer: () => void;
   onTogglePeopleLayer: () => void;
-  zoom: number;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onZoomFit: () => void;
+  onToggleEventsLayer: () => void;
   open: boolean;
   onToggleOpen: () => void;
 }
 
 export function TimelineFilters({
-  checkedBooks, showBooksLayer, showPeopleLayer,
-  onToggleBook, onToggleAll, onToggleBooksLayer, onTogglePeopleLayer,
-  zoom, onZoomIn, onZoomOut, onZoomFit, open, onToggleOpen,
+  checkedBooks,
+  showBooksLayer,
+  showPeopleLayer,
+  showEventsLayer,
+  query,
+  resultCount,
+  onQueryChange,
+  onToggleBook,
+  onToggleAll,
+  onToggleBooksLayer,
+  onTogglePeopleLayer,
+  onToggleEventsLayer,
+  open,
+  onToggleOpen,
 }: Props) {
-  const allChecked = TIMELINE_BOOKS.every(b => checkedBooks.has(b));
-
-  // Collapsed, the panel becomes a slim vertical tab so the chart gets the
-  // full width back — and so it is obvious how to bring the controls back.
-  if (!open) {
-    return (
-      <button className="tl-filters-tab" onClick={onToggleOpen} title="Show controls">
-        <span className="tl-filters-tab-icon" aria-hidden="true">☰</span>
-        <span className="tl-filters-tab-text">Controls</span>
-      </button>
-    );
-  }
+  const allChecked = TIMELINE_BOOKS.every(book => checkedBooks.has(book));
 
   return (
-    <div className="tl-filters">
-      <div className="tl-filters-topbar">
-        <span className="tl-filters-title">Controls</span>
-        <button className="tl-filters-close" onClick={onToggleOpen} title="Hide controls" aria-label="Hide controls">×</button>
-      </div>
-      <div className="tl-filters-section">
-        <div className="tl-filters-heading">Zoom</div>
-        <div className="tl-zoom-row">
-          <button type="button" onClick={onZoomOut} title="Zoom out" aria-label="Zoom out">−</button>
-          <span className="tl-zoom-level">{zoom.toFixed(1)}×</span>
-          <button type="button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">+</button>
-          <button type="button" className="tl-zoom-fit" onClick={onZoomFit} title="Show the whole span">Fit all</button>
+    <div className="tlv-tools">
+      <div className="tlv-tools-main">
+        <label className="tlv-search">
+          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.4-3.4" />
+          </svg>
+          <span className="sr-only">Find someone or an event</span>
+          <input
+            type="search"
+            value={query}
+            onChange={event => onQueryChange(event.target.value)}
+            placeholder="Find a person or event…"
+          />
+          {query && (
+            <button type="button" onClick={() => onQueryChange("")} aria-label="Clear search">×</button>
+          )}
+        </label>
+
+        <div className="tlv-layer-toggles" aria-label="Timeline layers">
+          <button type="button" className={showPeopleLayer ? "active" : ""} aria-pressed={showPeopleLayer} onClick={onTogglePeopleLayer}>People</button>
+          <button type="button" className={showEventsLayer ? "active" : ""} aria-pressed={showEventsLayer} onClick={onToggleEventsLayer}>Events</button>
+          <button type="button" className={showBooksLayer ? "active" : ""} aria-pressed={showBooksLayer} onClick={onToggleBooksLayer}>Book bands</button>
         </div>
-        <div className="tl-filters-hint">Drag, or scroll your mouse wheel, to move left and right. Hold Shift while scrolling to move up and down.</div>
+
+        <button type="button" className={`tlv-books-trigger${open ? " active" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
+          <span>Filter books</span>
+          <span className="tlv-books-count">{checkedBooks.size}/{TIMELINE_BOOKS.length}</span>
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className={open ? "open" : ""}>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       </div>
 
-      <div className="tl-filters-section">
-        <div className="tl-filters-heading">Show</div>
-        <label className="tl-switch">
-          <input type="checkbox" checked={showPeopleLayer} onChange={onTogglePeopleLayer} />
-          <span>People</span>
-          <span className="tl-switch-hint">kings, prophets, judges</span>
-        </label>
-        <label className="tl-switch">
-          <input type="checkbox" checked={showBooksLayer} onChange={onToggleBooksLayer} />
-          <span>Books</span>
-          <span className="tl-switch-hint">the era each book covers</span>
-        </label>
+      <div className="tlv-result-count" aria-live="polite">
+        {resultCount} {resultCount === 1 ? "timeline entry" : "timeline entries"}
       </div>
 
-      <div className="tl-filters-section">
-        <div className="tl-filters-heading-row">
-          <div className="tl-filters-heading">Filter by book</div>
-          <button className="tl-filters-all" onClick={() => onToggleAll(!allChecked)}>
-            {allChecked ? "Clear all" : "Select all"}
-          </button>
-        </div>
-        {GROUPS.map(group => (
-          <div key={group.label} className="tl-filter-group">
-            <div className="tl-filter-group-label">{group.label}</div>
-            {group.books.map(book => {
-              const cov = BOOK_COVERAGE[book];
-              const meta = BIBLE_BOOKS.find(b => b.name === book);
-              return (
-                <label key={book} className="tl-check" title={meta?.summary ?? ""}>
-                  <input
-                    type="checkbox"
-                    checked={checkedBooks.has(book)}
-                    onChange={() => onToggleBook(book)}
-                  />
-                  <span className="tl-check-name">{book}</span>
-                  {cov && (
-                    <span className="tl-check-years">
-                      {cov.startBc === cov.endBc ? `${cov.startBc}` : `${cov.startBc}–${cov.endBc}`}
-                    </span>
-                  )}
-                </label>
-              );
-            })}
+      {open && (
+        <div className="tlv-book-drawer">
+          <div className="tlv-book-drawer-top">
+            <div>
+              <strong>Which books should shape the story?</strong>
+              <span>People and events appear when they are mentioned in a selected book.</span>
+            </div>
+            <button type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "Clear all" : "Select all"}</button>
           </div>
-        ))}
-      </div>
+
+          <div className="tlv-book-groups">
+            {GROUPS.map(group => (
+              <fieldset key={group.label} className="tlv-book-group">
+                <legend>{group.label}</legend>
+                <div className="tlv-book-checks">
+                  {group.books.map(book => {
+                    const coverage = BOOK_COVERAGE[book];
+                    const meta = BIBLE_BOOKS.find(candidate => candidate.name === book);
+                    return (
+                      <label key={book} title={meta?.summary ?? ""}>
+                        <input type="checkbox" checked={checkedBooks.has(book)} onChange={() => onToggleBook(book)} />
+                        <span>{book}</span>
+                        {coverage && <small>{coverage.startBc}–{coverage.endBc}</small>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
