@@ -281,6 +281,13 @@ export function Timeline({ onSelectPerson }: Props) {
   };
 
   const endCanvasDrag = () => { drag.current.active = false; };
+  // A normal mouseup is followed by a click that must be swallowed after a
+  // real drag. Leaving the canvas produces no such click, so clear `moved`
+  // here or the user's next intentional click would be discarded instead.
+  const cancelCanvasDrag = () => {
+    drag.current.active = false;
+    drag.current.moved = false;
+  };
 
   // Swallow the click that ends a drag, so panning past a king doesn't also
   // select him. Runs in the capture phase to beat the segment's own onClick.
@@ -329,7 +336,7 @@ export function Timeline({ onSelectPerson }: Props) {
           onMouseDown={onCanvasMouseDown}
           onMouseMove={onCanvasMouseMove}
           onMouseUp={endCanvasDrag}
-          onMouseLeave={endCanvasDrag}
+          onMouseLeave={cancelCanvasDrag}
           onClickCapture={onCanvasClickCapture}
           className="tl-canvas"
           // The detail panel docks over the canvas's right 280px. Later
@@ -721,7 +728,7 @@ function PersonDetailPanel({ person, trackLabel, links, onClose, onViewProfile }
             {person.timelineStartBc}–{person.timelineEndBc} BC · {trackLabel}
           </div>
         </div>
-        <button className="tl-detail-close" onClick={onClose}>×</button>
+        <button type="button" className="tl-detail-close" onClick={onClose} aria-label="Close person details">×</button>
       </div>
 
       <div className="tl-detail-body">
