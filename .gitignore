@@ -53,3 +53,7 @@ next-env.d.ts
 # brainstorming visual companion mockups
 /.superpowers/
 /backups/
+
+# Working scratch folder (screenshots, reference material). Never commit —
+# a catch-all `git add` would otherwise sweep it into the repo.
+_Related Files/
