@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { HistoricalEvent, Person, ProphecyLink } from "@/lib/types";
+import { TIMELINE_PERIODS as ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 interface Props {
@@ -15,23 +16,6 @@ interface Props {
   // ancestor's display:none → flex transition.
   active?: boolean;
 }
-
-interface Era {
-  id: string;
-  label: string;
-  years: string;
-  startBc: number;
-  endBc: number;
-  summary: string;
-}
-
-const ERAS: Era[] = [
-  { id: "judges", label: "Settlement & Judges", years: "c. 1400–1051 BC", startBc: 1500, endBc: 1051, summary: "Israel settles in the land and repeatedly turns from oppression to rescue." },
-  { id: "united", label: "The United Kingdom", years: "1050–932 BC", startBc: 1050, endBc: 932, summary: "Saul, David, and Solomon rule one kingdom, and Jerusalem becomes its center." },
-  { id: "divided", label: "The Divided Kingdom", years: "931–723 BC", startBc: 931, endBc: 723, summary: "Israel divides north and south while prophets confront both kingdoms." },
-  { id: "judah-alone", label: "Judah Stands Alone", years: "722–587 BC", startBc: 722, endBc: 587, summary: "After Israel falls to Assyria, Judah faces reform, warning, and Babylon." },
-  { id: "exile-return", label: "Exile & Return", years: "586–350 BC", startBc: 586, endBc: 350, summary: "Jerusalem falls, the people live in exile, and a remnant returns to rebuild." },
-];
 
 const TRACK_META: Record<string, { label: string; family: "leader" | "prophet"; color: string }> = {
   judge: { label: "Judge", family: "leader", color: "var(--tl-judge-1)" },

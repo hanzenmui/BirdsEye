@@ -93,7 +93,7 @@ export function TimelineFilters({
           </svg>
         </button>
 
-        <div className="tl-zoom-row tlv-zoom-row" title="Zoom out to see more of the story at once">
+        <div className="tl-zoom-row tlv-zoom-row" title="Zoom out to see more of the timeline at once">
           <button type="button" onClick={onZoomOut} aria-label="Zoom out">−</button>
           <span className="tl-zoom-level">{Math.round(zoom * 100)}%</span>
           <button type="button" onClick={onZoomIn} aria-label="Zoom in">+</button>

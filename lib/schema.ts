@@ -47,9 +47,8 @@ export const MIGRATIONS: string[] = [
    ON relationships (person_a_id, type, person_b_id)`,
 
   // Timeline feature — additive, nullable. Existing rows keep NULL spans and
-  // are simply absent from the timeline view. Each ALTER is idempotent-by-
-  // failure: re-running throws "duplicate column name", which lib/db.ts's
-  // try/catch around migrations logs and skips.
+  // are simply absent from the timeline view. lib/db.ts checks table_info
+  // before applying these additions, so startup stays quiet after migration.
   `ALTER TABLE people ADD COLUMN timeline_start_bc INTEGER`,
   `ALTER TABLE people ADD COLUMN timeline_end_bc INTEGER`,
   `ALTER TABLE people ADD COLUMN timeline_track TEXT NOT NULL DEFAULT ''`,
@@ -93,7 +92,7 @@ export const MIGRATIONS: string[] = [
 
   // Lets a prophecy link record scholarly disagreement (e.g. over authorship
   // or dating) without disturbing `explanation`, which stays the app's
-  // primary, single-viewpoint framing. Same additive/idempotent-by-failure
-  // pattern as the timeline columns above.
+  // primary, single-viewpoint framing. Uses the same table_info check as the
+  // timeline columns above.
   `ALTER TABLE prophecy_links ADD COLUMN uncertainty_note TEXT NOT NULL DEFAULT ''`,
 ];

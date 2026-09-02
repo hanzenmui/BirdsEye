@@ -1,10 +1,11 @@
 "use client";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useDeferredValue, useMemo, useState, useEffect, useRef } from "react";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
 import { spanToBox, packRows, computeRange, yearToPct, type Span, type TimelineRange } from "@/lib/timeline-layout";
-import { TimelineFiltersHorizontal as TimelineFilters, TIMELINE_BOOKS } from "./TimelineFiltersHorizontal";
+import { TIMELINE_PERIODS } from "@/lib/timeline-periods";
+import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 // Lane colours drawn from the app's palette: terracotta family for Judah,
 // teal/plum for Israel, muted purple for prophets, warm sand for judges.
@@ -20,20 +21,20 @@ const TRACK_COLORS: Record<string, string[]> = {
   minor_prophet: ["var(--tl-minor-prophet-1)", "var(--tl-minor-prophet-2)"],
 };
 
-const LANES: { track: string; label: string; multiRow: boolean }[] = [
-  { track: "judge",         label: "Judges",          multiRow: true  },
-  { track: "united_king",   label: "United",  multiRow: false },
-  { track: "judah_king",    label: "Judah",           multiRow: false },
-  { track: "israel_king",   label: "Israel",          multiRow: false },
-  { track: "major_prophet", label: "Major Prophets",  multiRow: true  },
-  { track: "minor_prophet", label: "Minor Prophets",  multiRow: true  },
+const LANES: { track: string; label: string; family: string; multiRow: boolean }[] = [
+  { track: "judge",         label: "Judges",          family: "Leaders", multiRow: true  },
+  { track: "united_king",   label: "United kingdom",  family: "Rulers", multiRow: false },
+  { track: "judah_king",    label: "Judah",           family: "Southern kingdom", multiRow: false },
+  { track: "israel_king",   label: "Israel",          family: "Northern kingdom", multiRow: false },
+  { track: "major_prophet", label: "Major prophets",  family: "Prophetic voices", multiRow: true  },
+  { track: "minor_prophet", label: "Minor prophets",  family: "Prophetic voices", multiRow: true  },
 ];
 
-const ROW_H = 26;
-const ROW_GAP = 3;
+const ROW_H = 38;
+const ROW_GAP = 6;
 const ZOOM_MIN = 1;
-const ZOOM_MAX = 8;
-const ZOOM_STEP = 1;
+const ZOOM_MAX = 6;
+const ZOOM_STEP = 0.5;
 
 interface Props { onSelectPerson: (id: string) => void }
 
@@ -53,6 +54,9 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
+  const [showEventsLayer, setShowEventsLayer] = useState(true);
+  const [showLinksLayer, setShowLinksLayer] = useState(true);
+  const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   // Starts above "fit" (1) rather than at it: the full span is ~945 years
@@ -60,8 +64,8 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   // is a blank sliver — nothing reads without hovering. 3x keeps a useful
   // share of names legible on load; "Fit" (below) still zooms out to 1 for
   // the whole-picture view in one click.
-  const [zoom, setZoom] = useState(3);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [zoom, setZoom] = useState(1.5);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -73,7 +77,8 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   // True once every book in the filter list is checked — the "no filtering
   // in effect" state, used below to skip the per-person/event book match
   // entirely. See personMatchesBooks() for how the actual filtering works.
-  const allChecked = checkedBooks.size === TIMELINE_BOOKS.length;
+  const allChecked = TIMELINE_BOOKS.every(book => checkedBooks.has(book));
+  const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const range: TimelineRange = useMemo(() => {
     const spans: Span[] = people
@@ -87,20 +92,79 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   const selectedPerson = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) ?? null : null;
 
+  const eventBooks = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    for (const ref of eventRefs) {
+      if (!ref.eventId) continue;
+      const books = result[ref.eventId] ||= [];
+      if (!books.includes(ref.book)) books.push(ref.book);
+    }
+    return result;
+  }, [eventRefs]);
+
+  const visiblePeople = useMemo(() => {
+    if (!showPeopleLayer) return [];
+    return people.filter(person => {
+      if (person.timelineStartBc === null || person.timelineEndBc === null) return false;
+      const books = personBooks[person.id] ?? [];
+      if (!allChecked && !books.some(book => checkedBooks.has(book))) return false;
+      if (!deferredQuery) return true;
+      return searchable([person.name, person.alsoKnownAs, person.description, person.timelineTrack, ...books]).includes(deferredQuery);
+    });
+  }, [allChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
+
+  const visibleEvents = useMemo(() => {
+    if (!showEventsLayer) return [];
+    return events.filter(event => {
+      const books = eventBooks[event.id] ?? [];
+      if (!allChecked && !books.some(book => checkedBooks.has(book))) return false;
+      if (!deferredQuery) return true;
+      return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
+    });
+  }, [allChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
+
+  const resultCount = visiblePeople.length + visibleEvents.length;
+
+  // Search is most useful when the matching person is brought into view, not
+  // merely left highlighted somewhere offscreen in a very wide chart.
+  useEffect(() => {
+    if (!deferredQuery) return;
+    const canvas = canvasRef.current;
+    const lanes = lanesRef.current;
+    if (!canvas || !lanes) return;
+    const person = visiblePeople[0];
+    const event = visibleEvents[0];
+    const target = person
+      ? lanes.querySelector<HTMLElement>(`[data-person-id="${person.id}"]`)
+      : event
+      ? lanes.querySelector<HTMLElement>(`[data-event-id="${event.id}"]`)
+      : null;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      const canvasRect = canvas.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const targetCenter = targetRect.left + targetRect.width / 2;
+      canvas.scrollTo({
+        left: Math.max(0, canvas.scrollLeft + targetCenter - (canvasRect.left + canvasRect.width / 2)),
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [deferredQuery, visibleEvents, visiblePeople]);
+
   // The same prophecy_links rows read from either end. Picking a prophet asks
   // "what did this foretell?"; picking an event asks the reverse — "who
   // foretold this?" — which is the same set filtered on the other column, so
   // one geometry pass serves both directions.
-  const selectedLinks = selectedPerson
+  const relatedLinks = selectedPerson
     ? prophecyLinks.filter(l => l.prophetPersonId === selectedPerson.id)
     : selectedEvent
     ? prophecyLinks.filter(l => l.fulfillmentEventId === selectedEvent.id)
     : [];
+  const selectedLinks = showLinksLayer ? relatedLinks : [];
 
   // Which books narrate the selected event.
-  const selectedEventBooks = selectedEvent
-    ? [...new Set(eventRefs.filter(r => r.eventId === selectedEvent.id).map(r => r.book))]
-    : [];
+  const selectedEventBooks = selectedEvent ? eventBooks[selectedEvent.id] ?? [] : [];
 
   const selectPerson = (id: string) => { setSelectedEventId(null); setSelectedId(id); };
   const selectEvent = (id: string) => { setSelectedId(null); setSelectedEventId(prev => prev === id ? null : id); };
@@ -167,7 +231,7 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   // that element with no recompute needed (see LinkGeom above).
   useEffect(() => {
     measureLinksRef.current();
-  }, [selectedId, selectedEventId, range, showBooksLayer, showPeopleLayer]);
+  }, [selectedId, selectedEventId, range, showBooksLayer, showEventsLayer, showLinksLayer, showPeopleLayer]);
 
   // ...and independently, whenever `.tl-lanes`' own box actually resizes —
   // covering both the zero-width frame described above (the box recovering
@@ -181,23 +245,6 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     ro.observe(lanesEl);
     return () => ro.disconnect();
   }, []);
-
-  // Hide any segment label that would otherwise clip mid-word. No dependency
-  // array intentional — must re-measure after every render, since zoom and
-  // filter changes both alter segment widths.
-  useEffect(() => {
-    const labels = document.querySelectorAll<HTMLElement>(".tl-seg-label");
-    labels.forEach(label => {
-      const seg = label.parentElement;
-      if (!seg) return;
-      label.style.display = "";
-      (seg as HTMLElement).style.paddingLeft = "6px";
-      if (label.scrollWidth > seg.clientWidth - 6) {
-        label.style.display = "none";
-        (seg as HTMLElement).style.paddingLeft = "0";
-      }
-    });
-  });
 
   // Mouse wheel pans the timeline left/right instead of scrolling it down.
   //
@@ -305,29 +352,61 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   }
 
   return (
-    <div className="tl-root">
+    <div className="tlh-root">
       <TimelineFilters
         checkedBooks={checkedBooks}
         showBooksLayer={showBooksLayer}
         showPeopleLayer={showPeopleLayer}
+        showEventsLayer={showEventsLayer}
+        showLinksLayer={showLinksLayer}
+        zoom={zoom}
+        query={query}
+        resultCount={resultCount}
+        onQueryChange={setQuery}
         onToggleBook={toggleBook}
         onToggleAll={toggleAll}
-        onToggleBooksLayer={() => setShowBooksLayer(v => !v)}
-        onTogglePeopleLayer={() => setShowPeopleLayer(v => !v)}
-        zoom={zoom}
-        onZoomIn={() => setZoom(z => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
-        onZoomOut={() => setZoom(z => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
-        onZoomFit={() => setZoom(1)}
+        onToggleBooksLayer={() => setShowBooksLayer(value => !value)}
+        onTogglePeopleLayer={() => setShowPeopleLayer(value => !value)}
+        onToggleEventsLayer={() => setShowEventsLayer(value => !value)}
+        onToggleLinksLayer={() => setShowLinksLayer(value => !value)}
+        onZoomIn={() => setZoom(value => Math.min(ZOOM_MAX, value + ZOOM_STEP))}
+        onZoomOut={() => setZoom(value => Math.max(ZOOM_MIN, value - ZOOM_STEP))}
+        onZoomReset={() => setZoom(1)}
         open={filtersOpen}
-        onToggleOpen={() => setFiltersOpen(v => !v)}
+        onToggleOpen={() => setFiltersOpen(value => !value)}
       />
 
-      <div className="tl-main">
+      <section className="tlh-intro" aria-labelledby="tlh-intro-title">
+        <div>
+          <span className="tlv-kicker">A side-by-side Bible history</span>
+          <h2 id="tlh-intro-title">See who lived at the same time.</h2>
+          <p>Each row follows one group through history. Drag sideways to compare rulers, prophets, books, and turning points that overlapped.</p>
+        </div>
+        <div className="tlh-at-a-glance" aria-label="Visible timeline summary">
+          <div><strong>{visiblePeople.length}</strong><span>people</span></div>
+          <div><strong>{visibleEvents.length}</strong><span>events</span></div>
+          <div><strong>{TIMELINE_PERIODS.length}</strong><span>eras</span></div>
+        </div>
+      </section>
+
+      <div className="tl-main tlh-main">
+        <div className="tlh-chart-heading">
+          <div>
+            <span className="tlh-chart-kicker">Earlier <span aria-hidden="true">→</span> Later</span>
+            <strong>Drag or scroll sideways to travel through time</strong>
+          </div>
+          <div className="tlh-legend" aria-label="Timeline color key">
+            <span className="judah">Judah</span>
+            <span className="israel">Israel</span>
+            <span className="prophets">Prophets</span>
+            <span className="events">Turning points</span>
+          </div>
+        </div>
+
         {selectedLinks.length > 0 && (
-          <div className="tl-banner">
-            {selectedLinks.map(link => (
-              <div key={link.id} className="tl-banner-line">{link.explanation}</div>
-            ))}
+          <div className="tl-banner tlh-banner">
+            <strong>Prophecy connection</strong>
+            {selectedLinks.map(link => <div key={link.id} className="tl-banner-line">{link.explanation}</div>)}
           </div>
         )}
 
@@ -338,69 +417,73 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
           onMouseUp={endCanvasDrag}
           onMouseLeave={cancelCanvasDrag}
           onClickCapture={onCanvasClickCapture}
-          className="tl-canvas"
-          // The detail panel docks over the canvas's right 280px. Later
-          // events (Cyrus's decree is the latest date in the whole dataset)
-          // sit at the timeline's right edge, so without this the panel would
-          // sit directly on top of the very marker its own connector points
-          // at. Padding out the canvas's content box — border-box, so this
-          // actually narrows it — reflows the percentage-positioned lanes to
-          // fit beside the panel instead of under it.
-          style={{ paddingRight: panelOpen ? 24 + 280 : 24 }}
+          className="tl-canvas tlh-canvas"
+          style={{ paddingRight: panelOpen ? 32 + 340 : 32 }}
         >
-          <div style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
+          <div className="tlh-chart" style={{ width: `${zoom * 100}%` }}>
+            <div className="tlh-era-strip" aria-label="Historical eras">
+              <div className="tlh-gutter-title">Bible eras</div>
+              <div className="tlh-era-track">
+                {TIMELINE_PERIODS.map(period => {
+                  const left = clampedYearPct(period.startBc, range);
+                  const right = clampedYearPct(period.endBc, range);
+                  return (
+                    <div key={period.id} className={`tlh-era tlh-era-${period.id}`} style={{ left: `${left}%`, width: `${Math.max(right - left, 0)}%` }} title={period.summary}>
+                      <strong>{period.label}</strong>
+                      <small>{period.years}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="tl-scale">
-              {ticks.map(t => (
-                <div key={t} className="tl-tick" style={{ left: `${yearToPct(t, range)}%` }}>
-                  <span className="tl-tick-label">{t} BC</span>
-                </div>
-              ))}
+              <span className="tlh-scale-label">Year</span>
+              <div className="tlh-scale-track">
+                {ticks.map(t => (
+                  <div key={t} className="tl-tick" style={{ left: `${yearToPct(t, range)}%` }}>
+                    <span className="tl-tick-label">{t} BC</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="tl-lanes" ref={lanesRef}>
-              {showPeopleLayer && LANES.map(lane => (
+              <div className="tlh-grid" aria-hidden="true">
+                <div className="tlh-grid-track">
+                  {ticks.map(tick => <span key={tick} style={{ left: `${yearToPct(tick, range)}%` }} />)}
+                </div>
+              </div>
+              {LANES.map(lane => (
                 <PersonLane
                   key={lane.track}
                   label={lane.label}
+                  family={lane.family}
                   track={lane.track}
                   multiRow={lane.multiRow}
-                  people={people}
+                  people={visiblePeople}
                   range={range}
-                  checkedBooks={checkedBooks}
-                  allChecked={allChecked}
-                  personBooks={personBooks}
                   selectedId={selectedId}
                   onSelect={selectPerson}
                 />
               ))}
 
-              {events.length > 0 && (
-                <EventLane events={events} range={range} eventRefs={eventRefs}
-                  checkedBooks={checkedBooks} allChecked={allChecked}
-                  selectedEventId={selectedEventId} onSelectEvent={selectEvent} />
+              {showEventsLayer && visibleEvents.length > 0 && (
+                <EventLane events={visibleEvents} range={range} selectedEventId={selectedEventId} onSelectEvent={selectEvent} />
               )}
 
-              {showBooksLayer && (
-                <BookLane range={range} checkedBooks={checkedBooks} />
+              {showBooksLayer && <BookLane range={range} checkedBooks={checkedBooks} />}
+
+              {resultCount === 0 && !showBooksLayer && (
+                <div className="tlh-empty">No matching timeline entries. Try another search or turn a layer back on.</div>
               )}
 
               {linkGeoms.length > 0 && (
-                <svg className="tl-links" viewBox={`0 0 100 ${lanesHeight}`} preserveAspectRatio="none">
-                  {linkGeoms.map(g => (
-                    // A plain 1.75px dashed line reads as almost invisible against
-                    // the lanes' own terracotta/teal/plum fills, so each curve gets
-                    // a wider pale halo underneath for contrast, same idea as a
-                    // route line drawn on a busy map.
-                    <g key={g.id}>
-                      <path d={g.d} stroke="var(--bg2)" strokeWidth={4.5} fill="none" opacity={0.9} vectorEffect="non-scaling-stroke" />
-                      <path
-                        d={g.d}
-                        stroke="var(--gold-deep)"
-                        strokeWidth={2.25}
-                        strokeDasharray="5 3.5"
-                        fill="none"
-                        vectorEffect="non-scaling-stroke"
-                      />
+                <svg className="tl-links" viewBox={`0 0 100 ${lanesHeight}`} preserveAspectRatio="none" aria-hidden="true">
+                  {linkGeoms.map(geometry => (
+                    <g key={geometry.id}>
+                      <path d={geometry.d} className="tlh-link-halo" vectorEffect="non-scaling-stroke" />
+                      <path d={geometry.d} className="tlh-link-line" vectorEffect="non-scaling-stroke" />
                     </g>
                   ))}
                 </svg>
@@ -410,21 +493,15 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
         </div>
 
         {selectedEvent && (
-          <EventDetailPanel
-            event={selectedEvent}
-            books={selectedEventBooks}
-            links={selectedLinks}
-            people={people}
-            onClose={() => setSelectedEventId(null)}
-            onSelectProphet={selectPerson}
-          />
+          <EventDetailPanel event={selectedEvent} books={selectedEventBooks} links={relatedLinks} people={people}
+            onClose={() => setSelectedEventId(null)} onSelectProphet={selectPerson} />
         )}
 
         {selectedPerson && (
           <PersonDetailPanel
             person={selectedPerson}
-            trackLabel={LANES.find(l => l.track === selectedPerson.timelineTrack)?.label ?? selectedPerson.timelineTrack}
-            links={selectedLinks}
+            trackLabel={LANES.find(lane => lane.track === selectedPerson.timelineTrack)?.label ?? selectedPerson.timelineTrack}
+            links={relatedLinks}
             onClose={() => setSelectedId(null)}
             onViewProfile={() => { onSelectPerson(selectedPerson.id); setSelectedId(null); }}
           />
@@ -442,12 +519,11 @@ function laneRows(people: Person[], track: string, multiRow: boolean) {
 }
 
 interface PersonLaneProps {
-  label: string; track: string; multiRow: boolean; people: Person[]; range: TimelineRange;
-  checkedBooks: Set<string>; allChecked: boolean; personBooks: Record<string, string[]>;
+  label: string; family: string; track: string; multiRow: boolean; people: Person[]; range: TimelineRange;
   selectedId: string | null; onSelect: (id: string) => void;
 }
 
-function PersonLane({ label, track, multiRow, people, range, checkedBooks, allChecked, personBooks, selectedId, onSelect }: PersonLaneProps) {
+function PersonLane({ label, family, track, multiRow, people, range, selectedId, onSelect }: PersonLaneProps) {
   const rows = useMemo(
     () => laneRows(people, track, multiRow),
     [people, track, multiRow],
@@ -456,20 +532,20 @@ function PersonLane({ label, track, multiRow, people, range, checkedBooks, allCh
   const palette = TRACK_COLORS[track] ?? ["#6b7280"];
 
   return (
-    <div className="tl-lane">
-      <div className="tl-lane-label">{label}</div>
+    <div className={`tl-lane tl-lane-${track}`}>
+      <div className="tl-lane-label">
+        <span>{family}</span>
+        <strong>{label}</strong>
+      </div>
       <div className="tl-lane-body" style={{ height: rows.length * (ROW_H + ROW_GAP) }}>
         {rows.map((row, ri) =>
           row.map((s, si) => {
             const { leftPct, widthPct, floored } = spanToBox(s, range);
-            // The book filter dims rather than removes, so a person's place in
-            // the sequence stays legible even when filtered out.
-            const dimmed = !allChecked && !personMatchesBooks(s.person, checkedBooks, personBooks);
             return (
               <button
                 key={s.id}
                 data-person-id={s.person.id}
-                className={`tl-seg${dimmed ? " tl-seg-dim" : ""}${s.person.dateConfidence === "uncertain" ? " tl-seg-uncertain" : ""}${s.person.id === selectedId ? " tl-seg-selected" : ""}`}
+                className={`tl-seg${s.person.dateConfidence === "uncertain" ? " tl-seg-uncertain" : ""}${s.person.id === selectedId ? " tl-seg-selected" : ""}`}
                 style={{
                   left: `${leftPct}%`, width: `${widthPct}%`,
                   top: ri * (ROW_H + ROW_GAP), height: ROW_H,
@@ -484,7 +560,10 @@ function PersonLane({ label, track, multiRow, people, range, checkedBooks, allCh
                 title={segTitle(s.person)}
                 onClick={() => onSelect(s.person.id)}
               >
-                <span className="tl-seg-label">{s.person.name}</span>
+                <span className="tl-seg-label">
+                  <strong>{s.person.name}</strong>
+                  <small>{s.person.timelineStartBc}–{s.person.timelineEndBc}</small>
+                </span>
               </button>
             );
           }),
@@ -500,25 +579,21 @@ function segTitle(p: Person) {
   return `${p.name} (${years})${conf}`;
 }
 
-// A person passes the filter when any book they're tagged to is checked.
-// Book tags come from the API's personBooks map (person id -> book names,
-// derived from scripture_refs). A person with no tagged books never matches
-// once any filtering is in effect.
-function personMatchesBooks(p: Person, checked: Set<string>, personBooks: Record<string, string[]>): boolean {
-  const books = personBooks[p.id];
-  if (!books || books.length === 0) return false;
-  return books.some(b => checked.has(b));
+function searchable(values: Array<string | null | undefined>) {
+  return values.filter(Boolean).join(" ").toLowerCase();
+}
+
+function clampedYearPct(year: number, range: TimelineRange) {
+  return Math.min(100, Math.max(0, yearToPct(year, range)));
 }
 
 interface EventLaneProps {
   events: HistoricalEvent[]; range: TimelineRange;
-  eventRefs: { eventId: string | null; book: string }[];
-  checkedBooks: Set<string>; allChecked: boolean;
   selectedEventId: string | null;
   onSelectEvent: (id: string) => void;
 }
 
-function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selectedEventId, onSelectEvent }: EventLaneProps) {
+function EventLane({ events, range, selectedEventId, onSelectEvent }: EventLaneProps) {
   const laneRef = useRef<HTMLDivElement>(null);
 
   // Event labels are centred under their marker, so two events close in time
@@ -541,7 +616,7 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selecte
       })
       .sort((a, b) => a.left - b.left);
 
-    const EVENT_ROW_H = 54, GAP = 8;
+    const EVENT_ROW_H = 70, GAP = 12;
     const rows: [number, number][][] = [];
     for (const p of placed) {
       let row = 0;
@@ -557,17 +632,19 @@ function EventLane({ events, range, eventRefs, checkedBooks, allChecked, selecte
   });
 
   return (
-    <div className="tl-lane">
-      <div className="tl-lane-label">Events</div>
+    <div className="tl-lane tl-event-lane">
+      <div className="tl-lane-label">
+        <span>Story milestones</span>
+        <strong>Turning points</strong>
+      </div>
       <div ref={laneRef} className="tl-lane-body tl-events">
         {events.map(ev => {
-          const books = eventRefs.filter(r => r.eventId === ev.id).map(r => r.book);
-          const dimmed = !allChecked && !books.some(b => checkedBooks.has(b));
           return (
             <button
               key={ev.id}
               type="button"
-              className={`tl-event${dimmed ? " tl-seg-dim" : ""}${ev.id === selectedEventId ? " tl-event-selected" : ""}`}
+              data-event-id={ev.id}
+              className={`tl-event${ev.id === selectedEventId ? " tl-event-selected" : ""}`}
               style={{ left: `${yearToPct(ev.yearBc, range)}%` }}
               title={`${ev.title} (${ev.yearBc} BC)`}
               onClick={() => onSelectEvent(ev.id)}
@@ -596,8 +673,11 @@ function BookLane({ range, checkedBooks }: { range: TimelineRange; checkedBooks:
   if (rows.length === 0) return null;
 
   return (
-    <div className="tl-lane">
-      <div className="tl-lane-label">Books</div>
+    <div className="tl-lane tl-book-lane">
+      <div className="tl-lane-label">
+        <span>Scripture</span>
+        <strong>Book coverage</strong>
+      </div>
       <div className="tl-lane-body" style={{ height: rows.length * (ROW_H + ROW_GAP) }}>
         {rows.map((row, ri) =>
           row.map(s => {
@@ -610,7 +690,7 @@ function BookLane({ range, checkedBooks }: { range: TimelineRange; checkedBooks:
                 style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: ri * (ROW_H + ROW_GAP), height: ROW_H }}
                 title={`${s.id} — covers ${s.startBc}–${s.endBc} BC${note ? "\n\n" + note : ""}`}
               >
-                <span className="tl-seg-label">{s.id}</span>
+                <span className="tl-seg-label"><strong>{s.id}</strong><small>{s.startBc}–{s.endBc}</small></span>
               </div>
             );
           }),

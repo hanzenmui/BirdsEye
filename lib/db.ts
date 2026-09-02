@@ -14,6 +14,20 @@ function toPositional(sql: string) {
   return sql.replace(/\$\d+/g, "?");
 }
 
+function addedColumn(sql: string) {
+  const match = sql.match(/^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/i);
+  return match ? { table: match[1], column: match[2] } : null;
+}
+
+function warnMigrationFailure(sql: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (sql.includes("idx_relationships_unique") && message.includes("UNIQUE constraint failed")) {
+    console.warn("Relationship uniqueness index is pending because duplicate relationship rows still exist. Run the dedupe script before enabling it.");
+    return;
+  }
+  console.warn("Migration skipped:", message);
+}
+
 function makeLocalDb(path: string): DbClient {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Database = require("better-sqlite3");
@@ -37,7 +51,12 @@ function makeLocalDb(path: string): DbClient {
     async init() {
       for (const s of schema) db.exec(s);
       for (const m of MIGRATIONS) {
-        try { db.exec(m); } catch (e) { console.warn("Migration skipped:", e); }
+        const target = addedColumn(m);
+        if (target) {
+          const columns = db.prepare(`PRAGMA table_info(${target.table})`).all() as { name: string }[];
+          if (columns.some(column => column.name === target.column)) continue;
+        }
+        try { db.exec(m); } catch (error) { warnMigrationFailure(m, error); }
       }
     },
   };
@@ -62,20 +81,29 @@ function makeTursoDb(): DbClient {
     async init() {
       for (const s of schema) await client.execute(s);
       for (const m of MIGRATIONS) {
-        try { await client.execute(m); } catch (e) { console.warn("Migration skipped:", e); }
+        const target = addedColumn(m);
+        if (target) {
+          const columns = await client.execute(`PRAGMA table_info(${target.table})`);
+          if (columns.rows.some(column => String(column.name) === target.column)) continue;
+        }
+        try { await client.execute(m); } catch (error) { warnMigrationFailure(m, error); }
       }
     },
   };
 }
 
-let _db: DbClient | null = null;
+const shared = globalThis as typeof globalThis & {
+  __birdseyeDb?: DbClient;
+  __birdseyeDbInit?: Promise<void>;
+};
+
 export function getDb(): DbClient {
-  if (!_db) {
+  if (!shared.__birdseyeDb) {
     const useTurso = process.env.DB_MODE === "turso" || !!process.env.TURSO_DATABASE_URL;
-    _db = useTurso
+    shared.__birdseyeDb = useTurso
       ? makeTursoDb()
       : makeLocalDb(process.env.SQLITE_PATH ?? "./data/birdseye.db");
-    _db.init().catch(console.error);
+    shared.__birdseyeDbInit = shared.__birdseyeDb.init().catch(console.error);
   }
-  return _db;
+  return shared.__birdseyeDb;
 }
