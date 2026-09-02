@@ -102,11 +102,11 @@ const LINEAGE_SOLOMON_COLOR = "#dc2626"; // red — Matthew's genealogy, through
 const LINEAGE_NATHAN_COLOR  = "#1d4ed8"; // blue — Luke's genealogy, through Nathan
 
 
-const NW = 108;   // node width
-const NH = 34;    // node height
-const HG = 18;    // horizontal gap between sibling nodes
-const VG = 60;    // vertical gap between generations
-const PAD = 32;   // outer padding
+const NW = 124;   // node width
+const NH = 42;    // node height
+const HG = 24;    // horizontal gap between sibling nodes
+const VG = 70;    // vertical gap between generations
+const PAD = 48;   // outer padding
 
 interface N { id: string; name: string; x: number; y: number; children: N[] }
 
@@ -265,14 +265,22 @@ export function buildForest(people: Person[], rels: Relationship[], memberIds: S
 
 // ── View state (zoom + pan) managed atomically via reducer ────────────────────
 interface ViewState { zoom: number; pan: { x: number; y: number } }
+interface ViewFrame {
+  vpW: number;
+  vpH: number;
+  insetLeft?: number;
+  insetRight?: number;
+  insetTop?: number;
+  insetBottom?: number;
+}
 type ViewAction =
   | { type: "PINCH"; delta: number; cx: number; cy: number }
   | { type: "PAN";   dx: number; dy: number }
-  | { type: "FIT";   treeW: number; treeH: number; vpW: number; vpH: number }
-  | { type: "CENTER"; nodeX: number; nodeY: number; vpW: number; vpH: number }
-  | { type: "FIT_BOX"; minX: number; minY: number; maxX: number; maxY: number; vpW: number; vpH: number };
+  | ({ type: "FIT"; treeW: number; treeH: number } & ViewFrame)
+  | ({ type: "CENTER"; nodeX: number; nodeY: number; zoom?: number; topOffset?: number } & ViewFrame)
+  | ({ type: "FIT_BOX"; minX: number; minY: number; maxX: number; maxY: number } & ViewFrame);
 
-const CENTER_TOP_OFFSET = 90; // clears the top search/root-picker bars
+const CENTER_TOP_OFFSET = 138; // clears the genealogy toolbar on desktop and mobile
 
 function viewReducer(s: ViewState, a: ViewAction): ViewState {
   switch (a.type) {
@@ -289,23 +297,32 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
     case "PAN":
       return { ...s, pan: { x: s.pan.x + a.dx, y: s.pan.y + a.dy } };
     case "FIT": {
-      const scale = Math.min(a.vpW / a.treeW, a.vpH / a.treeH, 1);
+      const left = a.insetLeft ?? 0;
+      const right = a.insetRight ?? 0;
+      const top = a.insetTop ?? 0;
+      const bottom = a.insetBottom ?? 0;
+      const usableW = Math.max(a.vpW - left - right, 1);
+      const usableH = Math.max(a.vpH - top - bottom, 1);
+      const scale = Math.min(usableW / a.treeW, usableH / a.treeH, 1);
       return {
         zoom: scale,
         pan: {
-          x: (a.vpW - a.treeW * scale) / 2,
-          y: (a.vpH - a.treeH * scale) / 2,
+          x: left + (usableW - a.treeW * scale) / 2,
+          y: top + (usableH - a.treeH * scale) / 2,
         },
       };
     }
     case "CENTER":
-      // Recenters on a node without touching zoom — used when re-rooting after
-      // the user has already picked their own zoom level.
+      // Recenter in the visible map area, not underneath an open roster or
+      // profile panel. Search/jump actions may also restore a readable zoom.
+      const centerZoom = a.zoom ?? s.zoom;
+      const centerLeft = a.insetLeft ?? 0;
+      const centerRight = a.insetRight ?? 0;
       return {
-        ...s,
+        zoom: centerZoom,
         pan: {
-          x: a.vpW / 2 - a.nodeX * s.zoom,
-          y: CENTER_TOP_OFFSET - a.nodeY * s.zoom,
+          x: centerLeft + (a.vpW - centerLeft - centerRight) / 2 - a.nodeX * centerZoom,
+          y: (a.topOffset ?? CENTER_TOP_OFFSET) - a.nodeY * centerZoom,
         },
       };
     case "FIT_BOX": {
@@ -314,12 +331,18 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
       // used so filtering naturally zooms to just the matches.
       const boxW = Math.max(a.maxX - a.minX, 1);
       const boxH = Math.max(a.maxY - a.minY, 1);
-      const scale = Math.min(a.vpW / boxW, a.vpH / boxH, 1);
+      const left = a.insetLeft ?? 0;
+      const right = a.insetRight ?? 0;
+      const top = a.insetTop ?? 0;
+      const bottom = a.insetBottom ?? 0;
+      const usableW = Math.max(a.vpW - left - right, 1);
+      const usableH = Math.max(a.vpH - top - bottom, 1);
+      const scale = Math.min(usableW / boxW, usableH / boxH, 1);
       return {
         zoom: scale,
         pan: {
-          x: a.vpW / 2 - ((a.minX + a.maxX) / 2) * scale,
-          y: a.vpH / 2 - ((a.minY + a.maxY) / 2) * scale,
+          x: left + usableW / 2 - ((a.minX + a.maxX) / 2) * scale,
+          y: top + usableH / 2 - ((a.minY + a.maxY) / 2) * scale,
         },
       };
     }
@@ -353,6 +376,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const [nodeSearch, setNodeSearch] = useState("");
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
   const [bookFilter, setBookFilter] = useState("");
+  const [rosterQuery, setRosterQuery] = useState("");
 
   // ── Detail panel ─────────────────────────────────────────────────────────────
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -364,6 +388,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     () => (effectiveRootId ? people.find(p => p.id === effectiveRootId) ?? null : null),
     [people, effectiveRootId],
   );
+  const peopleById = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
 
   // David's two genealogies (Matthew via Solomon, Luke via Nathan) share
   // Adam→David and Joseph→Jesus but otherwise diverge; findLineagePath's
@@ -462,8 +487,31 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const nodeSearchSuggestions = useMemo(() => {
     if (!nodeSearch.trim() || !nodeSearchOpen) return [];
-    return scopedPeople.filter(p => p.name.toLowerCase().includes(nodeSearch.toLowerCase())).slice(0, 8);
+    const query = nodeSearch.toLowerCase();
+    return scopedPeople
+      .filter(p => p.name.toLowerCase().includes(query) || p.alsoKnownAs.toLowerCase().includes(query))
+      .slice(0, 8);
   }, [scopedPeople, nodeSearch, nodeSearchOpen]);
+
+  // Left-side name list: the scoped book/family roster when scoped, or the
+  // active book filter's matches when filtering the unscoped tree.
+  const sideList = useMemo(() => {
+    if (scope) return { title: scope.label, items: scopedPeopleSorted };
+    if (bookFilter && bookHits.size > 0) {
+      const items = people.filter(p => bookHits.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+      return { title: bookFilter, items };
+    }
+    return null;
+  }, [scope, scopedPeopleSorted, bookFilter, bookHits, people]);
+
+  const visibleRosterItems = useMemo(() => {
+    if (!sideList) return [];
+    const q = rosterQuery.trim().toLowerCase();
+    if (!q) return sideList.items;
+    return sideList.items.filter(p =>
+      p.name.toLowerCase().includes(q) || p.alsoKnownAs.toLowerCase().includes(q),
+    );
+  }, [rosterQuery, sideList]);
 
   // ── Detail panel data ─────────────────────────────────────────────────────────
   const detailPerson = useMemo(
@@ -500,12 +548,24 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     [tree],
   );
 
-  const fitView = useCallback(() => {
-    if (!containerRef.current || !tree) return;
-    const { width, height } = containerRef.current.getBoundingClientRect();
-    if (width === 0 || height === 0) return;
-    dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+  const generationDepth = useMemo(() => {
+    if (!tree?.all.length) return 0;
+    return Math.max(...tree.all.map(n => Math.round((n.y - PAD) / (NH + VG)))) + 1;
   }, [tree]);
+
+  const getViewFrame = useCallback((reserveDetail = detailPerson !== null): ViewFrame => {
+    if (!containerRef.current) return { vpW: 0, vpH: 0 };
+    const { width, height } = containerRef.current.getBoundingClientRect();
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    return {
+      vpW: width,
+      vpH: height,
+      insetLeft: !isMobile && sideList ? 280 : 0,
+      insetRight: !isMobile && reserveDetail ? 300 : 0,
+      insetTop: isMobile ? 132 : 92,
+      insetBottom: 54,
+    };
+  }, [detailPerson, sideList]);
 
   const zoomBy = useCallback((delta: number) => {
     if (!containerRef.current) return;
@@ -520,10 +580,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     if (!containerRef.current) return;
     const node = posMap.get(id);
     if (!node) return;
-    const { width, height } = containerRef.current.getBoundingClientRect();
-    dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, vpW: width, vpH: height });
+    const frame = getViewFrame(true);
+    const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
+    dispatch({
+      type: "CENTER",
+      nodeX: node.x,
+      nodeY: node.y,
+      zoom: Math.max(view.zoom, 0.82),
+      topOffset,
+      ...frame,
+    });
     setDetailId(id);
-  }, [posMap]);
+  }, [getViewFrame, posMap, view.zoom]);
 
   // Bounding box (in tree coordinates) around every node the active book
   // filter matches — only meaningful on the unscoped tree, since a scoped
@@ -552,45 +620,37 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   // stays consistent with the automatic filter-driven fit below.
   const fitToFilterOrView = useCallback(() => {
     if (!containerRef.current) return;
-    const { width, height } = containerRef.current.getBoundingClientRect();
-    if (width === 0 || height === 0) return;
+    const frame = getViewFrame();
+    if (frame.vpW === 0 || frame.vpH === 0) return;
     if (bookFilterBox) {
-      dispatch({ type: "FIT_BOX", ...bookFilterBox, vpW: width, vpH: height });
+      dispatch({ type: "FIT_BOX", ...bookFilterBox, ...frame });
     } else if (tree) {
-      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, ...frame });
     }
-  }, [bookFilterBox, tree]);
-
-  // Left-side name list: the scoped book/family roster when scoped, or the
-  // active book filter's matches when filtering the unscoped tree.
-  const sideList = useMemo(() => {
-    if (scope) return { title: scope.label, items: scopedPeopleSorted };
-    if (bookFilter && bookHits.size > 0) {
-      const items = people.filter(p => bookHits.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
-      return { title: bookFilter, items };
-    }
-    return null;
-  }, [scope, scopedPeopleSorted, bookFilter, bookHits, people]);
+  }, [bookFilterBox, getViewFrame, tree]);
 
   // Picking a book filter naturally re-frames the view to just its matches;
   // clearing it (bookFilterBox goes back to null while bookFilter is also
   // empty) restores the full tree.
   useEffect(() => {
+    if (scope) return;
     if (!containerRef.current) return;
-    const { width, height } = containerRef.current.getBoundingClientRect();
-    if (width === 0 || height === 0) return;
+    const frame = getViewFrame(false);
+    if (frame.vpW === 0 || frame.vpH === 0) return;
     if (bookFilterBox) {
-      dispatch({ type: "FIT_BOX", ...bookFilterBox, vpW: width, vpH: height });
+      dispatch({ type: "FIT_BOX", ...bookFilterBox, ...frame });
     } else if (!bookFilter && hasFitted.current && tree) {
-      dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+      const root = tree.all[0];
+      const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
+      dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, zoom: 0.88, topOffset, ...frame });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookFilterBox]);
+  }, [bookFilterBox, scope]);
 
-  // Fit-to-view on first load only (uses ResizeObserver because the container's
-  // flex dimensions aren't available yet when the effect first runs). On every
-  // later root change, recenter on the new root instead of refitting, so a
-  // zoom level the user already chose isn't discarded by re-rooting/search.
+  // Establish the first useful view once the flex container has dimensions.
+  // Explicit root changes reset hasFitted so they receive the same readable
+  // opening treatment; ordinary ResizeObserver callbacks leave the user's
+  // current pan and zoom alone.
   useEffect(() => {
     if (!tree || !containerRef.current) return;
     const el = containerRef.current;
@@ -598,18 +658,38 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     const tryFit = () => {
       const { width, height } = el.getBoundingClientRect();
       if (width === 0 || height === 0) return;
+      const isMobile = window.matchMedia("(max-width: 768px)").matches;
+      const frame: ViewFrame = {
+        vpW: width,
+        vpH: height,
+        insetLeft: !isMobile && sideList ? 280 : 0,
+        insetTop: isMobile ? 132 : 92,
+        insetBottom: 54,
+      };
       if (!hasFitted.current) {
-        dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, vpW: width, vpH: height });
+        if (scope) {
+          dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, ...frame });
+        } else {
+          // The full Adam tree is enormous. Starting at a readable scale is
+          // far more useful than shrinking hundreds of names into hairlines;
+          // "See all" remains available for the atlas overview.
+          dispatch({
+            type: "CENTER",
+            nodeX: root.x,
+            nodeY: root.y,
+            zoom: 0.88,
+            topOffset: isMobile ? 184 : CENTER_TOP_OFFSET,
+            ...frame,
+          });
+        }
         hasFitted.current = true;
-      } else {
-        dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, vpW: width, vpH: height });
       }
     };
     tryFit();
     const ro = new ResizeObserver(tryFit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [tree]);
+  }, [tree, scope, sideList]);
 
   // Keyboard +/= zoom in, - zoom out toward viewport center
   useEffect(() => {
@@ -685,7 +765,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const isOverlayTouch = useCallback((target: EventTarget | null) => {
     return target instanceof Element && !!target.closest(
-      ".ft-topleft, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, .tree-breadcrumb, button, input, select, a",
+      ".ft-mapbar, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, button, input, select, a",
     );
   }, []);
 
@@ -775,12 +855,12 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   return (
     <div
       ref={containerRef}
-      className="ft-canvas"
+      className={`ft-canvas${zoom < 0.42 ? " ft-overview" : ""}`}
+      aria-label="Interactive Bible family tree. Drag to move and use the controls to zoom."
       style={{
         position: "relative",
         flex: 1,
         overflow: "hidden",
-        background: "var(--bg)",
         userSelect: "none",
         touchAction: "none",
         overscrollBehavior: "none",
@@ -800,7 +880,20 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         }}
       >
         <svg width={w} height={h} style={{ display: "block", overflow: "visible" }}>
-          {/* Spouse connector lines — plain, same visual weight as parent-child lines */}
+          {/* Quiet generation rules make the reading direction obvious without
+              turning the genealogy into a spreadsheet. */}
+          {Array.from({ length: generationDepth }).map((_, generation) => (
+            <line
+              key={`generation-${generation}`}
+              className="ft-generation-rule"
+              x1={PAD / 2}
+              y1={PAD + generation * (NH + VG) + NH + VG / 2}
+              x2={w - PAD / 2}
+              y2={PAD + generation * (NH + VG) + NH + VG / 2}
+            />
+          ))}
+
+          {/* Dashed spouse lines read differently from the solid descent path. */}
           {relationships
             .filter(r => r.type === "spouse_of")
             .filter(r => posMap.has(r.personAId) && posMap.has(r.personBId))
@@ -812,8 +905,9 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                   key={r.id}
                   x1={nA.x} y1={nA.y + NH / 2}
                   x2={nB.x} y2={nB.y + NH / 2}
-                  stroke="rgba(60,45,20,.18)"
-                  strokeWidth={1.5}
+                  className="ft-spouse-edge"
+                  strokeWidth={1.6}
+                  strokeDasharray="6 5"
                 />
               );
             })}
@@ -825,7 +919,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             const xL = n.children[0].x;
             const xR = n.children[n.children.length - 1].x;
             return (
-              <g key={`e${n.id}`} stroke="rgba(60,45,20,.18)" strokeWidth="1.5" fill="none">
+              <g key={`e${n.id}`} className="ft-parent-edge" strokeWidth="1.65" fill="none">
                 <line x1={n.x} y1={yBot} x2={n.x} y2={yMid} />
                 {xL !== xR && <line x1={xL} y1={yMid} x2={xR} y2={yMid} />}
                 {n.children.map(c => (
@@ -866,7 +960,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             const isSelected = detailId === n.id;
             const isDimmed = hasFilter && !isHighlighted && !isSelected;
             const strokeColor = isSelected
-              ? "#2563eb"
+              ? "#2E7167"
               : onLin
               ? RELATIONSHIP_COLORS.lineage
               : onSolomon
@@ -876,32 +970,72 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
               : isHighlighted
               ? "#f59e0b"
               : undefined;
-            const strokeW = isSelected ? 2.5 : 2;
+            const strokeW = isSelected ? 3 : 2.25;
+            const person = peopleById.get(n.id);
             return (
               <g
                 key={n.id}
                 className="ft-node"
                 transform={`translate(${n.x - NW / 2},${n.y})`}
-                onClick={() => { if (!didDrag.current) setDetailId(prev => prev === n.id ? null : n.id); }}
-                onDoubleClick={e => { e.stopPropagation(); if (scope) return; setRootId(n.id); setPickerQuery(""); setDetailId(null); }}
+                onClick={() => {
+                  if (didDrag.current) return;
+                  if (detailId === n.id) setDetailId(null);
+                  else jumpToPerson(n.id);
+                }}
+                onDoubleClick={e => {
+                  e.stopPropagation();
+                  if (scope) return;
+                  hasFitted.current = false;
+                  setRootId(n.id);
+                  setPickerQuery("");
+                  setDetailId(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  if (detailId === n.id) setDetailId(null);
+                  else jumpToPerson(n.id);
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${n.name}${person?.alsoKnownAs ? `, also known as ${person.alsoKnownAs}` : ""}`}
                 style={{ cursor: "pointer", opacity: isDimmed ? 0.25 : 1 }}
               >
-                <rect
-                  className="ft-node-rect"
-                  width={NW}
-                  height={NH}
-                  rx={6}
-                  style={strokeColor ? { stroke: strokeColor, strokeWidth: strokeW } : undefined}
-                />
-                <text
-                  className="ft-node-text"
-                  x={NW / 2}
-                  y={NH / 2}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                >
-                  {n.name.length > 13 ? n.name.slice(0, 12) + "…" : n.name}
-                </text>
+                {zoom < 0.42 ? (
+                  <circle
+                    className="ft-overview-dot"
+                    cx={NW / 2}
+                    cy={NH / 2}
+                    r={Math.min(4 / zoom, 28)}
+                    vectorEffect="non-scaling-stroke"
+                    style={strokeColor ? { fill: strokeColor, stroke: strokeColor } : undefined}
+                  />
+                ) : (
+                  <>
+                    <rect
+                      className="ft-node-rect"
+                      width={NW}
+                      height={NH}
+                      rx={7}
+                      style={strokeColor ? { stroke: strokeColor, strokeWidth: strokeW } : undefined}
+                    />
+                    <circle
+                      className={`ft-gender-mark ft-gender-${person?.gender ?? "unknown"}`}
+                      cx={14}
+                      cy={NH / 2}
+                      r={3.25}
+                    />
+                    <text
+                      className="ft-node-text"
+                      x={NW / 2 + 4}
+                      y={NH / 2}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {n.name.length > 15 ? n.name.slice(0, 14) + "…" : n.name}
+                    </text>
+                  </>
+                )}
               </g>
             );
           })}
@@ -913,237 +1047,201 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       {sideList && (
         <div
           className="ft-book-list"
-          style={{
-            position: "absolute",
-            top: 0, left: 0, bottom: 0,
-            width: 280,
-            background: "var(--surface, #fff)",
-            borderRight: "1px solid rgba(60,45,20,.18)",
-            boxShadow: "4px 0 20px rgba(0,0,0,.10)",
-            zIndex: 25,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
           onMouseDown={e => e.stopPropagation()}
         >
-          <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid rgba(60,45,20,.10)", flexShrink: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text, #1a1209)", fontFamily: "var(--font, serif)", lineHeight: 1.25 }}>
-              {sideList.title}
+          <div className="ft-roster-header">
+            <div className="ft-panel-eyebrow">People in this view</div>
+            <div className="ft-roster-title-row">
+              <h2>{sideList.title}</h2>
+              <span>{sideList.items.length}</span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 2 }}>
-              {sideList.items.length} {sideList.items.length === 1 ? "person" : "people"}
-            </div>
+            <p>Select a name to bring them into focus.</p>
+            {sideList.items.length > 8 && (
+              <label className="ft-roster-search">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <span className="sr-only">Filter this name list</span>
+                <input
+                  value={rosterQuery}
+                  onChange={e => setRosterQuery(e.target.value)}
+                  placeholder="Filter names"
+                />
+                {rosterQuery && (
+                  <button type="button" onClick={() => setRosterQuery("")} aria-label="Clear name filter">×</button>
+                )}
+              </label>
+            )}
           </div>
-          <div style={{ flex: 1, overflow: "auto", padding: "6px 8px" }}>
-            {sideList.items.map(p => {
+          <div className="ft-roster-list">
+            {visibleRosterItems.map((p, index) => {
               const inTree = posMap.has(p.id);
               const isActive = detailId === p.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={p.id}
                   onClick={() => { if (inTree) jumpToPerson(p.id); }}
-                  style={{
-                    padding: "7px 10px",
-                    fontSize: 13,
-                    borderRadius: 6,
-                    cursor: inTree ? "pointer" : "default",
-                    color: inTree ? "var(--text, #1a1209)" : "var(--text3, #888)",
-                    background: isActive ? "var(--bg2, #f5f0e8)" : "transparent",
-                    fontWeight: isActive ? 600 : 400,
-                  }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg2, #f5f0e8)"; }}
-                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+                  className={`ft-roster-person${isActive ? " active" : ""}`}
+                  disabled={!inTree}
                   title={!inTree ? `${p.name} isn't connected to anyone else in ${sideList.title}` : undefined}
                 >
-                  {p.name}
-                </div>
+                  <span className="ft-roster-index">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="ft-roster-name">{p.name}</span>
+                  <span className="ft-roster-arrow" aria-hidden="true">→</span>
+                </button>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Back-to-categories + root picker (unscoped) or breadcrumb (scoped) — top left ── */}
-      <div className="ft-topleft" style={{ position: "absolute", top: 14, left: sideList ? 298 : 14, zIndex: 20, display: "flex", alignItems: "flex-start", gap: 8 }}>
-      {onExitCategory && (
-        <button
-          onClick={onExitCategory}
-          title="Back to categories"
-          onMouseDown={e => e.stopPropagation()}
-          style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, background: "var(--surface, #fff)", boxShadow: "0 1px 4px rgba(0,0,0,.12)", cursor: "pointer", color: "var(--text2, #4a3d1e)" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "var(--surface, #fff)")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-      )}
-      {scope ? (
-        <div className="tree-breadcrumb" onMouseDown={e => e.stopPropagation()}>
-          <button onClick={scope.onBack}>‹ Back</button>
-          <span style={{ color: "var(--text3, #888)" }}>·</span>
-          <span style={{ fontWeight: 600 }}>{scope.label}</span>
-        </div>
-      ) : (
-        <div
-          style={{ minWidth: 180 }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: "var(--text3, #888)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input
-              value={pickerFocused ? pickerQuery : (rootPerson?.name ?? "")}
-              onChange={e => { setPickerQuery(e.target.value); setPickerOpen(true); }}
-              onFocus={() => { setPickerFocused(true); setPickerQuery(""); setPickerOpen(true); }}
-              onBlur={() => setTimeout(() => { setPickerOpen(false); setPickerFocused(false); }, 120)}
-              placeholder="Root: Adam"
-              style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, color: "var(--text, #1a1209)", width: 130, fontFamily: "var(--ui-font, sans-serif)" }}
-            />
-            {rootId && (
-              <button
-                onClick={() => { setRootId(null); setPickerQuery(""); }}
-                title="Reset to Adam"
-                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "var(--text3, #888)", fontSize: 15, lineHeight: 1, flexShrink: 0 }}
-              >×</button>
+            {visibleRosterItems.length === 0 && (
+              <div className="ft-roster-empty">No names match “{rosterQuery}”.</div>
             )}
           </div>
-          {pickerOpen && pickerSuggestions.length > 0 && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", overflow: "hidden" }}>
-              {pickerSuggestions.map(p => (
-                <div
-                  key={p.id}
-                  onMouseDown={() => { setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); }}
-                  style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div>{p.name}</div>
-                  {p.alsoKnownAs && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1 }}>{p.alsoKnownAs.split(",")[0].trim()}</div>}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
-      </div>
 
-      {/* ── Node search + book filter — top right ─────────────────────────────── */}
+      {/* ── One calm command bar replaces the old collection of floating boxes. */}
       <div
-        className="ft-controls-tr"
-        style={{ position: "absolute", top: 14, right: panelOpen ? 298 : 14, zIndex: 20, display: "flex", gap: 6, alignItems: "flex-start" }}
+        className={`ft-mapbar${panelOpen ? " panel-open" : ""}${sideList ? " has-roster" : ""}`}
+        style={{ left: sideList ? 292 : 12, right: panelOpen ? 292 : 12 }}
         onMouseDown={e => e.stopPropagation()}
       >
-        {/* Book filter — hidden when scoped, since a fixed member set makes it redundant */}
-        {!scope && (
-          <div style={{ background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95, display: "flex", alignItems: "center", gap: 5 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: bookFilter ? "#f59e0b" : "var(--text3, #888)" }}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <select
-              value={bookFilter}
-              onChange={e => setBookFilter(e.target.value)}
-              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: bookFilter ? "#92400e" : "var(--text, #1a1209)", fontFamily: "var(--ui-font, sans-serif)", cursor: "pointer", maxWidth: 120 }}
-            >
-              <option value="">All books</option>
-              <optgroup label="Old Testament">
-                {BIBLE_BOOKS.filter(b => b.testament === "OT").map(b => (
-                  <option key={b.name} value={b.name}>{b.name}</option>
-                ))}
-              </optgroup>
-              <optgroup label="New Testament">
-                {BIBLE_BOOKS.filter(b => b.testament === "NT").map(b => (
-                  <option key={b.name} value={b.name}>{b.name}</option>
-                ))}
-              </optgroup>
-            </select>
+        <div className="ft-mapbar-context">
+          <button
+            type="button"
+            className="ft-back-button"
+            onClick={scope ? scope.onBack : onExitCategory}
+            aria-label={scope ? "Back to choices" : "Back to family tree categories"}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div className="ft-mapbar-heading">
+            <span>Genealogy map</span>
+            <strong>{scope?.label ?? `${rootPerson?.name ?? "Adam"}${(rootPerson?.name ?? "Adam").endsWith("s") ? "’" : "’s"} family`}</strong>
+            <small>{all.length} people · {generationDepth} {generationDepth === 1 ? "generation" : "generations"} deep</small>
           </div>
-        )}
+        </div>
 
-        {/* Node search */}
-        <div style={{ position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,.12)", opacity: 0.95 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: nodeSearch ? "#f59e0b" : "var(--text3, #888)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input
-              value={nodeSearch}
-              onChange={e => { setNodeSearch(e.target.value); setNodeSearchOpen(true); }}
-              onFocus={() => setNodeSearchOpen(true)}
-              onBlur={() => setTimeout(() => setNodeSearchOpen(false), 120)}
-              placeholder="Find person…"
-              style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, color: "var(--text, #1a1209)", width: 110, fontFamily: "var(--ui-font, sans-serif)" }}
-            />
-            {(nodeSearch || bookFilter) && (
-              <button
-                onClick={() => { setNodeSearch(""); setBookFilter(""); }}
-                title="Clear filters"
-                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "var(--text3, #888)", fontSize: 15, lineHeight: 1, flexShrink: 0 }}
-              >×</button>
-            )}
-          </div>
-          {nodeSearchOpen && nodeSearchSuggestions.length > 0 && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 200, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", overflow: "hidden", zIndex: 21 }}>
-              {nodeSearchSuggestions.map(p => (
-                <div
-                  key={p.id}
-                  onMouseDown={() => {
-                    setNodeSearch(p.name);
-                    setNodeSearchOpen(false);
-                    if (scope) {
-                      setDetailId(p.id);
-                    } else {
-                      // Navigate to this person by making them the root
-                      setRootId(p.id);
-                      setPickerQuery("");
-                    }
-                  }}
-                  style={{ padding: "7px 12px", fontSize: 13, cursor: "pointer", color: "var(--text, #1a1209)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div>{p.name}</div>
-                  {p.alsoKnownAs && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1 }}>{p.alsoKnownAs.split(",")[0].trim()}</div>}
+        <div className="ft-controls-tr">
+          {!scope && (
+            <div className="ft-field ft-root-picker">
+              <label htmlFor="ft-root-person">Start from</label>
+              <div className="ft-field-control">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg>
+                <input
+                  id="ft-root-person"
+                  value={pickerFocused ? pickerQuery : (rootPerson?.name ?? "")}
+                  onChange={e => { setPickerQuery(e.target.value); setPickerOpen(true); }}
+                  onFocus={() => { setPickerFocused(true); setPickerQuery(""); setPickerOpen(true); }}
+                  onBlur={() => setTimeout(() => { setPickerOpen(false); setPickerFocused(false); }, 120)}
+                  placeholder="Adam"
+                  autoComplete="off"
+                />
+                {rootId && (
+                  <button type="button" onClick={() => { hasFitted.current = false; setRootId(null); setPickerQuery(""); }} aria-label="Reset starting person to Adam">×</button>
+                )}
+              </div>
+              {pickerOpen && pickerSuggestions.length > 0 && (
+                <div className="ft-suggestions ft-root-suggestions">
+                  {pickerSuggestions.map(p => (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => { hasFitted.current = false; setRootId(p.id); setPickerQuery(""); setPickerOpen(false); setPickerFocused(false); }}
+                    >
+                      <span>{p.name}</span>
+                      {p.alsoKnownAs && <small>{p.alsoKnownAs.split(",")[0].trim()}</small>}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
-        </div>
-      </div>
 
-      {/* ── Filter active badge ────────────────────────────────────────────────── */}
-      {hasFilter && highlightedIds.size === 0 && (
-        <div style={{ position: "absolute", top: 58, right: panelOpen ? 298 : 14, zIndex: 20, background: "rgba(245,158,11,.15)", border: "1px solid #f59e0b", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: "#92400e", fontFamily: "var(--ui-font, sans-serif)" }}
-          onMouseDown={e => e.stopPropagation()}>
-          No matches in current tree
+          {!scope && (
+            <div className={`ft-field ft-book-filter${bookFilter ? " active" : ""}`}>
+              <label htmlFor="ft-book-filter">Book</label>
+              <div className="ft-field-control">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <select id="ft-book-filter" value={bookFilter} onChange={e => setBookFilter(e.target.value)}>
+                  <option value="">All books</option>
+                  <optgroup label="Old Testament">
+                    {BIBLE_BOOKS.filter(b => b.testament === "OT").map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                  </optgroup>
+                  <optgroup label="New Testament">
+                    {BIBLE_BOOKS.filter(b => b.testament === "NT").map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className={`ft-field ft-person-search${nodeSearch ? " active" : ""}`}>
+            <label htmlFor="ft-person-search">Find a person</label>
+            <div className="ft-field-control">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input
+                id="ft-person-search"
+                value={nodeSearch}
+                onChange={e => { setNodeSearch(e.target.value); setNodeSearchOpen(true); }}
+                onFocus={() => setNodeSearchOpen(true)}
+                onBlur={() => setTimeout(() => setNodeSearchOpen(false), 120)}
+                placeholder="Search names"
+                autoComplete="off"
+              />
+              {(nodeSearch || bookFilter) && (
+                <button type="button" onClick={() => { setNodeSearch(""); setBookFilter(""); }} aria-label="Clear search and book filter">×</button>
+              )}
+            </div>
+            {nodeSearchOpen && nodeSearchSuggestions.length > 0 && (
+              <div className="ft-suggestions ft-search-suggestions">
+                {nodeSearchSuggestions.map(p => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onClick={() => {
+                      setNodeSearch(p.name);
+                      setNodeSearchOpen(false);
+                      jumpToPerson(p.id);
+                    }}
+                  >
+                    <span>{p.name}</span>
+                    {p.alsoKnownAs && <small>{p.alsoKnownAs.split(",")[0].trim()}</small>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-      {hasFilter && highlightedIds.size > 0 && (
-        <div style={{ position: "absolute", top: 58, right: panelOpen ? 298 : 14, zIndex: 20, background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.4)", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: "#92400e", fontFamily: "var(--ui-font, sans-serif)" }}
-          onMouseDown={e => e.stopPropagation()}>
-          {highlightedIds.size} {highlightedIds.size === 1 ? "match" : "matches"} highlighted
-        </div>
-      )}
+
+        {hasFilter && (
+          <div className={`ft-match-status${highlightedIds.size === 0 ? " empty" : ""}`}>
+            {highlightedIds.size === 0
+              ? "No matches in this map"
+              : `${highlightedIds.size} ${highlightedIds.size === 1 ? "person" : "people"} highlighted`}
+          </div>
+        )}
+      </div>
 
       {/* ── Relationship legend — bottom left ─────────────────────────────────── */}
       <div
         className="ft-legend"
-        style={{ position: "absolute", bottom: 16, left: sideList ? 298 : 14, zIndex: 10, background: "var(--surface, #fff)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 1px 4px rgba(0,0,0,.10)", opacity: 0.92, fontSize: 10.5, color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px" }}
+        style={{ left: sideList ? 296 : 16 }}
         onMouseDown={e => e.stopPropagation()}
       >
+        <div className="ft-legend-title">Map key</div>
+        <div className="ft-legend-item">
+          <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="currentColor" strokeWidth="2" /></svg>
+          <span>Parent to child</span>
+        </div>
+        <div className="ft-legend-item">
+          <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="currentColor" strokeWidth="2" strokeDasharray="5 4" /></svg>
+          <span>Spouse</span>
+        </div>
         {([
-          ["rgba(60,45,20,.75)", "Parent / Child"],
-          ["rgba(60,45,20,.75)", "Spouse"],
+          [RELATIONSHIP_COLORS.lineage, "Shared line to Jesus"],
+          [LINEAGE_SOLOMON_COLOR, "Matthew · through Solomon"],
+          [LINEAGE_NATHAN_COLOR, "Luke · through Nathan"],
         ] as [string, string][]).map(([color, label]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <svg width="20" height="6" style={{ flexShrink: 0 }}>
-              <line x1="0" y1="3" x2="20" y2="3" stroke={color} strokeWidth="2" />
-            </svg>
-            <span>{label}</span>
-          </div>
-        ))}
-        {([
-          [RELATIONSHIP_COLORS.lineage, "Adam ↔ David / Joseph ↔ Jesus"],
-          [LINEAGE_SOLOMON_COLOR, "Solomon line (Matthew)"],
-          [LINEAGE_NATHAN_COLOR, "Nathan line (Luke)"],
-        ] as [string, string][]).map(([color, label], i) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, gridColumn: "1 / -1", marginTop: i === 0 ? 2 : 0, paddingTop: i === 0 ? 4 : 0, borderTop: i === 0 ? "1px solid rgba(60,45,20,.1)" : undefined }}>
-            <svg width="14" height="10" style={{ flexShrink: 0 }}>
+          <div key={label} className="ft-legend-item ft-legend-lineage">
+            <svg width="16" height="12">
               <rect x="1" y="1" width="12" height="8" rx="2" fill="none" stroke={color} strokeWidth="1.8" />
             </svg>
             <span>{label}</span>
@@ -1151,47 +1249,37 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
         ))}
       </div>
 
+      {zoom < 0.42 && (
+        <div className="ft-overview-note" onMouseDown={e => e.stopPropagation()}>
+          <strong>Atlas view</strong>
+          <span>Zoom in to read names</span>
+        </div>
+      )}
+
       {/* ── Zoom + fit controls — bottom right ────────────────────────────────── */}
       <div
         className="ft-zoom"
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: panelOpen ? 298 : 16,
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          boxShadow: "0 1px 4px rgba(0,0,0,.12)",
-          borderRadius: 8,
-          overflow: "hidden",
-          border: "1px solid rgba(60,45,20,.18)",
-          opacity: 0.92,
-        }}
-        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = "1")}
-        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = "0.92")}
+        style={{ right: panelOpen ? 298 : 16 }}
       >
+        <span className="ft-zoom-level">{Math.round(zoom * 100)}%</span>
         {(["−", "+"] as const).map((label, i) => (
           <button
+            type="button"
             key={label}
             onClick={() => zoomBy(i === 0 ? -0.15 : 0.15)}
             title={i === 0 ? "Zoom out (−)" : "Zoom in (+)"}
-            style={{ border: "none", borderRight: "1px solid rgba(60,45,20,.18)", background: "var(--surface, #fff)", color: "var(--text, #1a1209)", fontSize: 18, fontWeight: 400, lineHeight: 1, width: 34, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
-            onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "var(--surface, #fff)")}
           >{label}</button>
         ))}
         <button
+          type="button"
           onClick={fitToFilterOrView}
-          title="Fit to view"
-          style={{ border: "none", background: "var(--surface, #fff)", color: "var(--text, #1a1209)", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: "0 12px", height: 32 }}
-          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "var(--surface, #fff)")}
+          title="Show the whole map"
+          className="ft-see-all"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M1 4V1h3M10 1h3v3M13 10v3h-3M4 13H1v-3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Fit
+          See all
         </button>
       </div>
 
@@ -1199,34 +1287,24 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       {detailPerson && (
         <div
           className="ft-detail-panel"
-          style={{
-            position: "absolute",
-            top: 0, right: 0, bottom: 0,
-            width: 280,
-            background: "var(--surface, #fff)",
-            borderLeft: "1px solid rgba(60,45,20,.18)",
-            boxShadow: "-4px 0 20px rgba(0,0,0,.10)",
-            zIndex: 30,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
           onMouseDown={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid rgba(60,45,20,.10)", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text, #1a1209)", fontFamily: "var(--font, serif)", lineHeight: 1.25 }}>
+          <div className="ft-detail-header">
+            <div className="ft-detail-header-main">
+              <div className="ft-detail-monogram" aria-hidden="true">{detailPerson.name.charAt(0)}</div>
+              <div className="ft-detail-identity">
+                <div className="ft-panel-eyebrow">Person profile</div>
+                <div className="ft-detail-name">
                   {detailPerson.name}
                 </div>
                 {detailPerson.alsoKnownAs && (
-                  <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div className="ft-detail-aka">
                     {detailPerson.alsoKnownAs.split(",")[0].trim()}
                   </div>
                 )}
-                <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <span className={`badge ${detailPerson.testament === "OT" ? "badge-ot" : "badge-nt"}`}>
+                <div className="ft-detail-badges">
+                  <span className={`badge ${detailPerson.testament === "OT" ? "badge-ot" : detailPerson.testament === "NT" ? "badge-nt" : "badge-both"}`}>
                     {detailPerson.testament === "both" ? "OT & NT" : detailPerson.testament}
                   </span>
                   {detailPerson.gender !== "unknown" && (
@@ -1237,7 +1315,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                   ))}
                 </div>
                 {(detailPerson.birthYear || detailPerson.deathYear) && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3, #888)" }}>
+                  <div className="ft-detail-years">
                     {detailPerson.birthYear && <span>b. {detailPerson.birthYear}</span>}
                     {detailPerson.birthYear && detailPerson.deathYear && <span> · </span>}
                     {detailPerson.deathYear && <span>d. {detailPerson.deathYear}</span>}
@@ -1245,14 +1323,16 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                 )}
               </div>
               <button
+                type="button"
+                className="ft-detail-close"
                 onClick={() => setDetailId(null)}
-                style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "var(--text3, #888)", flexShrink: 0, lineHeight: 1, padding: "2px 4px", marginTop: -2 }}
+                aria-label={`Close ${detailPerson.name}'s profile`}
               >×</button>
             </div>
           </div>
 
           {/* Scrollable body */}
-          <div style={{ flex: 1, overflow: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="ft-detail-body">
             {detailPerson.description && (
               <div>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>About</div>
@@ -1280,11 +1360,16 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                       <div key={r.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, minWidth: 0 }}>
                         <span style={{ width: 7, height: 7, borderRadius: "50%", background: RELATIONSHIP_COLORS[r.type] ?? "#888", flexShrink: 0, display: "inline-block" }} />
                         <span style={{ color: "var(--text3, #888)", fontSize: 11, flexShrink: 0, minWidth: 52 }}>{label}</span>
-                        <span
-                          style={{ color: "var(--text, #1a1209)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: inTree ? "pointer" : "default", textDecoration: inTree ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: "2px" }}
-                          onClick={() => { if (inTree) setDetailId(otherId); }}
-                          title={inTree ? `View ${otherName} in panel` : undefined}
-                        >{otherName}</span>
+                        {inTree ? (
+                          <button
+                            type="button"
+                            className="ft-detail-rel-link"
+                            onClick={() => jumpToPerson(otherId)}
+                            title={`Bring ${otherName} into focus`}
+                          >{otherName}</button>
+                        ) : (
+                          <span className="ft-detail-rel-name">{otherName}</span>
+                        )}
                       </div>
                     );
                   })}
@@ -1319,20 +1404,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
           </div>
 
           {/* Footer actions */}
-          <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(60,45,20,.10)", display: "flex", gap: 6, flexShrink: 0 }}>
+          <div className="ft-detail-footer">
             {!scope && (
               <button
-                onClick={() => { setRootId(detailId); setPickerQuery(""); }}
-                style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--bg2, #f5f0e8)", border: "1px solid rgba(60,45,20,.18)", borderRadius: 6, cursor: "pointer", color: "var(--text2, #4a3d1e)", fontFamily: "var(--ui-font, sans-serif)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg3, #ece7db)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "var(--bg2, #f5f0e8)")}
-              >Set as root</button>
+                type="button"
+                className="ft-detail-secondary"
+                onClick={() => { hasFitted.current = false; setRootId(detailId); setPickerQuery(""); setDetailId(null); }}
+              >Start tree here</button>
             )}
             <button
+              type="button"
+              className="ft-detail-primary"
               onClick={() => { onSelect(detailId!); setDetailId(null); }}
-              style={{ flex: 1, fontSize: 12, padding: "6px 8px", background: "var(--primary, #4a3d1e)", border: "none", borderRadius: 6, cursor: "pointer", color: "#fff", fontFamily: "var(--ui-font, sans-serif)" }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >View profile</button>
           </div>
         </div>
