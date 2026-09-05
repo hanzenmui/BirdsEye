@@ -1,7 +1,9 @@
 // Pure layout math for the Timeline view. No React, no DOM — so it can be
 // verified by scripts/verify-timeline-layout.ts without a browser.
 //
-// Convention throughout: BC years are positive integers that count DOWN.
+// Convention throughout: years are integers that count DOWN. BC years are
+// positive; AD years continue past zero as negatives (AD 30 is -30), so the
+// same comparisons order the whole span from creation to the apostles.
 // 931 is EARLIER than 586. Every span satisfies startBc >= endBc, and the
 // timeline runs left (earliest / largest number) to right (latest / smallest).
 
@@ -83,4 +85,27 @@ export function computeRange(spans: Span[], pointYears: number[], padYears = 20)
     startBc: Math.max(...years) + padYears,
     endBc: Math.min(...years) - padYears,
   };
+}
+
+// ── BC/AD display ───────────────────────────────────────────────────────────
+// Years continue counting DOWN past zero into the New Testament: an AD year is
+// stored as its negative, so AD 30 is -30. That keeps every function above
+// working unchanged — 931 (BC) is still numerically greater, and therefore
+// earlier, than -30 (AD 30) — and confines the BC/AD distinction to display.
+// There is no year zero: 1 is 1 BC and -1 is AD 1.
+
+/** "931 BC" / "AD 30". */
+export function formatYear(year: number): string {
+  return year > 0 ? `${year} BC` : `AD ${-year}`;
+}
+
+/**
+ * A span, collapsing the era suffix when both ends share one:
+ * "931–913 BC", "AD 28–33", "5 BC – AD 30", or just "AD 30" for a single year.
+ */
+export function formatYearSpan(startYear: number, endYear: number): string {
+  if (startYear === endYear) return formatYear(startYear);
+  if (startYear > 0 && endYear > 0) return `${startYear}–${endYear} BC`;
+  if (startYear <= 0 && endYear <= 0) return `AD ${-startYear}–${-endYear}`;
+  return `${startYear} BC – AD ${-endYear}`;
 }

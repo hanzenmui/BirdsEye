@@ -62,7 +62,8 @@ async function checkLaneIntegrity() {
   const badTrack = await db.execute(`
     SELECT name, timeline_track FROM people
     WHERE timeline_start_bc IS NOT NULL
-      AND timeline_track NOT IN ('judah_king','israel_king','united_king','judge','major_prophet','minor_prophet')`);
+      AND timeline_track NOT IN ('judah_king','israel_king','united_king','judge','major_prophet','minor_prophet',
+                                 'messiah','nt_prophet','apostle','church_leader','roman_ruler','herodian','jewish_leader')`);
   check("every timeline person has a recognized timeline_track", badTrack.rows.length === 0,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     badTrack.rows.map((x: any) => `${x.name}=${x.timeline_track}`).join(", "));

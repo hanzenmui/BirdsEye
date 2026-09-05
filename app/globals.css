@@ -756,6 +756,34 @@ select.form-input { cursor: pointer; }
 
   --tl-minor-prophet-1: #6B5A8B;
   --tl-minor-prophet-2: #7E6BA0;
+
+  /* New Testament. Violet for Jesus deliberately echoes the Family Tree's
+     Adam-to-Jesus lineage colour, so the two features read as one story. */
+  --tl-messiah-1: #6D4AA8;
+
+  --tl-nt-prophet-1: #7A6597;
+  --tl-nt-prophet-2: #8D79A8;
+
+  --tl-apostle-1: #2F6B62;
+  --tl-apostle-2: #3E7F74;
+  --tl-apostle-3: #56958A;
+  --tl-apostle-4: #27564F;
+
+  --tl-church-1: #4E7A8B;
+  --tl-church-2: #628E9E;
+  --tl-church-3: #3E6675;
+
+  --tl-rome-1: #8C3F3F;
+  --tl-rome-2: #A25050;
+  --tl-rome-3: #733333;
+  --tl-rome-4: #B36767;
+
+  --tl-herod-1: #9C6B3F;
+  --tl-herod-2: #B07F50;
+  --tl-herod-3: #855831;
+
+  --tl-priest-1: #6E6A54;
+  --tl-priest-2: #85805F;
 }
 .tl-root { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px 0; position: relative; }

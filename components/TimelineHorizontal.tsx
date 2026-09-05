@@ -3,7 +3,7 @@ import { useDeferredValue, useMemo, useState, useEffect, useRef } from "react";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
-import { spanToBox, packRows, computeRange, yearToPct, type Span, type TimelineRange } from "@/lib/timeline-layout";
+import { spanToBox, packRows, computeRange, yearToPct, formatYear, formatYearSpan, type Span, type TimelineRange } from "@/lib/timeline-layout";
 import { TIMELINE_PERIODS } from "@/lib/timeline-periods";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
@@ -19,15 +19,33 @@ const TRACK_COLORS: Record<string, string[]> = {
   judge:         ["var(--tl-judge-1)", "var(--tl-judge-2)", "var(--tl-judge-3)"],
   major_prophet: ["var(--tl-major-prophet-1)", "var(--tl-major-prophet-2)"],
   minor_prophet: ["var(--tl-minor-prophet-1)", "var(--tl-minor-prophet-2)"],
+  messiah:       ["var(--tl-messiah-1)"],
+  nt_prophet:    ["var(--tl-nt-prophet-1)", "var(--tl-nt-prophet-2)"],
+  apostle:       ["var(--tl-apostle-1)", "var(--tl-apostle-2)", "var(--tl-apostle-3)", "var(--tl-apostle-4)"],
+  church_leader: ["var(--tl-church-1)", "var(--tl-church-2)", "var(--tl-church-3)"],
+  roman_ruler:   ["var(--tl-rome-1)", "var(--tl-rome-2)", "var(--tl-rome-3)", "var(--tl-rome-4)"],
+  herodian:      ["var(--tl-herod-1)", "var(--tl-herod-2)", "var(--tl-herod-3)"],
+  jewish_leader: ["var(--tl-priest-1)", "var(--tl-priest-2)"],
 };
 
+// Lane order runs top to bottom as rulers first, then God's messengers — the
+// same split the vertical view makes into left and right columns. A lane with
+// nobody in it renders nothing, so the Old Testament lanes simply stop and the
+// New Testament ones begin further right along the same axis.
 const LANES: { track: string; label: string; family: string; multiRow: boolean }[] = [
   { track: "judge",         label: "Judges",          family: "Leaders", multiRow: true  },
   { track: "united_king",   label: "United kingdom",  family: "Rulers", multiRow: false },
   { track: "judah_king",    label: "Judah",           family: "Southern kingdom", multiRow: false },
   { track: "israel_king",   label: "Israel",          family: "Northern kingdom", multiRow: false },
+  { track: "herodian",      label: "Herod's house",   family: "Rulers", multiRow: true  },
+  { track: "roman_ruler",   label: "Rome",            family: "Rulers", multiRow: true  },
+  { track: "jewish_leader", label: "Priests & teachers", family: "Rulers", multiRow: true },
   { track: "major_prophet", label: "Major prophets",  family: "Prophetic voices", multiRow: true  },
   { track: "minor_prophet", label: "Minor prophets",  family: "Prophetic voices", multiRow: true  },
+  { track: "nt_prophet",    label: "Prophets (NT)",   family: "Prophetic voices", multiRow: true  },
+  { track: "messiah",       label: "Jesus",           family: "Prophetic voices", multiRow: false },
+  { track: "apostle",       label: "Apostles",        family: "Prophetic voices", multiRow: true  },
+  { track: "church_leader", label: "Church leaders",  family: "Prophetic voices", multiRow: true  },
 ];
 
 const ROW_H = 38;
@@ -348,6 +366,9 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
 
   const ticks: number[] = [];
   for (let y = Math.floor(range.startBc / 100) * 100; y > range.endBc; y -= 100) {
+    // There is no year zero — the calendar runs 1 BC straight into AD 1 — so
+    // the century mark that lands on it is skipped rather than labelled.
+    if (y === 0) continue;
     ticks.push(y);
   }
 
@@ -442,7 +463,7 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
               <div className="tlh-scale-track">
                 {ticks.map(t => (
                   <div key={t} className="tl-tick" style={{ left: `${yearToPct(t, range)}%` }}>
-                    <span className="tl-tick-label">{t} BC</span>
+                    <span className="tl-tick-label">{formatYear(t)}</span>
                   </div>
                 ))}
               </div>
@@ -574,7 +595,7 @@ function PersonLane({ label, family, track, multiRow, people, range, selectedId,
 }
 
 function segTitle(p: Person) {
-  const years = `${p.timelineStartBc}–${p.timelineEndBc} BC`;
+  const years = formatYearSpan(p.timelineStartBc as number, p.timelineEndBc as number);
   const conf = p.dateConfidence === "uncertain" ? " · dates uncertain" : "";
   return `${p.name} (${years})${conf}`;
 }
@@ -646,13 +667,13 @@ function EventLane({ events, range, selectedEventId, onSelectEvent }: EventLaneP
               data-event-id={ev.id}
               className={`tl-event${ev.id === selectedEventId ? " tl-event-selected" : ""}`}
               style={{ left: `${yearToPct(ev.yearBc, range)}%` }}
-              title={`${ev.title} (${ev.yearBc} BC)`}
+              title={`${ev.title} (${formatYear(ev.yearBc)})`}
               onClick={() => onSelectEvent(ev.id)}
             >
               <span className="tl-event-dot" data-event-dot={ev.id}>◆</span>
               <span className="tl-event-label">
                 <span className="tl-event-title">{ev.title}</span>
-                <span className="tl-event-year">{ev.yearBc} BC</span>
+                <span className="tl-event-year">{formatYear(ev.yearBc)}</span>
               </span>
             </button>
           );
@@ -731,7 +752,7 @@ function EventDetailPanel({ event, books, links, people, onClose, onSelectProphe
         <div>
           <div className="tl-detail-name">{event.title}</div>
           <div className="tl-detail-meta">
-            {event.yearBc} BC{event.era ? " · " + event.era : ""}
+            {formatYear(event.yearBc)}{event.era ? " · " + event.era : ""}
           </div>
         </div>
         <button className="tl-detail-close" onClick={onClose} aria-label="Close">×</button>
@@ -805,7 +826,7 @@ function PersonDetailPanel({ person, trackLabel, links, onClose, onViewProfile }
         <div style={{ minWidth: 0 }}>
           <div className="tl-detail-name">{person.name}</div>
           <div className="tl-detail-meta">
-            {person.timelineStartBc}–{person.timelineEndBc} BC · {trackLabel}
+            {formatYearSpan(person.timelineStartBc as number, person.timelineEndBc as number)} · {trackLabel}
           </div>
         </div>
         <button type="button" className="tl-detail-close" onClick={onClose} aria-label="Close person details">×</button>

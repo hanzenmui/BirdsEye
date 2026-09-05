@@ -7,6 +7,9 @@ const GROUPS: { label: string; books: string[] }[] = [
   { label: "Wisdom & Poetry", books: ["Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Lamentations"] },
   { label: "Major Prophets", books: ["Isaiah", "Jeremiah", "Ezekiel", "Daniel"] },
   { label: "Minor Prophets", books: ["Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi"] },
+  { label: "Gospels & Acts", books: ["Matthew", "Mark", "Luke", "John", "Acts"] },
+  { label: "Paul's Letters", books: ["Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon"] },
+  { label: "General Letters & Revelation", books: ["Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John", "Jude", "Revelation"] },
 ];
 
 export const TIMELINE_BOOKS: string[] = GROUPS.flatMap(group => group.books);

@@ -2,7 +2,10 @@ export const GENDERS = ["male", "female", "unknown"] as const;
 export const TESTAMENTS = ["OT", "NT", "both"] as const;
 
 export const TIMELINE_TRACKS = [
+  // Old Testament
   "judah_king", "israel_king", "united_king", "judge", "major_prophet", "minor_prophet",
+  // New Testament
+  "messiah", "nt_prophet", "apostle", "church_leader", "roman_ruler", "herodian", "jewish_leader",
 ] as const;
 export type TimelineTrack = (typeof TIMELINE_TRACKS)[number] | "";
 
@@ -21,7 +24,9 @@ export interface Person {
   tags: string[];            // e.g. ["patriarch", "prophet", "king"]
   createdAt: string;
   // Timeline fields — null/empty for people not placed on the timeline.
-  timelineStartBc: number | null;   // BC year as positive int; 931 = 931 BC
+  // Years count down: BC is positive (931 = 931 BC), AD continues past zero
+  // as negative (-30 = AD 30). See lib/timeline-layout.ts for the formatters.
+  timelineStartBc: number | null;
   timelineEndBc: number | null;
   timelineTrack: TimelineTrack;
   dateUncertaintyNote: string;
@@ -183,8 +188,12 @@ export const BIBLE_BOOKS: BibleBook[] = [
 // intentionally mirror the ministry dates in scripts/seed-timeline.ts —
 // scripts/verify-timeline.ts asserts the two agree so they cannot drift.
 //
-// Only books overlapping Phase 1 (roughly 1350-430 BC) are listed. Genesis
-// through Joshua and the entire New Testament arrive with later phases.
+// The New Testament letters are the one exception to the "period narrated"
+// rule: a letter narrates no span at all, so it is placed at the moment it was
+// sent. Each of those carries a note saying so, and their dates are the usual
+// scholarly estimates rather than fixed points.
+//
+// Genesis through Joshua still await a later phase.
 export interface BookCoverage {
   startBc: number;
   endBc: number;
@@ -229,6 +238,39 @@ export const BOOK_COVERAGE: Record<string, BookCoverage> = {
   "Haggai":          { startBc:  520, endBc:  520, note: "A ministry of only about four months." },
   "Zechariah":       { startBc:  520, endBc:  518 },
   "Malachi":         { startBc:  450, endBc:  430 },
+
+  // ── Gospels & Acts (span = the period the book narrates) ──────────────
+  "Matthew":         { startBc:    5, endBc:  -30, note: "From Jesus' birth under Herod the Great through the resurrection." },
+  "Mark":            { startBc:  -28, endBc:  -30, note: "Begins at John's preaching rather than the nativity, and runs to the empty tomb." },
+  "Luke":            { startBc:    6, endBc:  -30, note: "Opens earliest of the four, with Zechariah in the temple before John's conception." },
+  "John":            { startBc:  -28, endBc:  -30, note: "Its prologue reaches back before creation; the narrative itself covers Jesus' public ministry." },
+  "Acts":            { startBc:  -30, endBc:  -62, note: "From the ascension and Pentecost to Paul's two years under house arrest in Rome." },
+
+  // ── Letters (placed when written — see the note above the table) ──────
+  "James":           { startBc:  -46, endBc:  -46, note: "A letter, placed at its likely writing date. Often dated to the mid-40s, which would make it the earliest book in the New Testament." },
+  "Galatians":       { startBc:  -48, endBc:  -48, note: "A letter, placed at its likely writing date. Dated either just before the Jerusalem Council (c. AD 48) or several years after it, depending on which Galatia Paul means." },
+  "1 Thessalonians": { startBc:  -50, endBc:  -50, note: "A letter, placed at its likely writing date — from Corinth on the second missionary journey." },
+  "2 Thessalonians": { startBc:  -51, endBc:  -51, note: "A letter, placed at its likely writing date, shortly after the first letter." },
+  "1 Corinthians":   { startBc:  -55, endBc:  -55, note: "A letter, placed at its likely writing date — from Ephesus on the third missionary journey." },
+  "2 Corinthians":   { startBc:  -56, endBc:  -56, note: "A letter, placed at its likely writing date — from Macedonia, within a year of the first letter." },
+  "Romans":          { startBc:  -57, endBc:  -57, note: "A letter, placed at its likely writing date — from Corinth, before Paul carried the collection to Jerusalem." },
+  "Ephesians":       { startBc:  -60, endBc:  -60, note: "A letter, placed at its likely writing date — one of the four written from prison." },
+  "Colossians":      { startBc:  -60, endBc:  -60, note: "A letter, placed at its likely writing date — carried by Tychicus alongside Philemon." },
+  "Philemon":        { startBc:  -60, endBc:  -60, note: "A letter, placed at its likely writing date — sent with Onesimus back to Colossae." },
+  "Philippians":     { startBc:  -61, endBc:  -61, note: "A letter, placed at its likely writing date — from prison, thanking the Philippians for their gift." },
+  "1 Timothy":       { startBc:  -63, endBc:  -63, note: "A letter, placed at its likely writing date, after the release implied at the end of Acts." },
+  "Titus":           { startBc:  -63, endBc:  -63, note: "A letter, placed at its likely writing date, in the same period as 1 Timothy." },
+  "1 Peter":         { startBc:  -63, endBc:  -63, note: "A letter, placed at its likely writing date — written to scattered believers as pressure on the church grew." },
+  "2 Peter":         { startBc:  -65, endBc:  -65, note: "A letter, placed at its likely writing date, presented as written near the end of Peter's life." },
+  "Jude":            { startBc:  -65, endBc:  -65, note: "A letter, placed at its likely writing date. Its close overlap with 2 Peter is why the two are dated together." },
+  "2 Timothy":       { startBc:  -66, endBc:  -66, note: "A letter, placed at its likely writing date — Paul's last, written awaiting execution." },
+  "Hebrews":         { startBc:  -67, endBc:  -67, note: "A letter, placed at its likely writing date. It argues the temple sacrifices are obsolete without mentioning the temple's destruction, which suggests a date before AD 70." },
+  "1 John":          { startBc:  -90, endBc:  -90, note: "A letter, placed at its likely writing date — late, from Ephesus by tradition." },
+  "2 John":          { startBc:  -90, endBc:  -90, note: "A letter, placed at its likely writing date, alongside 1 and 3 John." },
+  "3 John":          { startBc:  -90, endBc:  -90, note: "A letter, placed at its likely writing date, alongside 1 and 2 John." },
+
+  // ── Apocalyptic ───────────────────────────────────────────────────────
+  "Revelation":      { startBc:  -95, endBc:  -95, note: "Placed at its likely writing date, near the end of Domitian's reign. A minority view dates it before AD 70 instead." },
 };
 
 export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {

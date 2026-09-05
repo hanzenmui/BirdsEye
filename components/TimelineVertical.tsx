@@ -5,6 +5,7 @@ import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { HistoricalEvent, Person, ProphecyLink } from "@/lib/types";
 import { TIMELINE_PERIODS as ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
+import { formatYear, formatYearSpan } from "@/lib/timeline-layout";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 interface Props {
@@ -24,6 +25,16 @@ const TRACK_META: Record<string, { label: string; family: "leader" | "prophet"; 
   israel_king: { label: "King of Israel", family: "leader", color: "var(--tl-israel-1)" },
   major_prophet: { label: "Major prophet", family: "prophet", color: "var(--tl-major-prophet-1)" },
   minor_prophet: { label: "Minor prophet", family: "prophet", color: "var(--tl-minor-prophet-1)" },
+  // New Testament. "family" decides the column: the left side holds whoever
+  // held power at the time, the right side whoever spoke for God — so Rome,
+  // Herod's family and the high priests sit opposite Jesus and the apostles.
+  messiah:       { label: "The Messiah",  family: "prophet", color: "var(--tl-messiah-1)" },
+  nt_prophet:    { label: "Prophet",      family: "prophet", color: "var(--tl-nt-prophet-1)" },
+  apostle:       { label: "Apostle",      family: "prophet", color: "var(--tl-apostle-1)" },
+  church_leader: { label: "Church leader", family: "prophet", color: "var(--tl-church-1)" },
+  roman_ruler:   { label: "Roman ruler",  family: "leader",  color: "var(--tl-rome-1)" },
+  herodian:      { label: "Herod's house", family: "leader", color: "var(--tl-herod-1)" },
+  jewish_leader: { label: "Jewish leader", family: "leader", color: "var(--tl-priest-1)" },
 };
 
 // When a kingdom is split, one row can hold both a Judah king and an Israel
@@ -460,7 +471,7 @@ function EraSection({
           <span className="tlv-book-band-label">Books covering this era</span>
           <div>
             {coveringBooks.map(([book, coverage]) => (
-              <span key={book} className="tlv-book-ribbon" title={coverage.note}>{book}<small>{coverage.startBc}–{coverage.endBc} BC</small></span>
+              <span key={book} className="tlv-book-ribbon" title={coverage.note}>{book}<small>{formatYearSpan(coverage.startBc, coverage.endBc)}</small></span>
             ))}
           </div>
         </div>
@@ -531,7 +542,7 @@ function EraSection({
               )}
               <div className={`tlv-axis-point ${entry.kind === "kingdoms" ? "person" : entry.kind}`} aria-hidden="true">
                 <span className="tlv-axis-dot" />
-                <span className="tlv-axis-year">{entry.yearBc} BC</span>
+                <span className="tlv-axis-year">{formatYear(entry.yearBc)}</span>
               </div>
             </div>
           </div>
@@ -608,7 +619,7 @@ function EventCard({ event, side, books, links, peopleById, focused, onScrollToP
     <article id={`tlv-event-${event.id}`} tabIndex={-1} className={`tlv-card tlv-event-card ${side}${focused ? " focused" : ""}`}>
       <div className="tlv-card-topline"><span className="tlv-role">Turning point</span><span className="tlv-event-era">{event.era}</span></div>
       <h4>{event.title}</h4>
-      <div className="tlv-card-years">{event.yearBc} BC</div>
+      <div className="tlv-card-years">{formatYear(event.yearBc)}</div>
       {event.description && <p className="tlv-description">{event.description}</p>}
       {event.dateUncertaintyNote && <p className="tlv-date-note">{event.dateUncertaintyNote}</p>}
       <BookChips books={books} />
@@ -662,8 +673,7 @@ function spansOverlapEra(startBc: number, endBc: number, era: Era) {
 
 function formatSpan(startBc: number | null, endBc: number | null) {
   if (startBc === null || endBc === null) return "Dates not recorded";
-  if (startBc === endBc) return `${startBc} BC`;
-  return `${startBc}–${endBc} BC`;
+  return formatYearSpan(startBc, endBc);
 }
 
 function summarizeDescription(description: string, maxLength = 300) {
