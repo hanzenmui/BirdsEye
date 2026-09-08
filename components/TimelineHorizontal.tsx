@@ -102,10 +102,15 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     const spans: Span[] = people
       .filter(p => p.timelineStartBc !== null && p.timelineEndBc !== null)
       .map(p => ({ id: p.id, startBc: p.timelineStartBc as number, endBc: p.timelineEndBc as number }));
-    const bookSpans: Span[] = Object.entries(BOOK_COVERAGE)
-      .map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }));
+    // Book spans only widen the axis while the Books lane is actually drawn.
+    // Genesis and Job reach back to the patriarchs, centuries before anyone
+    // who has a lane here, so counting them unconditionally would open eight
+    // empty centuries on the left of a chart that never shows them.
+    const bookSpans: Span[] = showBooksLayer
+      ? Object.entries(BOOK_COVERAGE).map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }))
+      : [];
     return computeRange([...spans, ...bookSpans], events.map(e => e.yearBc), 25);
-  }, [people, events]);
+  }, [people, events, showBooksLayer]);
 
   const selectedPerson = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) ?? null : null;

@@ -9,7 +9,11 @@ export async function GET() {
     const db = getDb();
     const [people, events, links, eventRefs, personBookRows] = await Promise.all([
       db.query("SELECT * FROM people WHERE timeline_start_bc IS NOT NULL ORDER BY timeline_start_bc DESC"),
-      db.query("SELECT * FROM historical_events ORDER BY year_bc DESC"),
+      // rowid breaks ties within a year, which is the only ordering four
+      // events sharing AD 30 have. Rows are seeded in narrative order, so the
+      // triumphal entry still comes out before the cross and the cross before
+      // Pentecost; without the tiebreak that week renders in arbitrary order.
+      db.query("SELECT * FROM historical_events ORDER BY year_bc DESC, rowid ASC"),
       db.query("SELECT * FROM prophecy_links"),
       db.query(
         `SELECT * FROM scripture_refs WHERE event_id IS NOT NULL AND event_id != ''

@@ -193,7 +193,11 @@ export const BIBLE_BOOKS: BibleBook[] = [
 // sent. Each of those carries a note saying so, and their dates are the usual
 // scholarly estimates rather than fixed points.
 //
-// Genesis through Joshua still await a later phase.
+// All 66 books are listed. The Law and Joshua use the early-exodus chronology
+// (exodus 1446 BC), which is what the judges' dates further down already
+// assume — switching one without the other would put the two blocks out of
+// step. Genesis 1-11 and Job carry notes explaining what cannot be dated at
+// all rather than being given invented precision.
 export interface BookCoverage {
   startBc: number;
   endBc: number;
@@ -201,6 +205,14 @@ export interface BookCoverage {
 }
 
 export const BOOK_COVERAGE: Record<string, BookCoverage> = {
+  // ── Law & beginnings ──────────────────────────────────────────────────
+  "Genesis":         { startBc: 2166, endBc: 1805, note: "Only the patriarchs can be placed on a timeline at all. Chapters 1-11 — creation, the flood, Babel — are outside any datable framework, so this span begins with Abraham's birth and ends with Joseph's death in Egypt." },
+  "Exodus":          { startBc: 1526, endBc: 1445, note: "From Moses' birth to the tabernacle being raised. Dates follow the early exodus (1446 BC) implied by 1 Kings 6:1; many scholars argue instead for a late exodus around 1260 BC, which would shift this block roughly two centuries later." },
+  "Leviticus":       { startBc: 1445, endBc: 1444, note: "Barely a span at all — the law given at Sinai during about one month of the year after the exodus." },
+  "Numbers":         { startBc: 1444, endBc: 1406, note: "The wilderness years, from the first census at Sinai to Israel camped on the plains of Moab." },
+  "Deuteronomy":     { startBc: 1406, endBc: 1406, note: "Moses' closing addresses, delivered over roughly a month in the final year of the wilderness period." },
+  "Joshua":          { startBc: 1406, endBc: 1375, note: "The crossing of the Jordan, the conquest, and the division of the land, ending with Joshua's death." },
+
   // ── Narrative ─────────────────────────────────────────────────────────
   "Judges":          { startBc: 1350, endBc: 1050, note: "The judges did not rule in sequence — several overlapped — so this span is the era as a whole, not a chain." },
   "Ruth":            { startBc: 1120, endBc: 1100, note: "Set 'in the days when the judges ruled'; placed by working back from Boaz being David's great-grandfather." },
@@ -216,6 +228,7 @@ export const BOOK_COVERAGE: Record<string, BookCoverage> = {
   "Lamentations":    { startBc:  586, endBc:  585, note: "Written in the immediate aftermath of Jerusalem's fall." },
 
   // ── Wisdom & poetry ───────────────────────────────────────────────────
+  "Job":             { startBc: 2000, endBc: 1800, note: "Job is the least datable book in the Bible. It names no king, no covenant and no priesthood, and Job offers sacrifices himself as the patriarchs did — which is why it is usually set in the patriarchal age, as it is here. Proposals run all the way to the post-exilic period, and the book itself gives nothing to settle it." },
   "Psalms":          { startBc: 1010, endBc:  430, note: "A collection assembled over centuries — from David's psalms through post-exilic additions — rather than a single moment." },
   "Proverbs":        { startBc:  970, endBc:  931, note: "Placed at Solomon's reign, though the book itself notes later material collected under Hezekiah (Prov 25:1)." },
   "Ecclesiastes":    { startBc:  970, endBc:  931 },

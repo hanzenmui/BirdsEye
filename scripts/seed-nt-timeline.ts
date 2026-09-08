@@ -111,18 +111,18 @@ const NT_PROPHET_NOTES: Record<string, string> = {
 
 const APOSTLES: Row[] = [
   ["Peter", "Simon Peter, Cephas, Simon son of Jonah", -28, -64],
-  ["Andrew", "Andrew the Apostle, brother of Peter", -28, -33],
+  ["Andrew", "Andrew the Apostle, brother of Peter", -28, -30],
   ["James", "James son of Zebedee, James the Greater", -28, -44],
   ["John", "John son of Zebedee, the Beloved Disciple", -28, -95],
-  ["Philip", "Philip the Apostle", -28, -33],
-  ["Bartholomew", "Bartholomew the Apostle, Nathanael", -28, -33],
-  ["Matthew", "Matthew the Apostle, Levi the tax collector", -28, -33],
-  ["Thomas", "Thomas the Apostle, Doubting Thomas, Didymus", -28, -33],
-  ["James", "James son of Alphaeus, James the Less", -28, -33],
-  ["Thaddaeus", "Thaddaeus, Judas son of James, Lebbaeus", -28, -33],
-  ["Simon", "Simon the Zealot, Simon the Canaanite", -28, -33],
+  ["Philip", "Philip the Apostle", -28, -30],
+  ["Bartholomew", "Bartholomew the Apostle, Nathanael", -28, -30],
+  ["Matthew", "Matthew the Apostle, Levi the tax collector", -28, -30],
+  ["Thomas", "Thomas the Apostle, Doubting Thomas, Didymus", -28, -30],
+  ["James", "James son of Alphaeus, James the Less", -28, -30],
+  ["Thaddaeus", "Thaddaeus, Judas son of James, Lebbaeus", -28, -30],
+  ["Simon", "Simon the Zealot, Simon the Canaanite", -28, -30],
   ["Judas Iscariot", "Judas Iscariot, son of Simon Iscariot", -28, -30],
-  ["Matthias", "", -30, -33],
+  ["Matthias", "", -30, -30],
   ["Paul", "Paul of Tarsus, Saul of Tarsus, the Apostle Paul", -33, -67],
 ];
 
@@ -130,12 +130,12 @@ const APOSTLES: Row[] = [
 // dates. Deliberately does NOT adopt the traditional mission fields and
 // martyrdoms — those are church tradition, and this database keeps tradition
 // out of its date columns.
-const TWELVE_NOTE = "Called during Jesus' ministry and present at Pentecost, but Scripture records nothing after that which can be dated. The mission fields and deaths later assigned to the Twelve come from church tradition rather than the New Testament, so this span covers only the years the Gospels and Acts actually place him in.";
+const TWELVE_NOTE = "This span runs from his call to Pentecost, which is as far as anything datable goes. He is named in the list of apostles and then never dated again: the mission fields and martyrdoms later assigned to the Twelve come from church tradition rather than the New Testament, so they are deliberately not drawn here. He certainly lived and worked well beyond where this bar stops.";
 
 const APOSTLE_NOTES: Record<string, string> = {
   "Peter": "Peter's call is dated with Jesus' ministry. Scripture never records his death; early tradition places his execution in Rome during Nero's persecution, usually between AD 64 and 68.",
   "John": "John's call is dated with Jesus' ministry. Tradition holds he outlived the rest of the Twelve, was exiled to Patmos under Domitian and died at Ephesus around AD 100 — none of which Scripture dates.",
-  "Matthias": "Matthias is chosen to replace Judas before Pentecost and is never mentioned again in Scripture. He is placed at that choosing; nothing further about him is dated.",
+  "Matthias": "Matthias is chosen by lot to replace Judas between the ascension and Pentecost, and is never mentioned again in Scripture. He is placed at that single moment because nothing else about him can be dated.",
   "Paul": "Paul's conversion is usually placed AD 33-35 and his execution under Nero around AD 67; neither is dated in Scripture. The rest of his travels are fixed within a year or two by Gallio's proconsulship at Corinth (AD 51-52), which Acts 18 places him in front of.",
 };
 // The two whose dates come straight out of the text and need no caveat.
@@ -258,14 +258,17 @@ type EventDef = {
 
 const EVENTS: EventDef[] = [
   // ── Between the Testaments ────────────────────────────────────────────
-  { key: "alexander", title: "Alexander the Great conquers Persia", yearBc: 332, era: "Between the Testaments",
-    description: "Alexander defeats Darius III and takes the Persian empire. Greek language and culture spread across the region, and Greek becomes the common tongue the New Testament is later written in." },
+  { key: "alexander", title: "Alexander the Great brings Greek rule to Judea", yearBc: 332, era: "Between the Testaments",
+    description: "Alexander sweeps down the coast and Judea passes from Persian to Greek hands without a fight. Darius III is finally beaten at Gaugamela the following year and the Persian empire ends. Greek language and culture spread across the region, and Greek becomes the common tongue the New Testament is later written in.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "332 BC is the year Judea itself changed hands. The wider conquest ran from 334 BC to 330 BC, with Darius III decisively defeated at Gaugamela in 331 BC and killed in 330 BC." },
   { key: "antiochus", title: "Antiochus IV desecrates the Temple", yearBc: 167, era: "Between the Testaments",
     description: "The Seleucid king Antiochus IV Epiphanes outlaws the Jewish faith, plunders the Temple and sacrifices a pig on its altar. The Maccabean revolt begins in response." },
   { key: "rededication", title: "The Temple is cleansed and rededicated", yearBc: 164, era: "Between the Testaments",
     description: "Judas Maccabeus retakes Jerusalem and rededicates the Temple three years after its desecration. This is the origin of Hanukkah — the Feast of Dedication that John 10:22 finds Jesus attending." },
-  { key: "herod-king", title: "Rome makes Herod king of Judea", yearBc: 37, era: "Between the Testaments",
-    description: "The Roman senate installs Herod, an Idumean, as client king over Judea. His rebuilt Temple and his massacre at Bethlehem are both part of the Gospels' opening scenes." },
+  { key: "herod-king", title: "Herod takes Jerusalem and begins to reign", yearBc: 37, era: "Between the Testaments",
+    description: "The Roman senate had named Herod, an Idumean, client king of Judea three years earlier, but he had to take the country by force to hold the title. With Roman legions he captures Jerusalem and begins a reign of thirty-three years. His rebuilt Temple and his massacre at Bethlehem are both part of the Gospels' opening scenes.",
+    dateUncertaintyNote: "Two dates are often both called the start of Herod's reign: 40 BC, when the senate appointed him, and 37 BC, when he actually took Jerusalem. The reign is dated from 37 BC here." },
 
   // ── The Coming of Christ ──────────────────────────────────────────────
   { key: "nativity", title: "Jesus is born in Bethlehem", yearBc: 5, era: "The Coming of Christ",
@@ -277,11 +280,17 @@ const EVENTS: EventDef[] = [
 
   // ── The Ministry of Jesus ─────────────────────────────────────────────
   { key: "john-preaching", title: "John begins preaching in the wilderness", yearBc: -28, era: "The Ministry of Jesus",
-    description: "After four centuries with no prophet, John appears at the Jordan calling Israel to repent and be baptized, and announcing that someone greater is already among them." },
+    description: "After four centuries with no prophet, John appears at the Jordan calling Israel to repent and be baptized, and announcing that someone greater is already among them.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Luke dates this to the fifteenth year of Tiberius, the most precise date in the Gospels. It still lands on either AD 28 or AD 29 depending on whether Tiberius' years are counted from his co-regency or from Augustus' death." },
   { key: "baptism", title: "Jesus is baptized and begins his ministry", yearBc: -28, era: "The Ministry of Jesus",
-    description: "Jesus is baptized by John, the Spirit descends on him and a voice from heaven names him as Son. Luke notes he was about thirty years old when he began." },
+    description: "Jesus is baptized by John, the Spirit descends on him and a voice from heaven names him as Son. Luke notes he was about thirty years old when he began.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Dated with the start of John's preaching, which Luke places immediately before it." },
   { key: "entry", title: "The triumphal entry into Jerusalem", yearBc: -30, era: "The Ministry of Jesus",
-    description: "Jesus rides into Jerusalem on a donkey's colt to crowds spreading cloaks and branches, deliberately entering as the king Zechariah described. The final week begins." },
+    description: "Jesus rides into Jerusalem on a donkey's colt to crowds spreading cloaks and branches, deliberately entering as the king Zechariah described. The final week begins.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Dated with the crucifixion, five days later, and carries the same AD 30 or AD 33 question." },
   { key: "crucifixion", title: "Jesus is crucified", yearBc: -30, era: "The Ministry of Jesus",
     description: "Condemned by the Sanhedrin and sentenced by Pontius Pilate, Jesus is crucified outside Jerusalem at Passover, between two criminals, and buried in a borrowed tomb.",
     dateConfidence: "good",
@@ -317,11 +326,17 @@ const EVENTS: EventDef[] = [
     dateConfidence: "good",
     dateUncertaintyNote: "Usually dated AD 48-49, between the first and second missionary journeys." },
   { key: "claudius-expels", title: "Claudius expels the Jews from Rome", yearBc: -49, era: "Paul and the Nations",
-    description: "Claudius orders all Jews out of Rome, which is how Priscilla and Aquila come to be in Corinth when Paul arrives there and takes work with them as a tentmaker." },
+    description: "Claudius orders all Jews out of Rome, which is how Priscilla and Aquila come to be in Corinth when Paul arrives there and takes work with them as a tentmaker.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Suetonius reports the expulsion but gives no year; AD 49 comes from the later historian Orosius, and some place it as early as AD 41." },
   { key: "arrest", title: "Paul is arrested in Jerusalem", yearBc: -57, era: "Paul and the Nations",
-    description: "A riot in the temple courts ends with Paul seized and taken into Roman custody. He spends the next two years imprisoned at Caesarea under Felix, then appeals to Caesar before Festus." },
+    description: "A riot in the temple courts ends with Paul seized and taken into Roman custody. He spends the next two years imprisoned at Caesarea under Felix, then appeals to Caesar before Festus.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Acts gives no year. This is reconstructed by counting back from Festus replacing Felix, which is itself dated only to about AD 59." },
   { key: "rome", title: "Paul reaches Rome", yearBc: -60, era: "Paul and the Nations",
-    description: "After shipwreck at Malta, Paul arrives in Rome and spends two years under house arrest, receiving all who come and preaching without hindrance. Acts ends there, mid-story." },
+    description: "After shipwreck at Malta, Paul arrives in Rome and spends two years under house arrest, receiving all who come and preaching without hindrance. Acts ends there, mid-story.",
+    dateConfidence: "good",
+    dateUncertaintyNote: "Acts gives no year, only that the voyage followed two years at Caesarea and that the stay in Rome lasted two more." },
 
   // ── The Apostles' End ─────────────────────────────────────────────────
   { key: "fire", title: "Nero's persecution begins after the fire of Rome", yearBc: -64, era: "The Apostles' End",
@@ -336,20 +351,37 @@ const EVENTS: EventDef[] = [
 
 const eventIds: Record<string, string> = {};
 
+// Events are matched by title, so retitling one would otherwise insert a
+// rival row and strand the original along with its book tag and any prophecy
+// link pointing at it. Anything renamed after it first shipped is listed here
+// as newTitle -> previous title, and the row is renamed in place instead.
+const RENAMED_EVENTS: Record<string, string> = {
+  "Alexander the Great brings Greek rule to Judea": "Alexander the Great conquers Persia",
+  "Herod takes Jerusalem and begins to reign": "Rome makes Herod king of Judea",
+};
+
 async function seedEvents() {
   console.log("Seeding historical events...");
   for (const e of EVENTS) {
     const dateConfidence: DateConfidence = e.dateConfidence ?? "firm";
     const dateUncertaintyNote = e.dateUncertaintyNote ?? "";
+    const titles = [e.title, RENAMED_EVENTS[e.title]].filter(Boolean) as string[];
     const existing = await db.execute({
-      sql: `SELECT id, description, era, year_bc, date_uncertainty_note, date_confidence
-            FROM historical_events WHERE title = ? LIMIT 1`,
-      args: [e.title],
+      sql: `SELECT id, title, description, era, year_bc, date_uncertainty_note, date_confidence
+            FROM historical_events WHERE title IN (${titles.map(() => "?").join(",")}) LIMIT 1`,
+      args: titles,
     });
     const row = existing.rows[0] as unknown as {
-      id: string; description: string; era: string; year_bc: number;
+      id: string; title: string; description: string; era: string; year_bc: number;
       date_uncertainty_note: string; date_confidence: string;
     } | undefined;
+
+    if (row && row.title !== e.title) {
+      console.log(`  ${DRY_RUN ? "would rename" : "renaming"} event: "${row.title}" -> "${e.title}"`);
+      if (!DRY_RUN) {
+        await db.execute({ sql: "UPDATE historical_events SET title = ? WHERE id = ?", args: [e.title, row.id] });
+      }
+    }
 
     if (row) {
       eventIds[e.key] = row.id;
@@ -513,10 +545,13 @@ const LINKS: LinkDef[] = [
     explanation: "Malachi's promise of a messenger sent ahead to prepare the way is the note the Old Testament ends on. The Gospels pick it up four centuries later in John." },
   { prophet: "Zechariah", aka: "Zechariah son of Berechiah", book: "Zechariah", cs: 9, vs: 9, ce: 9, ve: 9, eventKey: "entry",
     explanation: "Zechariah pictured Jerusalem's king arriving humble and riding on a donkey's colt. Jesus deliberately entered the city that way in his final week." },
-  { prophet: "Isaiah", aka: "Isaiah son of Amoz", book: "Isaiah", cs: 53, vs: 4, ce: 53, ve: 6, eventKey: "crucifixion",
-    explanation: "Isaiah's suffering servant is pierced for other people's transgressions and crushed for their iniquities, and stays silent before his accusers." },
+  // Runs to verse 7, not 6: "pierced" and "crushed" are verse 5, but the
+  // silence before the accusers is verse 7, and the citation has to reach it.
+  { prophet: "Isaiah", aka: "Isaiah son of Amoz", book: "Isaiah", cs: 53, vs: 4, ce: 53, ve: 7, eventKey: "crucifixion",
+    explanation: "Isaiah's suffering servant is pierced for other people's transgressions and crushed for their iniquities, and stays silent before his accusers like a lamb led to slaughter." },
   { prophet: "David", aka: "", book: "Psalms", cs: 22, vs: 16, ce: 22, ve: 18, eventKey: "crucifixion",
-    explanation: "David wrote of pierced hands and feet, and of onlookers dividing his garments by lot. The Gospels report both at the cross, and Jesus quotes this psalm's opening line from it." },
+    explanation: "David wrote of pierced hands and feet, and of onlookers dividing his garments by lot. The Gospels report both at the cross, and Jesus quotes this psalm's opening line from it.",
+    uncertaintyNote: "The word rendered \"pierced\" in verse 16 is textually disputed. Most surviving Hebrew manuscripts read something closer to \"like a lion\" at my hands and feet; \"pierced\" follows the Septuagint, the Vulgate, the Syriac and a minority of Hebrew manuscripts, and the ESV footnotes the split. The garments divided by lot in verse 18 are not in doubt." },
   { prophet: "Zechariah", aka: "Zechariah son of Berechiah", book: "Zechariah", cs: 11, vs: 12, ce: 11, ve: 13, eventKey: "crucifixion",
     explanation: "Zechariah's shepherd is valued at thirty pieces of silver, which are then thrown to the potter in the house of the Lord. Matthew reports both details in Judas' betrayal and the buying of the potter's field." },
   { prophet: "Daniel", aka: "Belteshazzar", book: "Daniel", cs: 9, vs: 26, ce: 9, ve: 26, eventKey: "crucifixion",
@@ -543,25 +578,33 @@ async function seedProphecyLinks() {
     if (!eventId) { console.warn(`  MISSING event key: ${l.eventKey}`); continue; }
     const uncertaintyNote = l.uncertaintyNote ?? "";
 
+    // Matched on where the prophecy STARTS, so widening or narrowing the end
+    // of a citation corrects the existing row instead of inserting a rival
+    // one. The end of the range is part of what gets synced — without that, a
+    // citation found to stop a verse short could never be fixed by re-running.
     const existing = await db.execute({
-      sql: `SELECT id, fulfillment_event_id, explanation, uncertainty_note FROM prophecy_links
+      sql: `SELECT id, fulfillment_event_id, explanation, uncertainty_note,
+                   prophecy_chapter_end, prophecy_verse_end FROM prophecy_links
             WHERE prophet_person_id = ? AND prophecy_book = ? AND prophecy_chapter_start = ? AND prophecy_verse_start = ?
             LIMIT 1`,
       args: [prophetId, l.book, l.cs, l.vs],
     });
     const row = existing.rows[0] as unknown as {
       id: string; fulfillment_event_id: string; explanation: string; uncertainty_note: string;
+      prophecy_chapter_end: number; prophecy_verse_end: number;
     } | undefined;
 
     if (row) {
       const changed = row.fulfillment_event_id !== eventId
-        || row.explanation !== l.explanation || row.uncertainty_note !== uncertaintyNote;
+        || row.explanation !== l.explanation || row.uncertainty_note !== uncertaintyNote
+        || row.prophecy_chapter_end !== l.ce || row.prophecy_verse_end !== l.ve;
       if (changed) {
         console.log(`  ${DRY_RUN ? "would update" : "updating"}: ${l.prophet} ${l.book} ${l.cs}:${l.vs} -> ${l.eventKey}`);
         if (!DRY_RUN) {
           await db.execute({
-            sql: `UPDATE prophecy_links SET fulfillment_event_id = ?, explanation = ?, uncertainty_note = ? WHERE id = ?`,
-            args: [eventId, l.explanation, uncertaintyNote, row.id],
+            sql: `UPDATE prophecy_links SET fulfillment_event_id = ?, explanation = ?, uncertainty_note = ?,
+                  prophecy_chapter_end = ?, prophecy_verse_end = ? WHERE id = ?`,
+            args: [eventId, l.explanation, uncertaintyNote, l.ce, l.ve, row.id],
           });
         }
       }

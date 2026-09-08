@@ -393,7 +393,7 @@ const LINKS: LinkDef[] = [
   { prophet: "Daniel", aka: "Belteshazzar", book: "Daniel", cs: 5, vs: 25, ce: 5, ve: 28, eventKey: "babylon",
     explanation: "Reading the writing on the wall, Daniel told Belshazzar his kingdom was finished and given to the Medes and Persians. Babylon fell that same night." },
   { prophet: "Haggai", aka: "", book: "Haggai", cs: 1, vs: 7, ce: 1, ve: 8, eventKey: "temple",
-    explanation: "Haggai rebuked the returned exiles for leaving the Temple in ruins while living in paneled houses, and urged them to rebuild. The Temple was finished in 516 BC." },
+    explanation: "Haggai told the returned exiles to go up to the hills, bring timber and rebuild the house — having just asked, a few verses earlier, whether it was a time for them to live in panelled houses while it lay in ruins. The Temple was finished in 516 BC." },
 ];
 
 async function seedProphecyLinks() {

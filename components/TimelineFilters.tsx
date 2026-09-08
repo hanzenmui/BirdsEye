@@ -3,8 +3,9 @@
 import { BIBLE_BOOKS, BOOK_COVERAGE } from "@/lib/types";
 
 const GROUPS: { label: string; books: string[] }[] = [
+  { label: "Law & Beginnings", books: ["Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua"] },
   { label: "Kings & History", books: ["Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther"] },
-  { label: "Wisdom & Poetry", books: ["Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Lamentations"] },
+  { label: "Wisdom & Poetry", books: ["Job", "Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Lamentations"] },
   { label: "Major Prophets", books: ["Isaiah", "Jeremiah", "Ezekiel", "Daniel"] },
   { label: "Minor Prophets", books: ["Hosea", "Joel", "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi"] },
   { label: "Gospels & Acts", books: ["Matthew", "Mark", "Luke", "John", "Acts"] },

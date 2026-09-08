@@ -107,6 +107,8 @@ function offsetWithin(el: HTMLElement, ancestor: HTMLElement) {
   return { top, left, width: el.offsetWidth, height: el.offsetHeight };
 }
 
+const eventFirst = (entry: TimelineEntry) => (entry.kind === "event" ? 0 : 1);
+
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 1;
 const ZOOM_STEP = 0.1;
@@ -203,7 +205,14 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
     return {
       era,
       splitKingdoms,
-      entries: [...peopleEntries, ...kingdomEntries, ...eventEntries].sort((a, b) => b.yearBc - a.yearBc || (a.kind === "event" ? -1 : 1)),
+      // Events lead the year they happen in, then the people who start that
+      // year. Ranking both sides keeps the comparator consistent: the old
+      // `a.kind === "event" ? -1 : 1` claimed "a first" for BOTH orderings of
+      // two events, which is undefined behaviour and was rendering Passion
+      // week backwards — Pentecost, then the resurrection, then the cross.
+      // Equal ranks compare 0, so the API's order survives the stable sort.
+      entries: [...peopleEntries, ...kingdomEntries, ...eventEntries]
+        .sort((a, b) => b.yearBc - a.yearBc || eventFirst(a) - eventFirst(b)),
     };
   }), [visibleEvents, visiblePeople]);
 
