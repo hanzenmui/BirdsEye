@@ -1732,3 +1732,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    starting in it — real context, but not this chapter's own cast. */
 .badge-span { background: transparent; border: 1px dashed var(--border); color: var(--text3); font-style: italic; font-size: 10px; }
 .person-card-span .person-card-art { opacity: .55; }
+
+/* Person cards in a narrow list column.
+   Opening a profile squeezes the list column; at around an 800px window it
+   lands near 200px, and the card's fixed 62px letter tile leaves the name
+   roughly 47px — not enough for "Zimri", let alone to tell Zimri king of
+   Israel from Zimri son of Salu. The tile is decoration sitting in front of
+   the only thing that identifies the row, so below a readable column width it
+   is dropped and the text takes the full card. Keyed to the column's own width
+   rather than the viewport so it stays correct if the layout changes. */
+.people-list-col { container-type: inline-size; container-name: peoplelist; }
+@container peoplelist (max-width: 340px) {
+  .person-card { grid-template-columns: minmax(0, 1fr); min-height: 0; gap: 0; }
+  .person-card-art { display: none; }
+  .person-card-open { display: none; }
+  .person-card-desc { min-height: 0; -webkit-line-clamp: 3; }
+  /* The alternate name is what separates Zimri king of Israel from Zimri son
+     of Salu, so it wraps here instead of truncating — an ellipsis right where
+     the distinguishing words are is the same as showing nothing. */
+  .person-card-aka {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    white-space: normal; overflow: hidden;
+  }
+  /* Search and the add button cannot share a row this narrow; side by side
+     they overlap. */
+  .people-layout.detail-open .people-toolbar { grid-template-columns: minmax(0, 1fr); }
+  .people-layout.detail-open .people-toolbar .people-toolbar-add { grid-column: 1; grid-row: 2; justify-self: stretch; }
+  .people-layout.detail-open .people-toolbar .filter-bar { grid-row: 3; }
+}
