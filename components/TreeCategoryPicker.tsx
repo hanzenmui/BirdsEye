@@ -83,19 +83,29 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
   // Step 2: Families grid
   if (step1 === "families") {
     return (
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "16px 20px 0" }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setStep1(null)}>‹ Back</button>
-        </div>
-        <div className="book-grid" style={{ maxWidth: 720, margin: "0 auto", padding: "20px" }}>
-          {FAMILIES.map(f => (
-            <div key={f.key} className="family-tile" onClick={() => setFamilyKey(f.key)}>
-              <div className="family-tile-name">{f.label}</div>
-              <div className="family-tile-count">
-                {familyCounts.get(f.key) ?? 0} {familyCounts.get(f.key) === 1 ? "person" : "people"}
-              </div>
-            </div>
-          ))}
+      <div className="tree-chooser" key="families">
+        <div className="tree-chooser-inner">
+          <button type="button" className="tree-chooser-back" onClick={() => setStep1(null)}>← All tree views</button>
+          <header className="tree-chooser-header">
+            <span>Curated families</span>
+            <h2>Choose a household</h2>
+            <p>Open a focused map of the people closest to a major biblical family.</p>
+          </header>
+          <div className="tree-family-grid">
+            {FAMILIES.map((f, index) => {
+              const count = familyCounts.get(f.key) ?? 0;
+              return (
+                <button type="button" key={f.key} className="tree-family-card" onClick={() => setFamilyKey(f.key)}>
+                  <span className="tree-family-number">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="tree-family-copy">
+                    <strong>{f.label}</strong>
+                    <small>{count} {count === 1 ? "person" : "people"}</small>
+                  </span>
+                  <span className="tree-family-arrow" aria-hidden="true">→</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -104,33 +114,38 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
   // Step 2: Books grid, grouped OT/NT
   if (step1 === "books") {
     return (
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <div style={{ padding: "16px 20px 0" }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setStep1(null)}>‹ Back</button>
-        </div>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px" }}>
+      <div className="tree-chooser" key="books">
+        <div className="tree-chooser-inner tree-chooser-books">
+          <button type="button" className="tree-chooser-back" onClick={() => setStep1(null)}>← All tree views</button>
+          <header className="tree-chooser-header">
+            <span>People by book</span>
+            <h2>Choose a book of the Bible</h2>
+            <p>See everyone named in that book, then select any person to find them on the map.</p>
+          </header>
           {(["OT", "NT"] as const).map(testament => (
-            <div key={testament} style={{ marginBottom: 24 }}>
-              <div className="section-eyebrow" style={{ marginBottom: 8 }}>
-                {testament === "OT" ? "Old Testament" : "New Testament"}
+            <section key={testament} className="tree-testament-section">
+              <div className="tree-testament-heading">
+                <span>{testament}</span>
+                <strong>{testament === "OT" ? "Old Testament" : "New Testament"}</strong>
               </div>
-              <div className="book-grid">
+              <div className="tree-book-grid">
                 {BIBLE_BOOKS.filter(b => b.testament === testament).map(b => {
                   const count = bookCounts.get(b.name) ?? 0;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={b.name}
-                      className="book-tile"
+                      className="tree-book-card"
                       onClick={() => setBookName(b.name)}
-                      style={count === 0 ? { opacity: 0.35, cursor: "default", pointerEvents: "none" } : undefined}
+                      disabled={count === 0}
                     >
-                      <div className="book-tile-name">{b.name}</div>
-                      <div className="book-tile-count">{count === 0 ? "no people" : `${count} ${count === 1 ? "person" : "people"}`}</div>
-                    </div>
+                      <span>{b.name}</span>
+                      <small>{count === 0 ? "No people yet" : `${count} ${count === 1 ? "person" : "people"}`}</small>
+                    </button>
                   );
                 })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       </div>
@@ -139,27 +154,51 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
 
   // Step 1: category type
   return (
-    <div className="category-grid">
-      <div className="category-tile" onClick={() => setStep1("all")}>
-        <div className="category-tile-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg>
+    <div className="tree-picker-shell" key="tree-home">
+      <section className="tree-picker-hero">
+        <div className="tree-picker-hero-copy">
+          <span className="tree-picker-kicker">A living map of Scripture</span>
+          <h2>Follow the generations.<br />See how every name connects.</h2>
+          <p>Trace parents, children, and spouses from Adam forward—or narrow the map to one family or one book.</p>
         </div>
-        <div className="category-tile-label">All</div>
-        <div className="category-tile-sub">The traceable bloodline from Adam</div>
-      </div>
-      <div className="category-tile families" onClick={() => setStep1("families")}>
-        <div className="category-tile-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div className="tree-lineage-preview" aria-label="Example lineage: Adam to Noah to Abraham to David to Jesus">
+          {[
+            ["Adam", "Beginning"],
+            ["Noah", "10th generation"],
+            ["Abraham", "Promise"],
+            ["David", "Royal line"],
+            ["Jesus", "Messiah"],
+          ].map(([name, note], index) => (
+            <div key={name} className={`tree-lineage-stop${name === "Jesus" ? " final" : ""}`}>
+              <span className="tree-lineage-dot">{index + 1}</span>
+              <span className="tree-lineage-name"><strong>{name}</strong><small>{note}</small></span>
+            </div>
+          ))}
         </div>
-        <div className="category-tile-label">Families</div>
-        <div className="category-tile-sub">{"Abraham's, Jacob's, Moses', and more"}</div>
-      </div>
-      <div className="category-tile books" onClick={() => setStep1("books")}>
-        <div className="category-tile-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        </div>
-        <div className="category-tile-label">Books</div>
-        <div className="category-tile-sub">See who appears in each book</div>
+      </section>
+
+      <div className="tree-entry-grid">
+        <button type="button" className="tree-entry-card featured" onClick={() => setStep1("all")}>
+          <span className="tree-entry-index">01</span>
+          <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg></span>
+          <strong>Full family tree</strong>
+          <small>Begin with Adam and explore the complete connected map.</small>
+          <span className="tree-entry-meta">Start with Adam <b>Open map →</b></span>
+        </button>
+        <button type="button" className="tree-entry-card" onClick={() => setStep1("families")}>
+          <span className="tree-entry-index">02</span>
+          <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <strong>Browse families</strong>
+          <small>Focus on Abraham, Jacob, David, and other major households.</small>
+          <span className="tree-entry-meta">{FAMILIES.length} family groups <b>Choose family →</b></span>
+        </button>
+        <button type="button" className="tree-entry-card" onClick={() => setStep1("books")}>
+          <span className="tree-entry-index">03</span>
+          <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+          <strong>Browse by book</strong>
+          <small>See every recorded person from one book in a focused view.</small>
+          <span className="tree-entry-meta">{BIBLE_BOOKS.filter(b => (bookCounts.get(b.name) ?? 0) > 0).length} books indexed <b>Choose book →</b></span>
+        </button>
       </div>
     </div>
   );

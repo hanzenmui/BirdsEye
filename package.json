@@ -38,6 +38,7 @@
     "seed:revelation": "npx tsx scripts/seed-revelation.ts",
     "seed:nt-gaps": "npx tsx scripts/seed-nt-gaps.ts",
     "seed:timeline": "npx tsx scripts/seed-timeline.ts",
+    "seed:nt-timeline": "npx tsx scripts/seed-nt-timeline.ts",
     "verify:timeline": "npx tsx scripts/verify-timeline.ts",
     "verify:layout": "npx tsx scripts/verify-timeline-layout.ts"
   },
