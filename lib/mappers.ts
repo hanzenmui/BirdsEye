@@ -8,6 +8,27 @@ export function formatRef(r: ScriptureRef): string {
   return `${r.book} ${r.chapterStart}:${r.verseStart} – ${r.chapterEnd}:${r.verseEnd}`;
 }
 
+// formatRef uses en-dashes and spaces for display; Bible Gateway's search
+// parser wants a plain ASCII hyphen and no padding, so the link needs its own
+// string rather than a cleaned-up version of the visible label.
+export function bibleGatewayUrl(r: ScriptureRef, version = "NIV"): string {
+  const same = r.chapterStart === r.chapterEnd;
+  const passage =
+    same && r.verseStart === r.verseEnd
+      ? `${r.book} ${r.chapterStart}:${r.verseStart}`
+      : same
+      ? `${r.book} ${r.chapterStart}:${r.verseStart}-${r.verseEnd}`
+      : `${r.book} ${r.chapterStart}:${r.verseStart}-${r.chapterEnd}:${r.verseEnd}`;
+  return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(passage)}&version=${version}`;
+}
+
+// A person "appears in" a chapter when the chapter falls anywhere inside the
+// reference's span, not just where it starts — Jacob's Genesis 37–50 reference
+// has to surface him in chapter 42 as well as 37.
+export function refCoversChapter(r: ScriptureRef, chapter: number): boolean {
+  return r.chapterStart <= chapter && r.chapterEnd >= chapter;
+}
+
 // Rejects unknown gender/testament values at the API boundary — this is how
 // the "adversary_of" relationship-type bug happened: a seed script wrote a
 // value the app's type union didn't know about, and it silently fell back to

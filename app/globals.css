@@ -692,3 +692,20 @@ select.form-input { cursor: pointer; }
 .tl-event-label-hidden .tl-event-label { display: none; }
 .tl-event-label-hidden .tl-event-dot { opacity: .75; }
 .tl-event-label-hidden:hover .tl-event-dot { opacity: 1; transform: scale(1.3); }
+
+/* ── Chapter picker (By Book) ────────────────────────────────────────────── */
+.chapter-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.chapter-picker-label { font-family: var(--ui-font); font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); margin-right: 6px; }
+.chapter-chip { min-width: 26px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); color: var(--text2); font-family: var(--mono); font-size: 11px; line-height: 1.5; cursor: pointer; }
+.chapter-chip:hover { background: var(--bg3); color: var(--text); }
+.chapter-chip.active { background: var(--accent, #2f6b5b); border-color: var(--accent, #2f6b5b); color: #fff; font-weight: 700; }
+
+/* Scripture references link out to the passage. */
+.ref-location-link { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text3); }
+.ref-location-link:hover { color: var(--accent, #2f6b5b); border-bottom-color: currentColor; }
+.badge-ref { text-decoration: none; cursor: pointer; }
+.badge-ref:hover { background: var(--bg3); color: var(--text); }
+/* A person whose reference merely spans the selected chapter, rather than
+   starting in it — real context, but not this chapter's own cast. */
+.badge-span { background: transparent; border: 1px dashed var(--border); color: var(--text3); font-style: italic; font-size: 10px; }
+.person-card-span .person-card-art { opacity: .55; }

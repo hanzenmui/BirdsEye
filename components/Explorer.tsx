@@ -5,9 +5,28 @@ import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
-import { formatRef } from "@/lib/mappers";
+import { formatRef, bibleGatewayUrl, refCoversChapter } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
+
+// A scripture reference that opens the passage on Bible Gateway. stopPropagation
+// matters because these sit inside cards and rows that are themselves clickable —
+// without it, tapping the reference would select the person instead of opening it.
+function RefLink({ refItem, className, style }: { refItem: ScriptureRef; className?: string; style?: React.CSSProperties }) {
+  return (
+    <a
+      href={bibleGatewayUrl(refItem)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      style={style}
+      onClick={e => e.stopPropagation()}
+      title={`Read ${formatRef(refItem)} on Bible Gateway`}
+    >
+      {formatRef(refItem)}
+    </a>
+  );
+}
 
 // Returns the relationship label from the given person's perspective.
 // When the person is person_a they are the actor; when person_b they are the target.
@@ -464,7 +483,7 @@ function DetailPane({ person, relationships, refs, people, onNavigate, onClose, 
             personRefs.map(r => (
               <div key={r.id} className="ref-item" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                 <div>
-                  <div className="ref-location">{formatRef(r)}</div>
+                  <RefLink refItem={r} className="ref-location ref-location-link" />
                   {r.note && <div className="ref-note">{r.note}</div>}
                 </div>
                 <button className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRef(r.id)} title="Remove" style={{ flexShrink: 0, color: "var(--danger)" }}>
@@ -598,16 +617,73 @@ interface BooksSectionProps {
 }
 function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
   const [activeBook, setActiveBook] = useState<string | null>(null);
+  const [activeChapter, setActiveChapter] = useState<number | null>(null);
   const [testament, setTestament] = useState<"all" | "OT" | "NT">("all");
 
   const countByBook = (book: string) => new Set(refs.filter(r => r.book === book).map(r => r.personId)).size;
 
   const books = BIBLE_BOOKS.filter(b => testament === "all" || b.testament === testament);
-  const bookPeople = activeBook
-    ? [...new Set(refs.filter(r => r.book === activeBook).map(r => r.personId))]
-        .map(id => people.find(p => p.id === id))
-        .filter(Boolean) as Person[]
-    : [];
+
+  const bookRefs = useMemo(
+    () => (activeBook ? refs.filter(r => r.book === activeBook) : []),
+    [refs, activeBook],
+  );
+
+  // Chapters are derived from the references rather than from a static
+  // chapter-count table: a chapter with nobody in it is not worth offering, and
+  // this keeps the chips honest about what the data can actually answer.
+  const chapters = useMemo(() => {
+    const counts = new Map<number, Set<string>>();
+    for (const r of bookRefs) {
+      for (let c = r.chapterStart; c <= r.chapterEnd; c++) {
+        if (!counts.has(c)) counts.set(c, new Set());
+        counts.get(c)!.add(r.personId);
+      }
+    }
+    return [...counts.entries()]
+      .map(([chapter, ids]) => ({ chapter, count: ids.size }))
+      .sort((a, b) => a.chapter - b.chapter);
+  }, [bookRefs]);
+
+  // Reading order, not insertion order: within a book people are sorted by
+  // where they first show up, so the list tracks the page you are on.
+  //
+  // On a single chapter there are two kinds of match, and conflating them buries
+  // the answer. Some references start in the chapter (Judah, Genesis 38:1) and
+  // some merely span through it (Potiphar's Genesis 37:36 sits inside a
+  // 37–50 span). Both belong — dropping the spanning ones would lose Jacob from
+  // his own family's chapters — but the people actually in the chapter must come
+  // first, otherwise a wide span outranks the chapter's own cast.
+  const bookPeople = useMemo(() => {
+    if (!activeBook) return [] as { person: Person; spanOnly: boolean }[];
+    const visible = activeChapter === null
+      ? bookRefs
+      : bookRefs.filter(r => refCoversChapter(r, activeChapter));
+    const firstAt = new Map<string, number>();
+    const startsHere = new Set<string>();
+    for (const r of visible) {
+      const pos = r.chapterStart * 1000 + r.verseStart;
+      const prev = firstAt.get(r.personId);
+      if (prev === undefined || pos < prev) firstAt.set(r.personId, pos);
+      if (activeChapter !== null && r.chapterStart === activeChapter) startsHere.add(r.personId);
+    }
+    return [...firstAt.entries()]
+      .sort((a, b) => {
+        if (activeChapter !== null) {
+          const aStarts = startsHere.has(a[0]) ? 0 : 1;
+          const bStarts = startsHere.has(b[0]) ? 0 : 1;
+          if (aStarts !== bStarts) return aStarts - bStarts;
+        }
+        return a[1] - b[1];
+      })
+      .map(([id]) => ({
+        person: people.find(p => p.id === id),
+        spanOnly: activeChapter !== null && !startsHere.has(id),
+      }))
+      .filter(e => e.person) as { person: Person; spanOnly: boolean }[];
+  }, [activeBook, activeChapter, bookRefs, people]);
+
+  const openBook = (name: string) => { setActiveBook(name); setActiveChapter(null); };
 
   return (
     <div className={`books-layout${activeBook ? " book-open" : ""}`} style={{ display: "flex", gap: 0, flex: 1, overflow: "hidden" }}>
@@ -626,7 +702,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
               const count = countByBook(b.name);
               return (
                 <div key={b.name} className={`book-tile${activeBook === b.name ? " active" : ""}`}
-                  onClick={() => setActiveBook(b.name)}
+                  onClick={() => openBook(b.name)}
                   style={count === 0 ? { opacity: 0.35, cursor: "default", pointerEvents: "none" } : undefined}>
                   <div className="book-tile-name">{b.name}</div>
                   <div className="book-tile-count">{count === 0 ? "no people" : `${count} ${count === 1 ? "person" : "people"}`}</div>
@@ -654,13 +730,31 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
           </div>
         ) : (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <button className="mob-only btn btn-ghost btn-sm" onClick={() => setActiveBook(null)} style={{ flexShrink: 0 }}>← Books</button>
-              <h2 style={{ fontFamily: "var(--font)", fontSize: 18, fontWeight: 700, color: "var(--text)", margin: 0 }}>{activeBook} — {bookPeople.length} {bookPeople.length === 1 ? "person" : "people"}</h2>
+              <h2 style={{ fontFamily: "var(--font)", fontSize: 18, fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                {activeBook}{activeChapter !== null ? ` ${activeChapter}` : ""} — {bookPeople.length} {bookPeople.length === 1 ? "person" : "people"}
+              </h2>
             </div>
+
+            {chapters.length > 1 && (
+              <div className="chapter-picker">
+                <span className="chapter-picker-label">Chapter</span>
+                <button className={`chapter-chip${activeChapter === null ? " active" : ""}`}
+                  onClick={() => setActiveChapter(null)}>All</button>
+                {chapters.map(({ chapter, count }) => (
+                  <button key={chapter}
+                    className={`chapter-chip${activeChapter === chapter ? " active" : ""}`}
+                    onClick={() => setActiveChapter(chapter)}
+                    title={`${count} ${count === 1 ? "person" : "people"} in ${activeBook} ${chapter}`}>
+                    {chapter}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="people-grid">
-              {bookPeople.map((p, i) => (
-                <div key={p.id} className="person-card" onClick={() => onSelect(p.id)}>
+              {bookPeople.map(({ person: p, spanOnly }, i) => (
+                <div key={p.id} className={`person-card${spanOnly ? " person-card-span" : ""}`} onClick={() => onSelect(p.id)}>
                   <div className="person-card-art" style={{ background: CARD_COLORS[i % CARD_COLORS.length] }}>
                     <span className="person-card-initial" style={{ color: i % CARD_COLORS.length === 1 ? 'rgba(36,52,56,0.34)' : 'rgba(241,235,218,0.94)' }}>
                       {p.name[0]}
@@ -671,9 +765,14 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                     {p.description && <div className="person-card-desc">{p.description}</div>}
                     <div className="person-card-footer">
                       <TestamentBadge testament={p.testament} />
-                      {refs.filter(r => r.personId === p.id && r.book === activeBook).map(r => (
-                        <span key={r.id} className="badge badge-tag" style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{formatRef(r)}</span>
-                      ))}
+                      {spanOnly && <span className="badge badge-span">in the wider passage</span>}
+                      {refs
+                        .filter(r => r.personId === p.id && r.book === activeBook
+                          && (activeChapter === null || refCoversChapter(r, activeChapter)))
+                        .map(r => (
+                          <RefLink key={r.id} refItem={r} className="badge badge-tag badge-ref"
+                            style={{ fontFamily: "var(--mono)", fontSize: 10 }} />
+                        ))}
                     </div>
                   </div>
                 </div>
