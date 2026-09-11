@@ -138,3 +138,37 @@ export function prophecyLinkFromDb(r: any): ProphecyLink {
     createdAt:              r.created_at,
   };
 }
+
+// Parses a search box query as a scripture reference: "genesis 38",
+// "2 kings 18", "gen 38", "1 sam" or just "judges".
+//
+// Returns null when the query is not a reference, so the caller can fall back
+// to ordinary name/description searching. A bare number returns null too —
+// "38" alone names no book, and guessing one would be worse than no match.
+//
+// `books` is passed in rather than imported so this stays a pure function.
+export function parseReferenceQuery(
+  query: string,
+  books: { name: string; abbrev: string }[],
+): { book: string; chapter: number | null } | null {
+  const q = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!q) return null;
+
+  // Split a trailing chapter number off the end, tolerating "38:1" since
+  // people paste whole references.
+  const m = q.match(/^(.*?)[\s.]*(\d{1,3})(?::\d{1,3})?$/);
+  const bookPart = (m ? m[1] : q).trim().replace(/[.,]$/, "");
+  const chapter = m ? Number(m[2]) : null;
+  if (!bookPart) return null;
+
+  // Longest name first so "1 samuel" cannot be claimed by a shorter book whose
+  // name is a prefix of it (Judges vs Jude, for one).
+  const candidates = [...books].sort((a, b) => b.name.length - a.name.length);
+  const exact = candidates.find(b => b.name.toLowerCase() === bookPart);
+  const byAbbrev = candidates.find(b => b.abbrev.toLowerCase() === bookPart);
+  const byPrefix = candidates.find(b => b.name.toLowerCase().startsWith(bookPart));
+  const book = exact ?? byAbbrev ?? byPrefix;
+  if (!book) return null;
+
+  return { book: book.name, chapter: chapter && chapter > 0 ? chapter : null };
+}

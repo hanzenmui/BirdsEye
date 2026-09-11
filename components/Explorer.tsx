@@ -6,7 +6,7 @@ import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
-import { formatRef, bibleGatewayUrl, refCoversChapter } from "@/lib/mappers";
+import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
 
@@ -592,6 +592,33 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
     both: people.filter(person => person.testament === "both").length,
   }), [people]);
 
+  // A query like "2 Kings 18" is a place, not a name, and used to return
+  // nothing. When it parses as a reference, the people whose passages cover it
+  // are added to the results — ranked below every text match, so searching
+  // "Ruth" still puts Ruth herself first and the rest of her book after her.
+  const reference = useMemo(() => parseReferenceQuery(query, BIBLE_BOOKS), [query]);
+
+  // Descriptions match at a word start, not anywhere in the string. Plain
+  // substring matching surfaced Demetrius for "Ruth", because his description
+  // contains "truth". Anchoring only the front still lets "priest" find
+  // "priests".
+  const descriptionPattern = useMemo(() => {
+    const q = query.trim();
+    if (!q) return null;
+    return new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
+  }, [query]);
+
+  const referenceMatchIds = useMemo(() => {
+    if (!reference) return null;
+    const ids = new Set<string>();
+    for (const r of refs) {
+      if (r.book !== reference.book) continue;
+      if (reference.chapter !== null && !refCoversChapter(r, reference.chapter)) continue;
+      ids.add(r.personId);
+    }
+    return ids;
+  }, [reference, refs]);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return people
@@ -606,14 +633,15 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
           : name.includes(normalizedQuery) ? 2
           : aliases.includes(normalizedQuery) ? 3
           : tags.some(tag => tag.includes(normalizedQuery)) ? 4
-          : person.description.toLowerCase().includes(normalizedQuery) ? 5
+          : descriptionPattern?.test(person.description) ? 5
+          : referenceMatchIds?.has(person.id) ? 6
           : 99;
         return { person, relevance };
       })
       .filter(result => result.relevance < 99)
       .sort((a, b) => a.relevance - b.relevance || a.person.name.localeCompare(b.person.name))
       .map(result => result.person);
-  }, [filter, people, query]);
+  }, [filter, people, query, referenceMatchIds, descriptionPattern]);
 
   const selected = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
 
@@ -624,7 +652,7 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
         <div className="people-toolbar">
           <div className="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input className="search-input" aria-label="Search people" placeholder="Search names, roles, or descriptions…" value={query} onChange={e => setQuery(e.target.value)} />
+            <input className="search-input" aria-label="Search people" placeholder="Search names, roles, or a passage like 2 Kings 18…" value={query} onChange={e => setQuery(e.target.value)} />
             {query ? <button type="button" className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button> : null}
           </div>
           <div className="filter-bar" aria-label="Filter people by testament">
@@ -642,7 +670,12 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
         <div className="people-scroll">
           <div className="people-results-heading">
             <span>{filtered.length.toLocaleString()} {filtered.length === 1 ? "person" : "people"}</span>
-            <small>{query ? `matching “${query.trim()}”` : "arranged alphabetically"}</small>
+            <small>
+              {!query ? "arranged alphabetically"
+                : reference && referenceMatchIds?.size
+                ? `matching “${query.trim()}” — including ${referenceMatchIds.size} in ${reference.book}${reference.chapter !== null ? ` ${reference.chapter}` : ""}`
+                : `matching “${query.trim()}”`}
+            </small>
           </div>
           {filtered.length === 0 ? (
             <div className="empty-state">
