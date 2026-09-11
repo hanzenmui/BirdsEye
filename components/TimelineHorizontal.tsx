@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useMemo, useState, useEffect, useRef } from "react";
+import { useDeferredValue, useMemo, useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
@@ -67,6 +67,29 @@ interface LinkGeom {
   d: string;
 }
 
+const INTRO_KEY = "birdseye.timeline.intro";
+
+// A minimal store over one localStorage key. A "storage" event only fires in
+// OTHER tabs, so same-tab writes notify these listeners directly.
+const introListeners = new Set<() => void>();
+function subscribeIntro(onChange: () => void) {
+  introListeners.add(onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    introListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+function readIntroOpen() {
+  // Private windows and blocked site data throw on access; compact is a fine
+  // place to land.
+  try { return localStorage.getItem(INTRO_KEY) === "open"; } catch { return false; }
+}
+function writeIntroOpen(open: boolean) {
+  try { localStorage.setItem(INTRO_KEY, open ? "open" : "compact"); } catch { /* not worth failing over */ }
+  introListeners.forEach(cb => cb());
+}
+
 export function TimelineHorizontal({ onSelectPerson }: Props) {
   const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
@@ -90,6 +113,17 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   // Drag-to-pan bookkeeping. `moved` is what stops a drag that happens to end
   // on a segment from also registering as a click on it.
+  // The intro is compact by default. Expanded it takes 386px of an 817px column
+  // — nearly half the height, on every visit — leaving the chart 362px for
+  // content that runs to 2400px. The orienting text is worth reading once, not
+  // every time, so the choice is remembered per browser.
+  //
+  // useSyncExternalStore rather than an effect that calls setState: localStorage
+  // is external state, reading it in an effect trips react-hooks/set-state-in-
+  // effect, and the server snapshot keeps hydration honest.
+  const introOpen = useSyncExternalStore(subscribeIntro, readIntroOpen, () => false);
+  const toggleIntro = () => writeIntroOpen(!introOpen);
+
   const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
 
   // True once every book in the filter list is checked — the "no filtering
@@ -415,11 +449,14 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
         onToggleOpen={() => setFiltersOpen(value => !value)}
       />
 
-      <section className="tlh-intro" aria-labelledby="tlh-intro-title">
+      <section className={`tlh-intro${introOpen ? "" : " tlh-intro-compact"}`} aria-labelledby="tlh-intro-title">
         <div>
           <span className="tlv-kicker">A side-by-side Bible history</span>
           <h2 id="tlh-intro-title">See who lived at the same time.</h2>
           <p>Each row follows one group through history. Drag sideways to compare rulers, prophets, books, and turning points that overlapped.</p>
+          <button type="button" className="tlh-intro-toggle" onClick={toggleIntro} aria-expanded={introOpen}>
+            {introOpen ? "Hide intro" : "What is this?"}
+          </button>
         </div>
         <div className="tlh-at-a-glance" aria-label="Visible timeline summary">
           <div><strong>{visiblePeople.length}</strong><span>people</span></div>

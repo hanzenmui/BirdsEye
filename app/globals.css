@@ -1760,3 +1760,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .people-layout.detail-open .people-toolbar .people-toolbar-add { grid-column: 1; grid-row: 2; justify-self: stretch; }
   .people-layout.detail-open .people-toolbar .filter-bar { grid-row: 3; }
 }
+
+/* Timeline intro, compact by default.
+   Expanded it runs ~386px of an 817px column on every visit, leaving the chart
+   362px for content that is around 2400px tall — which is what made the
+   horizontal view feel like it had no room. Compact keeps the kicker and the
+   at-a-glance counts, so it still reads as a header, and hides the headline and
+   the explanatory paragraph behind a toggle. */
+.tlh-intro-toggle {
+  margin-top: 2px; padding: 0; border: none; background: none;
+  color: var(--text3); font: 600 11px/1.4 var(--ui-font); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.tlh-intro-toggle:hover { color: var(--text); }
+.tlh-intro-compact h2,
+.tlh-intro-compact p { display: none; }
+.tlh-intro-compact { align-items: center; padding-top: 10px; padding-bottom: 10px; }
+.tlh-intro-compact .tlv-kicker { margin-bottom: 2px; }
