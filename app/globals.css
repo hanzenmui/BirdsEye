@@ -1777,3 +1777,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .tlh-intro-compact p { display: none; }
 .tlh-intro-compact { align-items: center; padding-top: 10px; padding-bottom: 10px; }
 .tlh-intro-compact .tlv-kicker { margin-bottom: 2px; }
+
+/* Family tree map bar: let the controls drop to their own line when they stop
+   fitting. Between the 768px mobile stack and roughly 1100px there was a band
+   where the bar had too little room for one row but had not yet stacked, so the
+   "Start from" field printed on top of the map title ("Adam's family"). Wrapping
+   resolves it exactly when it stops fitting, with no new breakpoint to keep in
+   sync with the others. */
+.ft-mapbar { flex-wrap: wrap; row-gap: 8px; }
+.ft-mapbar-context { flex: 1 1 auto; }
+.ft-controls-tr { flex: 1 1 auto; }
