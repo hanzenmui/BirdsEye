@@ -42,6 +42,7 @@
     "seed:chapter-gaps": "npx tsx scripts/seed-chapter-gaps.ts",
     "seed:israel-succession": "npx tsx scripts/seed-israel-succession.ts",
     "seed:prophets-under-kings": "npx tsx scripts/seed-prophets-under-kings.ts",
+    "seed:missing-figures": "npx tsx scripts/seed-missing-figures.ts",
     "sync:prod": "npx tsx scripts/sync-to-prod.ts",
     "verify:reference-search": "npx tsx scripts/verify-reference-search.ts",
     "verify:timeline": "npx tsx scripts/verify-timeline.ts",
