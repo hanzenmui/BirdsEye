@@ -269,18 +269,21 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // Mouse wheel pans the timeline left/right instead of scrolling it down.
+  // Mouse wheel: scroll down through the lanes first, pan sideways at the edge.
   //
   // Telling a wheel from a trackpad: a mouse wheel reports movement only on
   // deltaY, while a two-finger horizontal swipe reports deltaX. So a
-  // deltaY-dominant event is the wheel and gets translated to horizontal
-  // motion; anything deltaX-dominant is already a horizontal gesture and is
-  // left to the browser's native scrolling, which handles it (with momentum)
-  // better than we could.
+  // deltaY-dominant event is the wheel; anything deltaX-dominant is already a
+  // horizontal gesture and is left to the browser, which does it better.
   //
-  // Shift+wheel stays vertical. The lanes are taller than the canvas on
-  // shorter screens, and the Events lane sits near the bottom — without an
-  // escape hatch a mouse-only user could not reach it at all.
+  // Vertical wins while there is anywhere to go vertically. An earlier version
+  // hijacked the wheel unconditionally, with Shift+wheel as the only way down.
+  // That was survivable when the lanes overflowed by a few hundred pixels, but
+  // the chart now runs to about 2400px against a ~360px canvas, so it was
+  // hiding roughly six screens of content behind an undiscoverable modifier
+  // key. Panning happens once the canvas is against its top or bottom edge,
+  // which keeps the wheel useful for travelling through time without it
+  // costing access to the lanes themselves.
   //
   // Registered here rather than via React's onWheel because preventDefault()
   // requires a non-passive listener, and React attaches wheel handlers
@@ -292,6 +295,16 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
       if (e.shiftKey) return;                                  // deliberate vertical
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // trackpad swipe
       if (el.scrollWidth <= el.clientWidth) return;            // nothing to pan
+
+      // 1px of slack: fractional scroll positions mean scrollTop rarely lands
+      // exactly on the computed maximum.
+      const maxTop = el.scrollHeight - el.clientHeight;
+      if (maxTop > 1) {
+        const goingDown = e.deltaY > 0;
+        const atBottom = el.scrollTop >= maxTop - 1;
+        const atTop = el.scrollTop <= 1;
+        if (goingDown ? !atBottom : !atTop) return;            // still room to scroll
+      }
       e.preventDefault();
       el.scrollLeft += e.deltaY;
     };
@@ -419,7 +432,7 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
         <div className="tlh-chart-heading">
           <div>
             <span className="tlh-chart-kicker">Earlier <span aria-hidden="true">→</span> Later</span>
-            <strong>Drag or scroll sideways to travel through time</strong>
+            <strong>Scroll down for more lanes; drag sideways to travel through time</strong>
           </div>
           <div className="tlh-legend" aria-label="Timeline color key">
             <span className="judah">Judah</span>
