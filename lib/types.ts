@@ -83,6 +83,7 @@ export type RelationshipType =
   | "adversary_of"
   | "servant_of"
   | "ruler_of"
+  | "prophesied_under"
   | "other";
 
 export interface ScriptureRef {
@@ -300,6 +301,10 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   adversary_of:  "Adversary of",
   servant_of:    "Servant of",
   ruler_of:      "Ruler of",
+  // Directional: the prophet is A, the king is B. Sourced from the opening
+  // verse of each prophetic book, which dates the ministry by whose reign it
+  // fell in.
+  prophesied_under: "Prophesied under",
   other:         "Related to",
 };
 
@@ -317,6 +322,7 @@ export const RELATIONSHIP_COLORS: Record<RelationshipType | "lineage", string> =
   enemy_of:      "#dc2626",             // red
   adversary_of:  "#9f1239",             // rose-maroon (distinct from enemy_of's red)
   ruler_of:      "#d97706",             // amber-gold
+  prophesied_under: "#4f46e5",          // indigo (distinct from mentor blue)
   other:         "#6b7280",             // gray
   lineage:       "#7c3aed",             // Adam → Jesus violet
 };
@@ -336,5 +342,6 @@ export const RELATIONSHIP_INVERSE_LABELS: Record<RelationshipType, string> = {
   adversary_of:  "Adversary of",
   servant_of:    "Master of",
   ruler_of:      "Subject of",
+  prophesied_under: "Prophet during reign",
   other:         "Related to",
 };
