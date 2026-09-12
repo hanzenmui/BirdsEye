@@ -1,5 +1,10 @@
 export const GENDERS = ["male", "female", "unknown"] as const;
-export const TESTAMENTS = ["OT", "NT", "both"] as const;
+// "CH" is anyone from the apostles onward who isn't a Bible-text figure —
+// church fathers, reformers, missionaries, denominations founders. Every
+// user-facing label for it must read "After New Testament", never "Church
+// History" or the bare code — see
+// docs/superpowers/specs/2026-09-11-church-history-design.md.
+export const TESTAMENTS = ["OT", "NT", "both", "CH"] as const;
 
 export const TIMELINE_TRACKS = [
   // Old Testament

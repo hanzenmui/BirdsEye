@@ -109,3 +109,15 @@ export function formatYearSpan(startYear: number, endYear: number): string {
   if (startYear <= 0 && endYear <= 0) return `AD ${-startYear}–${-endYear}`;
   return `${startYear} BC – AD ${-endYear}`;
 }
+
+/**
+ * Like formatYearSpan, but for a span that may still be open — a tradition
+ * that still exists has no end year at all, unlike every person on this
+ * timeline, who is dead. `endYear: null` renders "1054–present" (or, for a
+ * single-year-old span, e.g. "1517–present" too, never collapsed to one
+ * year the way a closed single-year span is).
+ */
+export function formatOpenYearSpan(startYear: number, endYear: number | null): string {
+  if (endYear === null) return `${formatYear(startYear)}–present`;
+  return formatYearSpan(startYear, endYear);
+}

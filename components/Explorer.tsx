@@ -64,9 +64,16 @@ const NAV: { key: Section; label: string; icon: string }[] = [
 ];
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
+// "CH" covers everyone from the apostles onward who isn't a Bible-text figure —
+// church fathers, reformers, missionaries, denominations. User-facing text always
+// says "After New Testament", never "Church History" or the bare code (Hanzen's
+// explicit naming instruction) — see docs/superpowers/specs/2026-09-11-church-history-design.md.
+const TESTAMENT_LABELS: Record<Person["testament"], string> = {
+  OT: "OT", NT: "NT", both: "OT & NT", CH: "After New Testament",
+};
 function TestamentBadge({ testament }: { testament: Person["testament"] }) {
-  const cls = testament === "OT" ? "badge-ot" : testament === "NT" ? "badge-nt" : "badge-both";
-  return <span className={`badge ${cls}`}>{testament === "both" ? "OT & NT" : testament}</span>;
+  const cls = testament === "OT" ? "badge-ot" : testament === "NT" ? "badge-nt" : testament === "CH" ? "badge-ch" : "badge-both";
+  return <span className={`badge ${cls}`}>{TESTAMENT_LABELS[testament]}</span>;
 }
 
 interface PersonIndexCardProps {
@@ -209,6 +216,7 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
                   <option value="OT">Old Testament</option>
                   <option value="NT">New Testament</option>
                   <option value="both">Both</option>
+                  <option value="CH">After New Testament</option>
                 </select>
               </div>
               <div className="form-group">
@@ -577,7 +585,7 @@ interface PeopleSectionProps {
 }
 function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "OT" | "NT" | "both">("all");
+  const [filter, setFilter] = useState<"all" | "OT" | "NT" | "both" | "CH">("all");
 
   const referenceCountByPerson = useMemo(() => {
     const counts = new Map<string, number>();
@@ -590,6 +598,7 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
     OT: people.filter(person => person.testament === "OT").length,
     NT: people.filter(person => person.testament === "NT").length,
     both: people.filter(person => person.testament === "both").length,
+    CH: people.filter(person => person.testament === "CH").length,
   }), [people]);
 
   // A query like "2 Kings 18" is a place, not a name, and used to return
@@ -656,9 +665,9 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
             {query ? <button type="button" className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button> : null}
           </div>
           <div className="filter-bar" aria-label="Filter people by testament">
-            {(["all", "OT", "NT", "both"] as const).map(f => (
+            {(["all", "OT", "NT", "both", "CH"] as const).map(f => (
               <button key={f} className={`filter-chip${filter === f ? " active" : ""}`} onClick={() => setFilter(f)}>
-                <span>{f === "all" ? "All" : f === "both" ? "OT & NT" : f}</span>
+                <span>{f === "all" ? "All" : f === "both" ? "OT & NT" : f === "CH" ? "After NT" : f}</span>
                 <small>{filterCounts[f]}</small>
               </button>
             ))}
@@ -993,6 +1002,7 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
   const otCount   = people.filter(p => p.testament === "OT").length;
   const ntCount   = people.filter(p => p.testament === "NT").length;
   const bothCount = people.filter(p => p.testament === "both").length;
+  const chCount   = people.filter(p => p.testament === "CH").length;
   const peopleTotal = Math.max(people.length, 1);
 
   const statCard = (value: number, label: string) => (
@@ -1049,16 +1059,18 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
           <div><span>Collection balance</span><h3>People by testament</h3></div>
           <small>{people.length.toLocaleString()} total profiles</small>
         </div>
-        <div className="testament-meter" aria-label={`${otCount} Old Testament, ${bothCount} in both testaments, ${ntCount} New Testament`}>
+        <div className="testament-meter" aria-label={`${otCount} Old Testament, ${bothCount} in both testaments, ${ntCount} New Testament, ${chCount} after the New Testament`}>
           <div className="testament-meter-ot" style={{ width: `${(otCount / peopleTotal) * 100}%` }} title={`OT: ${otCount}`} />
           <div className="testament-meter-both" style={{ width: `${(bothCount / peopleTotal) * 100}%` }} title={`Both: ${bothCount}`} />
           <div className="testament-meter-nt" style={{ width: `${(ntCount / peopleTotal) * 100}%` }} title={`NT: ${ntCount}`} />
+          <div className="testament-meter-ch" style={{ width: `${(chCount / peopleTotal) * 100}%` }} title={`After New Testament: ${chCount}`} />
         </div>
         <div className="testament-legend">
           {[
             { label: "Old Testament", count: otCount, cls: "ot" },
             { label: "Both", count: bothCount, cls: "both" },
             { label: "New Testament", count: ntCount, cls: "nt" },
+            { label: "After New Testament", count: chCount, cls: "ch" },
           ].map(({ label, count, cls }) => (
             <div key={label}>
               <span className={`testament-dot ${cls}`} />

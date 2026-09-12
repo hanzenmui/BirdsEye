@@ -2,6 +2,7 @@
 // framework; this script is the test suite. Run: npx tsx scripts/verify-timeline-layout.ts
 import {
   yearToPct, spanToBox, spansOverlap, packRows, computeRange, MIN_WIDTH_PCT,
+  formatYear, formatYearSpan, formatOpenYearSpan,
   type TimelineRange, type Span,
 } from "../lib/timeline-layout";
 
@@ -90,6 +91,21 @@ check("computeRange falls back to a sane default when given nothing",
   fallback.startBc === 1000 && fallback.endBc === 500);
 check("fallback range is well-formed (start is earlier than end)",
   fallback.startBc > fallback.endBc);
+
+// formatYear / formatYearSpan / formatOpenYearSpan — the church-history addition,
+// where AD years (stored negative) start actually appearing in spans and one span
+// (a living tradition) has no end at all.
+check("formatYear renders BC plainly", formatYear(931) === "931 BC");
+check("formatYear renders AD from the negative convention", formatYear(-1054) === "AD 1054");
+check("formatYear has no year zero", formatYear(-1) === "AD 1" && formatYear(1) === "1 BC");
+check("formatYearSpan collapses BC-only", formatYearSpan(931, 913) === "931–913 BC");
+check("formatYearSpan collapses AD-only", formatYearSpan(-28, -33) === "AD 28–33");
+check("formatYearSpan crosses BC into AD", formatYearSpan(5, -30) === "5 BC – AD 30");
+check("formatYearSpan collapses a single year", formatYearSpan(-30, -30) === "AD 30");
+check("formatOpenYearSpan renders present for a null end",
+  formatOpenYearSpan(-1054, null) === "AD 1054–present");
+check("formatOpenYearSpan falls back to formatYearSpan for a closed span",
+  formatOpenYearSpan(-451, -1054) === formatYearSpan(-451, -1054));
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);
