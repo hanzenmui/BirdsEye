@@ -789,6 +789,22 @@ select.form-input { cursor: pointer; }
 
   --tl-priest-1: #6E6A54;
   --tl-priest-2: #85805F;
+
+  /* After New Testament (AD 101-present) */
+  --tl-father-1: #8B6F47;
+  --tl-father-2: #A38659;
+
+  --tl-ruler-1: #6B4E7A;
+  --tl-ruler-2: #7F5F8F;
+
+  --tl-missionary-1: #4F7A4E;
+  --tl-missionary-2: #628F60;
+
+  --tl-theologian-1: #4A5B7A;
+  --tl-theologian-2: #5D6F91;
+
+  --tl-reformer-1: #B0562E;
+  --tl-reformer-2: #C46B42;
 }
 .tl-root { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .tl-canvas { flex: 1; min-width: 0; overflow: auto; padding: 14px 24px 32px 0; position: relative; }

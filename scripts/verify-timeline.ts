@@ -114,12 +114,18 @@ async function checkProphecyIntegrity() {
   const noExplain = await db.execute(`SELECT id FROM prophecy_links WHERE explanation = ''`);
   check("every prophecy link has a plain-language explanation", noExplain.rows.length === 0);
 
-  // Without a book tag an event can never appear under any book checkbox.
+  // Without a book tag an event can never appear under any book checkbox --
+  // but that check only makes sense for events scripture actually narrates.
+  // year_bc <= -101 is AD 101 onward, the "After New Testament" era (see
+  // docs/superpowers/specs/2026-09-11-church-history-findings.md): nothing in
+  // Nicaea or the Reformation is written in a book of the Bible, and inventing
+  // a fake scripture_refs row to satisfy this check would be dishonest, not a
+  // fix. The book filter is hidden for that era in the UI instead.
   const untagged = await db.execute(`
     SELECT e.title FROM historical_events e
     LEFT JOIN scripture_refs sr ON sr.event_id = e.id
-    WHERE sr.id IS NULL`);
-  check("every event is tagged to a book", untagged.rows.length === 0,
+    WHERE sr.id IS NULL AND e.year_bc > -101`);
+  check("every Bible-era event is tagged to a book", untagged.rows.length === 0,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     untagged.rows.map((x: any) => x.title).join(", "));
 

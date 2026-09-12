@@ -35,6 +35,17 @@ const TRACK_META: Record<string, { label: string; family: "leader" | "prophet"; 
   roman_ruler:   { label: "Roman ruler",  family: "leader",  color: "var(--tl-rome-1)" },
   herodian:      { label: "Herod's house", family: "leader", color: "var(--tl-herod-1)" },
   jewish_leader: { label: "Jewish leader", family: "leader", color: "var(--tl-priest-1)" },
+  // After New Testament (AD 101-present). Every one of these speaks for the
+  // faith rather than holding worldly power, so all five sit on the "prophet"
+  // (messenger) side — there is no equivalent of Rome/Herod/the priesthood to
+  // put opposite them once the New Testament ends; church_ruler (popes,
+  // patriarchs) is the closest thing and still belongs on this side, since a
+  // pope is a churchman, not a Caesar.
+  church_father: { label: "Church father", family: "prophet", color: "var(--tl-father-1)" },
+  church_ruler:  { label: "Pope / patriarch", family: "prophet", color: "var(--tl-ruler-1)" },
+  missionary:    { label: "Missionary",   family: "prophet", color: "var(--tl-missionary-1)" },
+  theologian:    { label: "Theologian",   family: "prophet", color: "var(--tl-theologian-1)" },
+  reformer:      { label: "Reformer",     family: "prophet", color: "var(--tl-reformer-1)" },
 };
 
 // When a kingdom is split, one row can hold both a Judah king and an Israel
@@ -150,7 +161,13 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
     if (!showPeopleLayer) return [];
     return people.filter(person => {
       const books = personBooks[person.id] ?? [];
-      if (!allBooksChecked && !books.some(book => checkedBooks.has(book))) return false;
+      // The book filter is a Bible-only axis. Nobody after the New Testament has
+      // a scripture_refs row to match against, so applying the filter to them
+      // would make every "After New Testament" figure vanish the instant any
+      // book gets unchecked -- not a stricter filter, just broken data. See
+      // docs/superpowers/specs/2026-09-11-church-history-design.md, "Book
+      // filter and church history".
+      if (person.testament !== "CH" && !allBooksChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       const meta = TRACK_META[person.timelineTrack];
       return searchable([person.name, person.alsoKnownAs, person.description, meta?.label, ...books]).includes(deferredQuery);
@@ -161,7 +178,11 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
     if (!showEventsLayer) return [];
     return events.filter(event => {
       const books = eventBooks[event.id] ?? [];
-      if (!allBooksChecked && !books.some(book => checkedBooks.has(book))) return false;
+      // Same exemption as visiblePeople above, by year rather than testament
+      // since HistoricalEvent carries no testament field: AD 101 onward is the
+      // "After New Testament" era, and nothing there is narrated in scripture.
+      const isAfterNt = event.yearBc <= -101;
+      if (!isAfterNt && !allBooksChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
     });

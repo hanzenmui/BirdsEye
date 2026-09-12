@@ -39,6 +39,7 @@
     "seed:nt-gaps": "npx tsx scripts/seed-nt-gaps.ts",
     "seed:timeline": "npx tsx scripts/seed-timeline.ts",
     "seed:nt-timeline": "npx tsx scripts/seed-nt-timeline.ts",
+    "seed:church-history": "npx tsx scripts/seed-church-history.ts",
     "seed:chapter-gaps": "npx tsx scripts/seed-chapter-gaps.ts",
     "seed:israel-succession": "npx tsx scripts/seed-israel-succession.ts",
     "seed:prophets-under-kings": "npx tsx scripts/seed-prophets-under-kings.ts",

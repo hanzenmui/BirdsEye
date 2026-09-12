@@ -26,6 +26,11 @@ const TRACK_COLORS: Record<string, string[]> = {
   roman_ruler:   ["var(--tl-rome-1)", "var(--tl-rome-2)", "var(--tl-rome-3)", "var(--tl-rome-4)"],
   herodian:      ["var(--tl-herod-1)", "var(--tl-herod-2)", "var(--tl-herod-3)"],
   jewish_leader: ["var(--tl-priest-1)", "var(--tl-priest-2)"],
+  church_father: ["var(--tl-father-1)", "var(--tl-father-2)"],
+  church_ruler:  ["var(--tl-ruler-1)", "var(--tl-ruler-2)"],
+  missionary:    ["var(--tl-missionary-1)", "var(--tl-missionary-2)"],
+  theologian:    ["var(--tl-theologian-1)", "var(--tl-theologian-2)"],
+  reformer:      ["var(--tl-reformer-1)", "var(--tl-reformer-2)"],
 };
 
 // Lane order runs top to bottom as rulers first, then God's messengers — the
@@ -46,6 +51,12 @@ const LANES: { track: string; label: string; family: string; multiRow: boolean }
   { track: "messiah",       label: "Jesus",           family: "Prophetic voices", multiRow: false },
   { track: "apostle",       label: "Apostles",        family: "Prophetic voices", multiRow: true  },
   { track: "church_leader", label: "Church leaders",  family: "Prophetic voices", multiRow: true  },
+  // After New Testament (AD 101-present).
+  { track: "church_father", label: "Church fathers",  family: "Prophetic voices", multiRow: true  },
+  { track: "reformer",      label: "Reformers",       family: "Prophetic voices", multiRow: true  },
+  { track: "theologian",    label: "Theologians",     family: "Prophetic voices", multiRow: true  },
+  { track: "missionary",    label: "Missionaries",    family: "Prophetic voices", multiRow: true  },
+  { track: "church_ruler",  label: "Popes & patriarchs", family: "Prophetic voices", multiRow: true },
 ];
 
 const ROW_H = 38;
@@ -164,7 +175,11 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     return people.filter(person => {
       if (person.timelineStartBc === null || person.timelineEndBc === null) return false;
       const books = personBooks[person.id] ?? [];
-      if (!allChecked && !books.some(book => checkedBooks.has(book))) return false;
+      // Bible-only axis -- nobody after the New Testament has a scripture_refs
+      // row, so the filter must not silently erase them. See
+      // docs/superpowers/specs/2026-09-11-church-history-design.md, "Book
+      // filter and church history".
+      if (person.testament !== "CH" && !allChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       return searchable([person.name, person.alsoKnownAs, person.description, person.timelineTrack, ...books]).includes(deferredQuery);
     });
@@ -174,7 +189,8 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     if (!showEventsLayer) return [];
     return events.filter(event => {
       const books = eventBooks[event.id] ?? [];
-      if (!allChecked && !books.some(book => checkedBooks.has(book))) return false;
+      const isAfterNt = event.yearBc <= -101;
+      if (!isAfterNt && !allChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
     });

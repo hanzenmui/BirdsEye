@@ -37,7 +37,7 @@ non-overlapping and contiguous, so nothing appears twice.
 | `christendom` | Christendom Divided | AD 1054–1516 | -1054 | -1516 |
 | `reformation` | The Reformation | AD 1517–1648 | -1517 | -1648 |
 | `awakenings` | Pietism & the Awakenings | AD 1649–1799 | -1649 | -1799 |
-| `missions` | Missions & Revivals | AD 1800–1899 | -1800 | -1899 |
+| `missions-revivals` | Missions & Revivals | AD 1800–1899 | -1800 | -1899 |
 | `global-church` | The Global Church | AD 1900–present | -1900 | -2030 |
 
 Summaries to write at implementation time; one sentence each, matching the tone of
@@ -413,10 +413,23 @@ Francis of Assisi (1181–1226), Thomas Aquinas (1225–1274).
 
 **Pre-Reformation:** John Wycliffe (c. 1328–1384), Jan Hus (c. 1369–1415).
 
-**Reformers:** **Martin Luther (1483–1546)**, Huldrych Zwingli (1484–1531), Thomas
-Cranmer (1489–1556), Ignatius of Loyola (1491–1556), William Tyndale (c. 1494–1536),
-Menno Simons (c. 1496–1561), **John Calvin (1509–1564)**, John Knox (c. 1514–1572),
-Teresa of Ávila (1515–1582).
+**Reformers:** dates below are lifespans as commonly cited, but **corrected during
+implementation (2026-09-11) to run from the start of each one's reforming activity,
+not birth, to death** — every one of them was born before 1517, so seeding by birth
+year put the entire cast of "The Reformation" chapter in the previous chapter
+("Christendom Divided") instead, verified live in the browser after the first seed
+run. This is the "ministry span reads better than lifespan" treatment already
+promised for reformers and already given to prophets; it just wasn't actually applied
+until a concrete check caught the omission. **Martin Luther** (theses 1517–1546, not
+birth 1483–1546), Huldrych Zwingli (Zurich 1519–1531, not 1484–1531), Thomas Cranmer
+(archbishop 1533–1556, not 1489–1556), William Tyndale (NT printed 1525–1536, not
+c. 1494–1536), Menno Simons (joins Anabaptists 1536–1561, not c. 1496–1561),
+**John Calvin** (Geneva 1536–1564, not 1509–1564), John Knox (returns to Scotland
+1559–1572, not c. 1514–1572), George Fox (ministry begins 1647–1691, not 1624–1691).
+Ignatius of Loyola (1491–1556) and Teresa of Ávila (1515–1582) are seeded under
+`church_leader` rather than `reformer` — Counter-Reformation Catholics, not part of
+the Protestant break — and keep ordinary lifespans since no era is named after their
+movement specifically.
 
 **Awakenings:** George Fox (1624–1691), John Bunyan (1628–1688), Jonathan Edwards
 (1703–1758), **John Wesley (1703–1791)**, Charles Wesley (1707–1788), George

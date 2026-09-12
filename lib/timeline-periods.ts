@@ -22,4 +22,16 @@ export const TIMELINE_PERIODS: TimelinePeriod[] = [
   { id: "early-church", label: "The Church Begins", years: "AD 31–47", startBc: -31, endBc: -47, summary: "The first believers are scattered by persecution, the church's fiercest opponent is converted, and the gospel reaches beyond the Jews." },
   { id: "missions", label: "Paul and the Nations", years: "AD 48–62", startBc: -48, endBc: -62, summary: "Paul crosses the empire planting churches and writing letters, and the council at Jerusalem opens the door to the Gentiles." },
   { id: "apostolic-end", label: "Persecution & the Apostles' End", years: "AD 63–100", startBc: -63, endBc: -100, summary: "Nero turns on the church, the temple falls, and the last apostle writes from exile." },
+
+  // ── After the New Testament — see docs/superpowers/specs/2026-09-11-church-history-findings.md §1.
+  // The user-facing act label is "After New Testament", not "Church History"; these
+  // period names stay their own specific historical titles.
+  { id: "persecuted-church", label: "The Persecuted Church", years: "AD 101–312", startBc: -101, endBc: -312, summary: "Christians are a minority under intermittent, sometimes empire-wide persecution, while bishops, the canon and the creed take shape." },
+  { id: "imperial-church", label: "The Church and the Empire", years: "AD 313–450", startBc: -313, endBc: -450, summary: "Constantine legalizes the faith, an emperor calls the first great councils, and Christianity becomes Rome's religion." },
+  { id: "councils-and-mission", label: "Councils, Islam & the Mission to Europe", years: "AD 451–1053", startBc: -451, endBc: -1053, summary: "The church divides over Christ's nature, Islam sweeps the old heartlands, and missionaries carry the faith to Britain, Germany and the Slavs." },
+  { id: "christendom", label: "Christendom Divided", years: "AD 1054–1516", startBc: -1054, endBc: -1516, summary: "East and West break communion, crusades and a captured Constantinople harden the split, and dissenters like Wycliffe and Hus foreshadow a bigger break to come." },
+  { id: "reformation", label: "The Reformation", years: "AD 1517–1648", startBc: -1517, endBc: -1648, summary: "Luther's protest opens a flood of new traditions — Lutheran, Reformed, Anglican, Anabaptist — and a century of religious war ends in an uneasy peace." },
+  { id: "awakenings", label: "Pietism & the Awakenings", years: "AD 1649–1799", startBc: -1649, endBc: -1799, summary: "Heart religion revives a cooling Protestantism, and Wesley's movement and the Great Awakening reshape Britain and America." },
+  { id: "missions-revivals", label: "Missions & Revivals", years: "AD 1800–1899", startBc: -1800, endBc: -1899, summary: "Modern missions carry the gospel worldwide while, at home, revival and restoration movements multiply new American denominations." },
+  { id: "global-church", label: "The Global Church", years: "AD 1900–present", startBc: -1900, endBc: -2030, summary: "Pentecostalism spreads from a Los Angeles revival to the whole world, Rome and the East take steps toward reconciliation, and most Christians now live in the Global South." },
 ];

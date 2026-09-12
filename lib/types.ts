@@ -11,6 +11,11 @@ export const TIMELINE_TRACKS = [
   "judah_king", "israel_king", "united_king", "judge", "major_prophet", "minor_prophet",
   // New Testament
   "messiah", "nt_prophet", "apostle", "church_leader", "roman_ruler", "herodian", "jewish_leader",
+  // After New Testament (AD 101-present) — see
+  // docs/superpowers/specs/2026-09-11-church-history-design.md. "church_leader"
+  // above is deliberately reused across both eras rather than forked, since
+  // its label ("Church leader") was never testament-specific to begin with.
+  "church_father", "church_ruler", "missionary", "theologian", "reformer",
 ] as const;
 export type TimelineTrack = (typeof TIMELINE_TRACKS)[number] | "";
 
