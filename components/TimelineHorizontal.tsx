@@ -5,6 +5,7 @@ import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
 import { spanToBox, packRows, computeRange, yearToPct, formatYear, formatYearSpan, type Span, type TimelineRange } from "@/lib/timeline-layout";
 import { TIMELINE_PERIODS } from "@/lib/timeline-periods";
+import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 // Lane colours drawn from the app's palette: terracotta family for Judah,
@@ -62,10 +63,15 @@ const LANES: { track: string; label: string; family: string; multiRow: boolean }
 const ROW_H = 38;
 const ROW_GAP = 6;
 const ZOOM_MIN = 1;
-const ZOOM_MAX = 6;
+// Raised from 6: at the full "Everything" span (4,192 years, Genesis to
+// today) a readable segment for a short reign or a single-year event needs
+// roughly 20-40x, not 6x.
+const ZOOM_MAX = 40;
 const ZOOM_STEP = 0.5;
 
-interface Props { onSelectPerson: (id: string) => void }
+const EVERYTHING_ACT = TIMELINE_ACTS[TIMELINE_ACTS.length - 1];
+
+interface Props { onSelectPerson: (id: string) => void; act?: TimelineAct }
 
 // One rendered fulfillment curve, in coordinates relative to `.tl-lanes`:
 // x is a 0-100 value (percent of the lanes' width — see the `tl-links` SVG's
@@ -101,7 +107,7 @@ function writeIntroOpen(open: boolean) {
   introListeners.forEach(cb => cb());
 }
 
-export function TimelineHorizontal({ onSelectPerson }: Props) {
+export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Props) {
   const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
   const [showBooksLayer, setShowBooksLayer] = useState(false);
@@ -111,12 +117,17 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  // Starts above "fit" (1) rather than at it: the full span is ~945 years
-  // once judges and book coverage are included, so at zoom 1 every segment
-  // is a blank sliver — nothing reads without hovering. 3x keeps a useful
-  // share of names legible on load; "Fit" (below) still zooms out to 1 for
-  // the whole-picture view in one click.
-  const [zoom, setZoom] = useState(1.5);
+  // Starts above "fit" (1) rather than at it: even the narrowest act's span
+  // makes every segment a blank sliver at zoom 1 -- nothing reads without
+  // hovering. Each act carries its own sensible starting zoom (see
+  // lib/timeline-acts.ts); "Fit" (below) still zooms out to 1 for the
+  // whole-picture view in one click regardless of act.
+  const [zoom, setZoom] = useState(act.zoom);
+  // Re-picks a sensible zoom when the act itself changes (not on every
+  // render -- only reacts to act.id actually flipping), since a zoom level
+  // tuned for "Everything" is generally wrong for "Old Testament" and vice
+  // versa.
+  useEffect(() => { setZoom(act.zoom); }, [act.id]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
@@ -144,6 +155,15 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const range: TimelineRange = useMemo(() => {
+    // A chosen act (anything but "Everything") is a fixed viewport, not a
+    // data-derived one -- the axis should show exactly that act's span
+    // whether or not this act's own start/end happen to have data right at
+    // the edges, so switching acts gives a stable, predictable axis rather
+    // than one that jitters with whatever's currently checked in the book
+    // filter.
+    if (act.startBc !== null && act.endBc !== null) {
+      return { startBc: act.startBc, endBc: act.endBc };
+    }
     const spans: Span[] = people
       .filter(p => p.timelineStartBc !== null && p.timelineEndBc !== null)
       .map(p => ({ id: p.id, startBc: p.timelineStartBc as number, endBc: p.timelineEndBc as number }));
@@ -155,7 +175,7 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
       ? Object.entries(BOOK_COVERAGE).map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }))
       : [];
     return computeRange([...spans, ...bookSpans], events.map(e => e.yearBc), 25);
-  }, [people, events, showBooksLayer]);
+  }, [act, people, events, showBooksLayer]);
 
   const selectedPerson = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) ?? null : null;
@@ -174,6 +194,7 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
     if (!showPeopleLayer) return [];
     return people.filter(person => {
       if (person.timelineStartBc === null || person.timelineEndBc === null) return false;
+      if (!yearInAct(person.timelineStartBc, act)) return false;
       const books = personBooks[person.id] ?? [];
       // Bible-only axis -- nobody after the New Testament has a scripture_refs
       // row, so the filter must not silently erase them. See
@@ -183,18 +204,19 @@ export function TimelineHorizontal({ onSelectPerson }: Props) {
       if (!deferredQuery) return true;
       return searchable([person.name, person.alsoKnownAs, person.description, person.timelineTrack, ...books]).includes(deferredQuery);
     });
-  }, [allChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
+  }, [act, allChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
 
   const visibleEvents = useMemo(() => {
     if (!showEventsLayer) return [];
     return events.filter(event => {
+      if (!yearInAct(event.yearBc, act)) return false;
       const books = eventBooks[event.id] ?? [];
       const isAfterNt = event.yearBc <= -101;
       if (!isAfterNt && !allChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
     });
-  }, [allChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
+  }, [act, allChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
 
   const resultCount = visiblePeople.length + visibleEvents.length;
 

@@ -4,8 +4,9 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { HistoricalEvent, Person, ProphecyLink } from "@/lib/types";
-import { TIMELINE_PERIODS as ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
+import { TIMELINE_PERIODS as ALL_ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
 import { formatYear, formatYearSpan } from "@/lib/timeline-layout";
+import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 interface Props {
@@ -16,6 +17,10 @@ interface Props {
   // becoming visible, which no ResizeObserver reliably fires on across an
   // ancestor's display:none → flex transition.
   active?: boolean;
+  // Which stretch of the story to show — a viewport preset, not a different
+  // dataset. Defaults to "Everything" (every chapter) when omitted, matching
+  // the behaviour before acts existed.
+  act?: TimelineAct;
 }
 
 const TRACK_META: Record<string, { label: string; family: "leader" | "prophet"; color: string }> = {
@@ -124,8 +129,14 @@ const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 1;
 const ZOOM_STEP = 0.1;
 
-export function TimelineVertical({ onSelectPerson, active }: Props) {
+const EVERYTHING_ACT = TIMELINE_ACTS[TIMELINE_ACTS.length - 1];
+
+export function TimelineVertical({ onSelectPerson, active, act = EVERYTHING_ACT }: Props) {
   const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
+  // A viewport preset: only the chapters inside the chosen act render at all,
+  // and only people/events whose start year falls in it count toward the
+  // result total below. computeRange-style filtering, not a different dataset.
+  const ERAS = useMemo(() => ALL_ERAS.filter(era => yearInAct(era.startBc, act) || yearInAct(era.endBc, act)), [act]);
   const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
   const [showBooksLayer, setShowBooksLayer] = useState(false);
   const [showPeopleLayer, setShowPeopleLayer] = useState(true);
@@ -160,6 +171,7 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
   const visiblePeople = useMemo(() => {
     if (!showPeopleLayer) return [];
     return people.filter(person => {
+      if (person.timelineStartBc !== null && !yearInAct(person.timelineStartBc, act)) return false;
       const books = personBooks[person.id] ?? [];
       // The book filter is a Bible-only axis. Nobody after the New Testament has
       // a scripture_refs row to match against, so applying the filter to them
@@ -172,11 +184,12 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
       const meta = TRACK_META[person.timelineTrack];
       return searchable([person.name, person.alsoKnownAs, person.description, meta?.label, ...books]).includes(deferredQuery);
     });
-  }, [allBooksChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
+  }, [act, allBooksChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
 
   const visibleEvents = useMemo(() => {
     if (!showEventsLayer) return [];
     return events.filter(event => {
+      if (!yearInAct(event.yearBc, act)) return false;
       const books = eventBooks[event.id] ?? [];
       // Same exemption as visiblePeople above, by year rather than testament
       // since HistoricalEvent carries no testament field: AD 101 onward is the
@@ -186,7 +199,7 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
       if (!deferredQuery) return true;
       return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
     });
-  }, [allBooksChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
+  }, [act, allBooksChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
 
   const eraEntries = useMemo(() => ERAS.map(era => {
     const peopleInEra = visiblePeople.filter(person => person.timelineStartBc !== null && yearFallsInEra(person.timelineStartBc, era));
@@ -235,7 +248,7 @@ export function TimelineVertical({ onSelectPerson, active }: Props) {
       entries: [...peopleEntries, ...kingdomEntries, ...eventEntries]
         .sort((a, b) => b.yearBc - a.yearBc || eventFirst(a) - eventFirst(b)),
     };
-  }), [visibleEvents, visiblePeople]);
+  }), [ERAS, visibleEvents, visiblePeople]);
 
   const resultCount = visiblePeople.length + visibleEvents.length;
 
