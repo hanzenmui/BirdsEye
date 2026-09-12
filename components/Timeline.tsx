@@ -4,18 +4,21 @@ import { useSyncExternalStore } from "react";
 import { TimelineVertical } from "./TimelineVertical";
 import { TimelineHorizontal } from "./TimelineHorizontal";
 import { TIMELINE_ACTS, getAct, type TimelineActId } from "@/lib/timeline-acts";
+import {
+  ORIENTATION_STORAGE_KEY as STORAGE_KEY, ORIENTATION_CHANGE_EVENT as CHANGE_EVENT,
+  ACT_STORAGE_KEY, ACT_CHANGE_EVENT,
+} from "@/lib/nav-bus";
+import type { Tradition, TraditionEdge } from "@/lib/types";
 
 interface Props {
   onSelectPerson: (id: string) => void;
+  onOpenTradition: (id: string) => void;
+  traditions: Tradition[];
+  traditionEdges: TraditionEdge[];
   active?: boolean;
 }
 
 type Orientation = "vertical" | "horizontal";
-
-const STORAGE_KEY = "birdseye-timeline-orientation";
-const CHANGE_EVENT = "birdseye-timeline-orientation-change";
-const ACT_STORAGE_KEY = "birdseye-timeline-act";
-const ACT_CHANGE_EVENT = "birdseye-timeline-act-change";
 
 function readOrientation(): Orientation {
   const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -45,7 +48,7 @@ function subscribeToAct(onChange: () => void) {
   };
 }
 
-export function Timeline({ onSelectPerson, active }: Props) {
+export function Timeline({ onSelectPerson, onOpenTradition, traditions, traditionEdges, active }: Props) {
   const orientation = useSyncExternalStore(subscribeToOrientation, readOrientation, () => "vertical");
   const actId = useSyncExternalStore(subscribeToAct, readActId, (): TimelineActId => "everything");
   const act = getAct(actId);
@@ -102,7 +105,14 @@ export function Timeline({ onSelectPerson, active }: Props) {
       </div>
 
       {orientation === "vertical" ? (
-        <TimelineVertical onSelectPerson={onSelectPerson} active={active} act={act} />
+        <TimelineVertical
+          onSelectPerson={onSelectPerson}
+          onOpenTradition={onOpenTradition}
+          traditions={traditions}
+          traditionEdges={traditionEdges}
+          active={active}
+          act={act}
+        />
       ) : (
         <TimelineHorizontal onSelectPerson={onSelectPerson} act={act} />
       )}

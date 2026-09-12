@@ -3,14 +3,21 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
-import type { HistoricalEvent, Person, ProphecyLink } from "@/lib/types";
+import type { HistoricalEvent, Person, ProphecyLink, Tradition, TraditionEdge } from "@/lib/types";
 import { TIMELINE_PERIODS as ALL_ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
 import { formatYear, formatYearSpan } from "@/lib/timeline-layout";
 import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
+import { subscribeEventFocus, readEventFocus } from "@/lib/nav-bus";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 
 interface Props {
   onSelectPerson: (id: string) => void;
+  // Opens the Traditions tree on a specific tradition — used by an event
+  // card's "Produced" links (e.g. the Great Schism naming both communions
+  // it created).
+  onOpenTradition: (id: string) => void;
+  traditions: Tradition[];
+  traditionEdges: TraditionEdge[];
   // Explorer keeps every section mounted and just toggles CSS display, so a
   // measurement taken while this section is display:none reads every offset
   // as zero. Re-measuring when this flips to true catches the tab actually
@@ -131,7 +138,7 @@ const ZOOM_STEP = 0.1;
 
 const EVERYTHING_ACT = TIMELINE_ACTS[TIMELINE_ACTS.length - 1];
 
-export function TimelineVertical({ onSelectPerson, active, act = EVERYTHING_ACT }: Props) {
+export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, traditionEdges, active, act = EVERYTHING_ACT }: Props) {
   const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
   // A viewport preset: only the chapters inside the chosen act render at all,
   // and only people/events whose start year falls in it count toward the
@@ -155,6 +162,15 @@ export function TimelineVertical({ onSelectPerson, active, act = EVERYTHING_ACT 
 
   const peopleById = useMemo(() => new Map(people.map(person => [person.id, person])), [people]);
   const eventsById = useMemo(() => new Map(events.map(event => [event.id, event])), [events]);
+  const traditionsById = useMemo(() => new Map(traditions.map(t => [t.id, t])), [traditions]);
+  const traditionEdgesByEvent = useMemo(() => {
+    const map = new Map<string, TraditionEdge[]>();
+    for (const e of traditionEdges) {
+      if (!e.eventId) continue;
+      (map.get(e.eventId) ?? map.set(e.eventId, []).get(e.eventId)!).push(e);
+    }
+    return map;
+  }, [traditionEdges]);
   const eventBooks = useMemo(() => {
     const result: Record<string, string[]> = {};
     for (const ref of eventRefs) {
@@ -347,6 +363,28 @@ export function TimelineVertical({ onSelectPerson, active, act = EVERYTHING_ACT 
     setPendingScrollKey(key);
   };
 
+  // Cross-section navigation: a tradition split edge clicked from the
+  // Traditions tree asks (via lib/nav-bus) for its causing event to be
+  // scrolled to and highlighted here. requestEventFocus dispatches its
+  // orientation/act changes and this focus request in the same synchronous
+  // burst, all before React has re-rendered with the new act — so calling
+  // scrollToEntry() directly here would query the DOM as it still looks
+  // under the OLD (pre-navigation) act, find the element there too (acts
+  // only ever narrow what's shown), scroll to it, and then have the
+  // upcoming act-driven re-render reshuffle the page out from under that
+  // scroll position. Going straight to pendingScrollKey instead defers the
+  // actual DOM lookup to the effect below, which re-runs against
+  // visibleEvents/visiblePeople and so naturally waits for the act change
+  // to land first.
+  useEffect(() => subscribeEventFocus(() => {
+    const focus = readEventFocus();
+    if (!focus) return;
+    setQuery("");
+    setCheckedBooks(new Set(TIMELINE_BOOKS));
+    setShowEventsLayer(true);
+    setPendingScrollKey(`event-${focus.id}`);
+  }), []);
+
   const resetFilters = () => {
     setCheckedBooks(new Set(TIMELINE_BOOKS));
     setShowPeopleLayer(true);
@@ -451,8 +489,11 @@ export function TimelineVertical({ onSelectPerson, active, act = EVERYTHING_ACT 
                   eventsById={eventsById}
                   linksByPerson={linksByPerson}
                   linksByEvent={linksByEvent}
+                  traditionsById={traditionsById}
+                  traditionEdgesByEvent={traditionEdgesByEvent}
                   onSelectPerson={onSelectPerson}
                   onScrollToEntry={scrollToEntry}
+                  onOpenTradition={onOpenTradition}
                 />
               ))}
             </div>
@@ -476,8 +517,11 @@ function EraSection({
   eventsById,
   linksByPerson,
   linksByEvent,
+  traditionsById,
+  traditionEdgesByEvent,
   onSelectPerson,
   onScrollToEntry,
+  onOpenTradition,
 }: {
   era: Era;
   entries: TimelineEntry[];
@@ -491,8 +535,11 @@ function EraSection({
   eventsById: Map<string, HistoricalEvent>;
   linksByPerson: Map<string, ProphecyLink[]>;
   linksByEvent: Map<string, ProphecyLink[]>;
+  traditionsById: Map<string, Tradition>;
+  traditionEdgesByEvent: Map<string, TraditionEdge[]>;
   onSelectPerson: (id: string) => void;
   onScrollToEntry: (key: string) => void;
+  onOpenTradition: (id: string) => void;
 }) {
   const coveringBooks = Object.entries(BOOK_COVERAGE)
     .filter(([book, coverage]) => checkedBooks.has(book) && spansOverlapEra(coverage.startBc, coverage.endBc, era));
@@ -581,6 +628,10 @@ function EraSection({
                   peopleById={peopleById}
                   focused={focusedKey === entry.key}
                   onScrollToProphet={id => onScrollToEntry(`person-${id}`)}
+                  producedTraditions={(traditionEdgesByEvent.get(entry.event.id) ?? [])
+                    .map(e => traditionsById.get(e.childId))
+                    .filter((t): t is Tradition => !!t)}
+                  onOpenTradition={onOpenTradition}
                 />
               )}
               <div className={`tlv-axis-point ${entry.kind === "kingdoms" ? "person" : entry.kind}`} aria-hidden="true">
@@ -649,7 +700,7 @@ function PersonCard({ person, side, books, links, eventsById, focused, onViewPro
   );
 }
 
-function EventCard({ event, side, books, links, peopleById, focused, onScrollToProphet }: {
+function EventCard({ event, side, books, links, peopleById, focused, onScrollToProphet, producedTraditions, onOpenTradition }: {
   event: HistoricalEvent;
   side: "left" | "right";
   books: string[];
@@ -657,6 +708,8 @@ function EventCard({ event, side, books, links, peopleById, focused, onScrollToP
   peopleById: Map<string, Person>;
   focused: boolean;
   onScrollToProphet: (id: string) => void;
+  producedTraditions: Tradition[];
+  onOpenTradition: (id: string) => void;
 }) {
   return (
     <article id={`tlv-event-${event.id}`} tabIndex={-1} className={`tlv-card tlv-event-card ${side}${focused ? " focused" : ""}`}>
@@ -676,6 +729,11 @@ function EventCard({ event, side, books, links, peopleById, focused, onScrollToP
           </button>
         );
       })}
+      {producedTraditions.map(t => (
+        <button key={t.id} type="button" className="tlv-prophecy-link" onClick={() => onOpenTradition(t.id)}>
+          <span>Produced {t.name}</span>
+        </button>
+      ))}
     </article>
   );
 }

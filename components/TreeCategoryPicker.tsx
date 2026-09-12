@@ -1,10 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
-import type { Person, Relationship, ScriptureRef, Tradition, TraditionEdge } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { Person, Relationship, ScriptureRef, Tradition, TraditionEdge, TraditionPerson } from "@/lib/types";
 import { BIBLE_BOOKS } from "@/lib/types";
 import { FAMILIES, resolveFamilyMembers } from "@/lib/families";
 import { FamilyTree } from "./FamilyTree";
 import { TraditionTree } from "./TraditionTree";
+import { subscribeTraditionFocus, readTraditionFocus, type FocusRequest } from "@/lib/nav-bus";
 
 interface Props {
   people: Person[];
@@ -12,18 +13,33 @@ interface Props {
   refs: ScriptureRef[];
   traditions: Tradition[];
   traditionEdges: TraditionEdge[];
+  traditionPeople: TraditionPerson[];
   onSelect: (id: string) => void;
+  onOpenEvent: (id: string) => void;
 }
 
 type Step1 = "all" | "families" | "books" | "traditions" | "cults";
 
-export function TreeCategoryPicker({ people, relationships, refs, traditions, traditionEdges, onSelect }: Props) {
+export function TreeCategoryPicker({ people, relationships, refs, traditions, traditionEdges, traditionPeople, onSelect, onOpenEvent }: Props) {
   const [step1, setStep1] = useState<Step1 | null>(null);
   const [familyKey, setFamilyKey] = useState<string | null>(null);
   const [bookName, setBookName] = useState<string | null>(null);
+  const [traditionFocus, setTraditionFocus] = useState<FocusRequest | null>(null);
 
   const historicTraditions = useMemo(() => traditions.filter(t => t.kind !== "cult"), [traditions]);
   const cultTraditions = useMemo(() => traditions.filter(t => t.kind === "cult"), [traditions]);
+
+  // A person's profile can ask (via lib/nav-bus) to open this picker on a
+  // specific tradition — e.g. clicking "Founded Lutheranism" on Luther's
+  // profile. Routes to the traditions or cults map depending on the
+  // tradition's own kind, then hands the focus request to that map.
+  useEffect(() => subscribeTraditionFocus(() => {
+    const focus = readTraditionFocus();
+    if (!focus) return;
+    const t = traditions.find(x => x.id === focus.id);
+    setStep1(t?.kind === "cult" ? "cults" : "traditions");
+    setTraditionFocus(focus);
+  }), [traditions]);
 
   const bookCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -80,9 +96,14 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
         key="traditions"
         traditions={historicTraditions}
         edges={traditionEdges}
+        traditionPeople={traditionPeople}
+        people={people}
         title="Christian traditions"
         subtitle="After New Testament"
         onExitCategory={() => setStep1(null)}
+        onOpenEvent={onOpenEvent}
+        onSelectPerson={onSelect}
+        focusRequest={traditionFocus}
       />
     );
   }
@@ -96,9 +117,14 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
         key="cults"
         traditions={cultTraditions}
         edges={[]}
+        traditionPeople={traditionPeople}
+        people={people}
         title="Outside historic Christianity"
         subtitle="Not part of the tree above"
         onExitCategory={() => setStep1(null)}
+        onOpenEvent={onOpenEvent}
+        onSelectPerson={onSelect}
+        focusRequest={traditionFocus}
       />
     );
   }

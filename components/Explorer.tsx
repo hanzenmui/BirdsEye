@@ -5,7 +5,8 @@ import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
 import { useTraditions } from "@/hooks/useTraditions";
-import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
+import { requestEventFocus, requestTraditionFocus } from "@/lib/nav-bus";
+import type { Person, Relationship, ScriptureRef, RelationshipType, Tradition, TraditionPerson } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
 import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
@@ -76,6 +77,10 @@ function TestamentBadge({ testament }: { testament: Person["testament"] }) {
   const cls = testament === "OT" ? "badge-ot" : testament === "NT" ? "badge-nt" : testament === "CH" ? "badge-ch" : "badge-both";
   return <span className={`badge ${cls}`}>{TESTAMENT_LABELS[testament]}</span>;
 }
+
+const TRADITION_PERSON_ROLE_LABELS: Record<string, string> = {
+  founder: "Founder", key_figure: "Key figure", opponent: "Opponent", reformer: "Reformer",
+};
 
 interface PersonIndexCardProps {
   person: Person;
@@ -437,7 +442,10 @@ interface DetailPaneProps {
   person: Person;
   relationships: Relationship[];
   refs: ScriptureRef[];
+  traditions: Tradition[];
+  traditionPeople: TraditionPerson[];
   onNavigate: (id: string) => void;
+  onOpenTradition: (id: string) => void;
   onClose: () => void;
   onEdit: () => void;
   onAddRef: () => void;
@@ -446,7 +454,14 @@ interface DetailPaneProps {
   onDeleteRel: (id: string) => void;
   onDelete: () => void;
 }
-function DetailPane({ person, relationships, refs, onNavigate, onClose, onEdit, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
+function DetailPane({ person, relationships, refs, traditions, traditionPeople, onNavigate, onOpenTradition, onClose, onEdit, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
+  const personTraditions = useMemo(() => {
+    const traditionsById = new Map(traditions.map(t => [t.id, t]));
+    return traditionPeople
+      .filter(tp => tp.personId === person.id)
+      .map(tp => ({ tp, tradition: traditionsById.get(tp.traditionId) }))
+      .filter((x): x is { tp: TraditionPerson; tradition: Tradition } => !!x.tradition);
+  }, [traditions, traditionPeople, person.id]);
   const personRels = relationships.filter(r => r.personAId === person.id || r.personBId === person.id);
   const personRefs = refs.filter(r => r.personId === person.id).sort((a, b) => {
     const ba = BIBLE_BOOKS.find(bk => bk.name === a.book)?.order ?? 99;
@@ -505,6 +520,20 @@ function DetailPane({ person, relationships, refs, onNavigate, onClose, onEdit, 
           <div>
             <div className="detail-section-title">About</div>
             <p className="detail-about">{person.description}</p>
+          </div>
+        )}
+
+        {/* Traditions founded/belonged to — the other direction of the
+            Traditions map's "Founders & key figures" list. */}
+        {personTraditions.length > 0 && (
+          <div>
+            <div className="detail-section-title">Traditions</div>
+            {personTraditions.map(({ tp, tradition }) => (
+              <div key={tp.id} className="rel-item">
+                <span style={{ fontSize: 11, color: "var(--text3)", flexShrink: 0 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role}</span>
+                <button type="button" className="rel-person-name" onClick={() => onOpenTradition(tradition.id)}>{tradition.name}</button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -574,8 +603,11 @@ interface PeopleSectionProps {
   people: Person[];
   relationships: Relationship[];
   refs: ScriptureRef[];
+  traditions: Tradition[];
+  traditionPeople: TraditionPerson[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onOpenTradition: (id: string) => void;
   onAddPerson: () => void;
   onEditPerson: (p: Person) => void;
   onAddRef: (p: Person) => void;
@@ -584,7 +616,7 @@ interface PeopleSectionProps {
   onDeleteRel: (id: string) => void;
   onDeletePerson: (id: string) => void;
 }
-function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
+function PeopleSection({ people, relationships, refs, traditions, traditionPeople, selectedId, onSelect, onOpenTradition, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "OT" | "NT" | "both" | "CH">("all");
 
@@ -716,7 +748,10 @@ function PeopleSection({ people, relationships, refs, selectedId, onSelect, onAd
           person={selected}
           relationships={relationships}
           refs={refs}
+          traditions={traditions}
+          traditionPeople={traditionPeople}
           onNavigate={onSelect}
+          onOpenTradition={onOpenTradition}
           onClose={() => onSelect(selected.id)}
           onEdit={() => onEditPerson(selected)}
           onAddRef={() => onAddRef(selected)}
@@ -1111,7 +1146,7 @@ export function Explorer() {
   const { people, loading: loadingPeople, addPerson, updatePerson, deletePerson } = usePeople();
   const { relationships, addRelationship, deleteRelationship } = useRelationships();
   const { refs, addRef, deleteRef } = useRefs();
-  const { traditions, traditionEdges } = useTraditions();
+  const { traditions, traditionEdges, traditionPeople } = useTraditions();
 
   const [section, setSection] = useState<Section>("people");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1131,6 +1166,17 @@ export function Explorer() {
   const selectPerson = useCallback((id: string) => {
     setSelectedId(prev => prev === id ? null : id);
     setSection("people");
+  }, []);
+
+  // Cross-section navigation between the Traditions map and the Timeline —
+  // see lib/nav-bus for why this needs more than just a prop.
+  const navigateToEvent = useCallback((eventId: string) => {
+    setSection("timeline");
+    requestEventFocus(eventId);
+  }, []);
+  const navigateToTradition = useCallback((traditionId: string) => {
+    setSection("tree");
+    requestTraditionFocus(traditionId);
   }, []);
 
   const handleDeletePerson = useCallback(async (id: string) => {
@@ -1192,8 +1238,11 @@ export function Explorer() {
               people={people}
               relationships={relationships}
               refs={refs}
+              traditions={traditions}
+              traditionPeople={traditionPeople}
               selectedId={selectedId}
               onSelect={selectPerson}
+              onOpenTradition={navigateToTradition}
               onAddPerson={() => setShowAddPerson(true)}
               onEditPerson={p => setEditPersonFor(p)}
               onAddRef={p => setAddRefFor(p)}
@@ -1236,7 +1285,16 @@ export function Explorer() {
               <div className="section-subtitle">Pick a family or book to explore, or view the full tree</div>
             </div>
           </div>
-          <TreeCategoryPicker people={people} relationships={relationships} refs={refs} traditions={traditions} traditionEdges={traditionEdges} onSelect={selectPerson} />
+          <TreeCategoryPicker
+            people={people}
+            relationships={relationships}
+            refs={refs}
+            traditions={traditions}
+            traditionEdges={traditionEdges}
+            traditionPeople={traditionPeople}
+            onSelect={selectPerson}
+            onOpenEvent={navigateToEvent}
+          />
         </div>
 
         {/* Timeline section */}
@@ -1253,7 +1311,13 @@ export function Explorer() {
               <div className="section-subtitle">Who lived when, and when prophecy came true</div>
             </div>
           </div>
-          <Timeline onSelectPerson={selectPerson} active={section === "timeline"} />
+          <Timeline
+            onSelectPerson={selectPerson}
+            onOpenTradition={navigateToTradition}
+            traditions={traditions}
+            traditionEdges={traditionEdges}
+            active={section === "timeline"}
+          />
         </div>
 
         {/* Stats section */}

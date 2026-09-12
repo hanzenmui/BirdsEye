@@ -1,7 +1,15 @@
 "use client";
 import { useMemo, useRef, useReducer, useEffect, useCallback, useState } from "react";
-import type { Tradition, TraditionEdge, TraditionEdgeType } from "@/lib/types";
+import type { Tradition, TraditionEdge, TraditionEdgeType, TraditionPerson, Person } from "@/lib/types";
 import { formatOpenYearSpan, formatYear } from "@/lib/timeline-layout";
+import type { FocusRequest } from "@/lib/nav-bus";
+
+const TRADITION_PERSON_ROLE_LABELS: Record<string, string> = {
+  founder: "Founder",
+  key_figure: "Key figure",
+  opponent: "Opponent",
+  reformer: "Reformer",
+};
 
 // Overlay edge colors — split_from is the solid structural line drawn by the
 // layout itself (styled via .ft-parent-edge, same as the family tree's
@@ -149,12 +157,17 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
 interface Props {
   traditions: Tradition[];
   edges: TraditionEdge[];
+  traditionPeople: TraditionPerson[];
+  people: Person[];
   title: string;
   subtitle: string;
   onExitCategory: () => void;
+  onOpenEvent: (id: string) => void;
+  onSelectPerson: (id: string) => void;
+  focusRequest?: FocusRequest | null;
 }
 
-export function TraditionTree({ traditions, edges, title, subtitle, onExitCategory }: Props) {
+export function TraditionTree({ traditions, edges, traditionPeople, people, title, subtitle, onExitCategory, onOpenEvent, onSelectPerson, focusRequest }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -205,6 +218,11 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
     () => (detailId ? edges.filter(e => e.parentId === detailId).sort((a, b) => b.year - a.year) : []),
     [edges, detailId],
   );
+  const peopleById = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+  const detailPeople = useMemo(
+    () => (detailId ? traditionPeople.filter(tp => tp.traditionId === detailId) : []),
+    [traditionPeople, detailId],
+  );
 
   const getViewFrame = useCallback((reserveDetail: boolean): ViewFrame => {
     if (!containerRef.current) return { vpW: 0, vpH: 0 };
@@ -234,6 +252,15 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
     dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, zoom: Math.max(view.zoom, 0.82), topOffset, ...frame });
     setDetailId(id);
   }, [getViewFrame, posMap, view.zoom]);
+
+  // A person's profile can ask (via lib/nav-bus) to open this map on one
+  // specific tradition — e.g. clicking "Founded Lutheranism" on Luther's
+  // profile. jumpTo already centers the view and opens the detail panel.
+  useEffect(() => {
+    if (!focusRequest || !posMap.has(focusRequest.id)) return;
+    jumpTo(focusRequest.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest, posMap]);
 
   const fitView = useCallback(() => {
     if (!containerRef.current || !tree) return;
@@ -619,6 +646,28 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
               <div style={{ fontSize: 11.5, color: "var(--text3, #888)", fontStyle: "italic", lineHeight: 1.5 }}>{detailTradition.dateUncertaintyNote}</div>
             )}
 
+            {detailPeople.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 6 }}>Founders &amp; key figures</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {detailPeople.map(tp => {
+                    const person = peopleById.get(tp.personId);
+                    return (
+                      <div key={tp.id} style={{ fontSize: 12 }}>
+                        <span style={{ color: "var(--text3, #888)", fontSize: 11 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role} · </span>
+                        {person ? (
+                          <button type="button" className="ft-detail-rel-link" onClick={() => onSelectPerson(person.id)}>{person.name}</button>
+                        ) : (
+                          <span className="ft-detail-rel-name">Unknown</span>
+                        )}
+                        {tp.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{tp.notes}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {detailParentEdges.length > 0 && (
               <div>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 6 }}>Where it came from</div>
@@ -636,6 +685,11 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
                         )}
                         <span style={{ color: "var(--text3, #888)", fontSize: 11 }}> · {formatYear(e.year)}</span>
                         {e.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{e.notes}</div>}
+                        {e.eventId && (
+                          <button type="button" className="ft-detail-rel-link" style={{ display: "block", marginTop: 2 }} onClick={() => onOpenEvent(e.eventId!)}>
+                            Open on timeline →
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -661,6 +715,11 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
                         )}
                         <span style={{ color: "var(--text3, #888)", fontSize: 11 }}> · {EDGE_TYPE_LABELS[e.type].toLowerCase()} · {formatYear(e.year)}</span>
                         {e.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{e.notes}</div>}
+                        {e.eventId && (
+                          <button type="button" className="ft-detail-rel-link" style={{ display: "block", marginTop: 2 }} onClick={() => onOpenEvent(e.eventId!)}>
+                            Open on timeline →
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -668,7 +727,7 @@ export function TraditionTree({ traditions, edges, title, subtitle, onExitCatego
               </div>
             )}
 
-            {!detailTradition.description && !detailTradition.distinctives && detailParentEdges.length === 0 && detailChildEdges.length === 0 && (
+            {!detailTradition.description && !detailTradition.distinctives && detailPeople.length === 0 && detailParentEdges.length === 0 && detailChildEdges.length === 0 && (
               <div style={{ fontSize: 12, color: "var(--text3, #888)", fontStyle: "italic" }}>No additional information recorded.</div>
             )}
           </div>
