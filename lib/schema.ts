@@ -95,4 +95,64 @@ export const MIGRATIONS: string[] = [
   // primary, single-viewpoint framing. Uses the same table_info check as the
   // timeline columns above.
   `ALTER TABLE prophecy_links ADD COLUMN uncertainty_note TEXT NOT NULL DEFAULT ''`,
+
+  // Traditions (denominations, communions, movements) — see
+  // docs/superpowers/specs/2026-09-11-church-history-design.md. A tradition is
+  // not a person: it can still exist (end_year NULL, "1054-present"), and its
+  // "family tree" is a tree of splits, not of births. CREATE TABLE IF NOT
+  // EXISTS is the right form for a brand-new table (unlike the ADD COLUMN
+  // lines above), and lib/db.ts's table_info check only applies to those.
+  `CREATE TABLE IF NOT EXISTS traditions (
+    id                    TEXT PRIMARY KEY,
+    name                  TEXT NOT NULL,
+    also_known_as         TEXT NOT NULL DEFAULT '',
+    kind                  TEXT NOT NULL DEFAULT 'denomination',
+    tier                  INTEGER NOT NULL DEFAULT 3,
+    start_year            INTEGER NOT NULL,
+    end_year              INTEGER,
+    region                TEXT NOT NULL DEFAULT '',
+    description           TEXT NOT NULL DEFAULT '',
+    distinctives          TEXT NOT NULL DEFAULT '',
+    adherents             TEXT NOT NULL DEFAULT '',
+    date_uncertainty_note TEXT NOT NULL DEFAULT '',
+    date_confidence       TEXT NOT NULL DEFAULT 'firm',
+    created_at            TEXT NOT NULL
+  )`,
+
+  // Structural edges (split_from, merged_into) build the descent tree the
+  // family-tree renderer walks; decorative edges (influenced_by,
+  // renewal_within) are drawn as overlay lines, not tree structure. event_id
+  // ties an edge back to the council/schism/founding event that caused it,
+  // where one exists in historical_events. Per Hanzen: a kind='cult'
+  // tradition (see the traditions table) must NEVER appear as parent_id or
+  // child_id here — enforced by scripts/verify-traditions.ts, not by the
+  // schema, since SQLite has no cross-table CHECK.
+  `CREATE TABLE IF NOT EXISTS tradition_edges (
+    id           TEXT PRIMARY KEY,
+    parent_id    TEXT NOT NULL,
+    child_id     TEXT NOT NULL,
+    type         TEXT NOT NULL DEFAULT 'split_from',
+    year         INTEGER NOT NULL,
+    event_id     TEXT,
+    notes        TEXT NOT NULL DEFAULT '',
+    created_at   TEXT NOT NULL
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_tradition_edges_unique
+   ON tradition_edges (parent_id, type, child_id)`,
+
+  // Links a tradition to the people who founded it, led it, opposed it, or
+  // reformed it — the join that lets a tradition's card list its founders and
+  // a person's own profile say which tradition they founded.
+  `CREATE TABLE IF NOT EXISTS tradition_people (
+    id            TEXT PRIMARY KEY,
+    tradition_id  TEXT NOT NULL,
+    person_id     TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'key_figure',
+    notes         TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_tradition_people_unique
+   ON tradition_people (tradition_id, person_id, role)`,
 ];

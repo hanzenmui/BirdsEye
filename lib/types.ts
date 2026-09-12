@@ -109,6 +109,71 @@ export interface ScriptureRef {
   eventId: string | null;
 }
 
+// ── Traditions (denominations, communions, movements) ───────────────────────
+// See docs/superpowers/specs/2026-09-11-church-history-design.md. A
+// tradition's "family tree" is a tree of splits, not of births — the Family
+// Tree component is widened to render both, per that design doc's
+// TreeNode/TreeEdge interfaces, rather than forking a second renderer.
+
+// A *movement* (Holiness, Pentecostalism, Evangelicalism) cuts across
+// denominations rather than being one; a *cult* (per Hanzen's explicit
+// instruction — see the design doc) carries NO edges into the historic
+// descent tree at all, structural or decorative, and appears only in its own
+// tree-picker category.
+export const TRADITION_KINDS = ["communion", "tradition", "denomination", "movement", "cult"] as const;
+export type TraditionKind = (typeof TRADITION_KINDS)[number];
+
+// 1 = the great communions, 2 = traditions/families, 3 = individual
+// denominations. Lets the tree collapse by depth.
+export type TraditionTier = 1 | 2 | 3;
+
+export interface Tradition {
+  id: string;
+  name: string;
+  alsoKnownAs: string;
+  kind: TraditionKind;
+  tier: TraditionTier;
+  startYear: number;         // same negative-for-AD convention as timelineStartBc
+  endYear: number | null;    // null = still exists ("1054-present")
+  region: string;
+  description: string;
+  distinctives: string;      // what actually marks it out, in its own terms
+  adherents: string;         // display string, e.g. "~1.4 billion" -- may go stale, not a live count
+  dateUncertaintyNote: string;
+  dateConfidence: DateConfidence;
+  createdAt: string;
+}
+
+// Structural edges build the descent tree; decorative edges are drawn as
+// overlay lines, exactly like the family tree already treats parent_of vs.
+// every other RelationshipType.
+export const TRADITION_EDGE_TYPES = ["split_from", "merged_into", "influenced_by", "renewal_within"] as const;
+export type TraditionEdgeType = (typeof TRADITION_EDGE_TYPES)[number];
+export const STRUCTURAL_TRADITION_EDGE_TYPES: readonly TraditionEdgeType[] = ["split_from", "merged_into"];
+
+export interface TraditionEdge {
+  id: string;
+  parentId: string;
+  childId: string;
+  type: TraditionEdgeType;
+  year: number;
+  eventId: string | null;    // the council/schism/founding event, where one exists
+  notes: string;
+  createdAt: string;
+}
+
+export const TRADITION_PERSON_ROLES = ["founder", "key_figure", "opponent", "reformer"] as const;
+export type TraditionPersonRole = (typeof TRADITION_PERSON_ROLES)[number];
+
+export interface TraditionPerson {
+  id: string;
+  traditionId: string;
+  personId: string;
+  role: TraditionPersonRole;
+  notes: string;
+  createdAt: string;
+}
+
 export interface BibleBook {
   name: string;
   testament: "OT" | "NT";

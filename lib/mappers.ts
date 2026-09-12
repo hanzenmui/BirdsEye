@@ -1,5 +1,8 @@
 import { GENDERS, TESTAMENTS, RELATIONSHIP_LABELS } from "./types";
-import type { Person, Relationship, ScriptureRef, RelationshipType, HistoricalEvent, ProphecyLink } from "./types";
+import type {
+  Person, Relationship, ScriptureRef, RelationshipType, HistoricalEvent, ProphecyLink,
+  Tradition, TraditionEdge, TraditionPerson,
+} from "./types";
 
 export function formatRef(r: ScriptureRef): string {
   const same = r.chapterStart === r.chapterEnd;
@@ -136,6 +139,52 @@ export function prophecyLinkFromDb(r: any): ProphecyLink {
     explanation:            r.explanation ?? "",
     uncertaintyNote:        r.uncertainty_note ?? "",
     createdAt:              r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function traditionFromDb(r: any): Tradition {
+  return {
+    id:                  r.id,
+    name:                r.name,
+    alsoKnownAs:         r.also_known_as ?? "",
+    kind:                r.kind ?? "denomination",
+    tier:                r.tier ?? 3,
+    startYear:           r.start_year,
+    endYear:             r.end_year ?? null,
+    region:              r.region ?? "",
+    description:         r.description ?? "",
+    distinctives:        r.distinctives ?? "",
+    adherents:           r.adherents ?? "",
+    dateUncertaintyNote: r.date_uncertainty_note ?? "",
+    dateConfidence:      r.date_confidence ?? "firm",
+    createdAt:           r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function traditionEdgeFromDb(r: any): TraditionEdge {
+  return {
+    id:        r.id,
+    parentId:  r.parent_id,
+    childId:   r.child_id,
+    type:      r.type ?? "split_from",
+    year:      r.year,
+    eventId:   r.event_id ?? null,
+    notes:     r.notes ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function traditionPersonFromDb(r: any): TraditionPerson {
+  return {
+    id:           r.id,
+    traditionId:  r.tradition_id,
+    personId:     r.person_id,
+    role:         r.role ?? "key_figure",
+    notes:        r.notes ?? "",
+    createdAt:    r.created_at,
   };
 }
 

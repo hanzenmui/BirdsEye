@@ -40,6 +40,7 @@
     "seed:timeline": "npx tsx scripts/seed-timeline.ts",
     "seed:nt-timeline": "npx tsx scripts/seed-nt-timeline.ts",
     "seed:church-history": "npx tsx scripts/seed-church-history.ts",
+    "seed:traditions": "npx tsx scripts/seed-traditions.ts",
     "seed:chapter-gaps": "npx tsx scripts/seed-chapter-gaps.ts",
     "seed:israel-succession": "npx tsx scripts/seed-israel-succession.ts",
     "seed:prophets-under-kings": "npx tsx scripts/seed-prophets-under-kings.ts",
@@ -47,7 +48,8 @@
     "sync:prod": "npx tsx scripts/sync-to-prod.ts",
     "verify:reference-search": "npx tsx scripts/verify-reference-search.ts",
     "verify:timeline": "npx tsx scripts/verify-timeline.ts",
-    "verify:layout": "npx tsx scripts/verify-timeline-layout.ts"
+    "verify:layout": "npx tsx scripts/verify-timeline-layout.ts",
+    "verify:traditions": "npx tsx scripts/verify-traditions.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
