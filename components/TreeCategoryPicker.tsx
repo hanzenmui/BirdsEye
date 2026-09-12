@@ -1,23 +1,29 @@
 "use client";
 import { useMemo, useState } from "react";
-import type { Person, Relationship, ScriptureRef } from "@/lib/types";
+import type { Person, Relationship, ScriptureRef, Tradition, TraditionEdge } from "@/lib/types";
 import { BIBLE_BOOKS } from "@/lib/types";
 import { FAMILIES, resolveFamilyMembers } from "@/lib/families";
 import { FamilyTree } from "./FamilyTree";
+import { TraditionTree } from "./TraditionTree";
 
 interface Props {
   people: Person[];
   relationships: Relationship[];
   refs: ScriptureRef[];
+  traditions: Tradition[];
+  traditionEdges: TraditionEdge[];
   onSelect: (id: string) => void;
 }
 
-type Step1 = "all" | "families" | "books";
+type Step1 = "all" | "families" | "books" | "traditions" | "cults";
 
-export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Props) {
+export function TreeCategoryPicker({ people, relationships, refs, traditions, traditionEdges, onSelect }: Props) {
   const [step1, setStep1] = useState<Step1 | null>(null);
   const [familyKey, setFamilyKey] = useState<string | null>(null);
   const [bookName, setBookName] = useState<string | null>(null);
+
+  const historicTraditions = useMemo(() => traditions.filter(t => t.kind !== "cult"), [traditions]);
+  const cultTraditions = useMemo(() => traditions.filter(t => t.kind === "cult"), [traditions]);
 
   const bookCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -61,6 +67,38 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
         refs={refs}
         onSelect={onSelect}
         scope={{ label: family.label, memberIds, onBack: () => setFamilyKey(null) }}
+      />
+    );
+  }
+
+  // Traditions — the split/merge history of every Christian communion,
+  // denomination and movement "out there," per Hanzen's explicit instruction
+  // this app never names one side of a split "the true main church."
+  if (step1 === "traditions") {
+    return (
+      <TraditionTree
+        key="traditions"
+        traditions={historicTraditions}
+        edges={traditionEdges}
+        title="Christian traditions"
+        subtitle="After New Testament"
+        onExitCategory={() => setStep1(null)}
+      />
+    );
+  }
+
+  // Cults — Mormons, Jehovah's Witnesses, Christian Science. Kept entirely
+  // off the historic tree above: this view passes zero edges, so each one
+  // renders as its own unconnected node, visually and structurally separate.
+  if (step1 === "cults") {
+    return (
+      <TraditionTree
+        key="cults"
+        traditions={cultTraditions}
+        edges={[]}
+        title="Outside historic Christianity"
+        subtitle="Not part of the tree above"
+        onExitCategory={() => setStep1(null)}
       />
     );
   }
@@ -198,6 +236,20 @@ export function TreeCategoryPicker({ people, relationships, refs, onSelect }: Pr
           <strong>Browse by book</strong>
           <small>See every recorded person from one book in a focused view.</small>
           <span className="tree-entry-meta">{BIBLE_BOOKS.filter(b => (bookCounts.get(b.name) ?? 0) > 0).length} books indexed <b>Choose book →</b></span>
+        </button>
+        <button type="button" className="tree-entry-card" onClick={() => setStep1("traditions")}>
+          <span className="tree-entry-index">04</span>
+          <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5V12M12 12l-6 4M12 12l6 4M6 16v3M18 16v3"/></svg></span>
+          <strong>Christian traditions</strong>
+          <small>After New Testament: how the church split into today&apos;s denominations.</small>
+          <span className="tree-entry-meta">{historicTraditions.length} traditions <b>Open map →</b></span>
+        </button>
+        <button type="button" className="tree-entry-card" onClick={() => setStep1("cults")}>
+          <span className="tree-entry-index">05</span>
+          <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><line x1="7" y1="7" x2="17" y2="17"/></svg></span>
+          <strong>Outside historic Christianity</strong>
+          <small>Mormonism, Jehovah&apos;s Witnesses, and Christian Science — kept off the tree above.</small>
+          <span className="tree-entry-meta">{cultTraditions.length} groups <b>Open map →</b></span>
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
+import { useTraditions } from "@/hooks/useTraditions";
 import type { Person, Relationship, ScriptureRef, RelationshipType } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
 import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } from "@/lib/mappers";
@@ -1110,6 +1111,7 @@ export function Explorer() {
   const { people, loading: loadingPeople, addPerson, updatePerson, deletePerson } = usePeople();
   const { relationships, addRelationship, deleteRelationship } = useRelationships();
   const { refs, addRef, deleteRef } = useRefs();
+  const { traditions, traditionEdges } = useTraditions();
 
   const [section, setSection] = useState<Section>("people");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1234,7 +1236,7 @@ export function Explorer() {
               <div className="section-subtitle">Pick a family or book to explore, or view the full tree</div>
             </div>
           </div>
-          <TreeCategoryPicker people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
+          <TreeCategoryPicker people={people} relationships={relationships} refs={refs} traditions={traditions} traditionEdges={traditionEdges} onSelect={selectPerson} />
         </div>
 
         {/* Timeline section */}
