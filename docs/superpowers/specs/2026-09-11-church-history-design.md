@@ -1,7 +1,7 @@
 # Church History on the Timeline & Family Tree — Design
 
-**Date:** 2026-09-11
-**Status:** Draft for review — no code written yet
+**Date:** 2026-09-11 (revised same day per Hanzen's decisions)
+**Status:** Design decisions final — implementation in progress
 **Roadmap:** items 2 and 3 in `Vault/Apps/BirdsEye.md`, taken together
 
 ## Plain-English summary
@@ -21,19 +21,26 @@ Three things make this more than "add more rows":
 3. **Splits are contested.** Who "left" whom is exactly what the parties disagree
    about. The tree has to be built so it does not take a side.
 
-## The editorial rule this whole feature rests on
+## The editorial rule this whole feature rests on — REVISED 2026-09-11 per Hanzen
 
 **A split branches a shared parent into children. It never hangs one body off the
-other.**
+other, and the app never picks a side about who "the real church" is.**
 
-This matters more than any technical decision here. Catholics and Orthodox both
-claim unbroken continuity with the undivided church; so, in their own terms, do
-Anglicans, and the Church of the East predates the quarrel entirely. If the tree
-draws Eastern Orthodoxy as a *child of* Roman Catholicism, the app has silently
-taken Rome's side, and a third of the world's Christians would call it false.
+Hanzen's explicit instruction, verbatim: *"When the splits happen, don't keep one
+church as the true main church. Just show that they split at this time. So even
+though Catholics and Orthodox both claim to be the original church, we're not
+gonna say which one's the original church in this app. We're just showing the
+history of where things split and how things got to today."*
 
-So at every division, the node that existed before the split ends, and two or more
-children begin:
+This overrides an earlier draft of this document, which had argued Rome should be
+drawn as *continuing* through the Reformation with Protestants as its children —
+reasoning that Rome kept its name and hierarchy while new movements formed. That
+argument is exactly the kind of continuity claim Hanzen is telling the app to stay
+out of. Applying it consistently, not just to the case that prompted it, means:
+
+**Every major communion-level split ends the parent node and starts two or more
+new, equal sibling nodes. No sibling inherits the parent's name or identity as
+though it alone continued.**
 
 ```
                     ┌─ Roman Catholic Church (1054– )
@@ -41,29 +48,35 @@ Chalcedonian Church ┤
       (451–1054)    └─ Eastern Orthodox Church (1054– )
 ```
 
-not
+and, the corrected case:
 
 ```
-Roman Catholic Church ── Eastern Orthodox Church
+                ┌─ Roman Catholic Church (1517– )
+Western Church  ├─ Lutheran (1517– )
+   (1054–1517)  ├─ Reformed (1517– )
+                ├─ Anglican (1517– )
+                └─ Anabaptist (1517– )
 ```
 
-**But the rule only applies where the parties are actually symmetric**, and that is
-the distinction to hold onto. It covers Chalcedon (451) and the Great Schism (1054),
-where neither side can claim to be the body the other left.
+**"Roman Catholic Church" is a new node in 1517, not the same node the Chalcedonian
+split produced in 1054.** It happens to share a name with what came before, the way
+"Church of God" happens to name two unrelated 19th-century bodies — but the tree
+draws no edge asserting that the institution before 1517 and the Roman Catholic
+Church after 1517 are one continuous thing, any more than it asserts that for
+Orthodoxy. Historically defensible either way; the point is the app takes neither
+position.
 
-It does **not** cover 1517. Rome carried on through the Reformation as the same
-institution — same see, same hierarchy, same identity — and the Reformers said
-themselves that they were leaving it. So Lutheran, Reformed, Anglican and Anabaptist
-are straight children of the Roman Catholic Church, which continues unbroken
-alongside them. Branching Rome at 1517, as though the Catholic Church ended that
-year, would be as false as hanging Orthodoxy off Rome at 1054.
+**Where this does NOT apply: ordinary denominational formation**, where nobody
+seriously disputes that the parent continued unaffected. Methodists leaving the
+Church of England, Pentecostals leaving the Holiness movement, Baptists forming out
+of English Separatism — these are plain `split_from` edges, parent unbroken, because
+there is no "who's the real one" argument to sidestep. The rule above targets the
+handful of places where a real, live, contested continuity claim exists: Ephesus
+(431), Chalcedon (451), the Great Schism (1054), and now the Reformation (1517).
+At all four, the pre-split node ends and every resulting body is a same-generation
+child of it.
 
-Nor does it cover 431: the Church of the East was already a distinct church under
-Persian rule that declined to follow an imperial council, while the imperial church
-carried on. Straight descent.
-
-So: **branch at 451 and 1054, straight descent everywhere else.** The full shape is
-drawn out in section 2 of the findings doc.
+The full corrected trunk is drawn out in section 2 of the findings doc.
 
 ## Year representation — already solved
 
@@ -83,25 +96,32 @@ carries 13 lanes across 1,500 years; church history adds both ~2,000 more years 
 another 5–6 lanes. At full span every segment is a sliver and the lane stack is
 taller than any screen.
 
-**Add a three-way scope control next to the existing orientation toggle:**
+**Add a four-way scope control next to the existing orientation toggle:**
 
-| Act | Span | Lanes shown |
-|---|---|---|
-| Old Testament | 2166 – 5 BC | judges, kings, prophets |
-| New Testament | 5 BC – AD 100 | Jesus, apostles, Rome, Herod, priests |
-| Church History | AD 30 – present | traditions, councils, figures |
-| Everything | full | all (the current behaviour) |
+| Act (id) | Displayed as | Span | Lanes shown |
+|---|---|---|---|
+| `old-testament` | **Old Testament** | 2166 – 5 BC | judges, kings, prophets |
+| `new-testament` | **New Testament** | 5 BC – AD 100 | Jesus, apostles, Rome, Herod, priests |
+| `after-nt` | **After New Testament** | AD 30 – present | traditions, councils, figures |
+| `everything` | **Everything** | full | all (the current behaviour) |
+
+Per Hanzen: this era is not "Old Testament" and not "New Testament," and the act's
+displayed name says so directly rather than using an insider label like "Church
+History." Internally the code can call the id/track-prefix whatever is clearest
+(`after-nt` for the act, `'CH'` kept as the internal `testament` enum value for
+people — see below) — only the user-facing label is contractually "After New
+Testament."
 
 This is not a new feature so much as a viewport preset: it sets the axis range, hides
 lanes that are empty for that act, and picks a sensible default zoom. "Everything"
 keeps the continuous creation-to-today view the roadmap asks for, for when you want
 to see the whole shape at once.
 
-It also cleanly answers a problem church history creates for the book filter (below),
-and it gives the vertical view a way to not be 40 chapters long.
+It also cleanly answers a problem this era creates for the book filter (below), and
+it gives the vertical view a way to not be 40 chapters long.
 
 Deliberately overlapping at the seams: the New Testament act runs to AD 100 and
-Church History starts at AD 30, because Acts is genuinely both.
+After New Testament starts at AD 30, because Acts is genuinely both.
 
 ### Consequences for the existing zoom
 
@@ -124,7 +144,8 @@ act's span rather than a constant.
   **One real snag here.** `people.testament` is `'OT' | 'NT' | 'both'`, NOT NULL,
   defaulting to `'OT'`. Augustine is none of those. Seeding him as `'OT'` would be
   nonsense and would corrupt the People browser's counts, which currently read
-  `OT 352 / NT 157`. A fourth value — `'CH'`, labelled "Church history" — needs
+  `OT 352 / NT 157`. A fourth value — `'CH'` internally, labelled **"After New
+  Testament"** in every user-facing spot per Hanzen's naming instruction — needs
   adding to `TESTAMENTS` in `lib/types.ts`, to the filter chips in `Explorer.tsx`,
   and to any place that assumes three. This is small but it is a prerequisite, not
   an afterthought: get it wrong and the 66-book work just audited starts reporting
@@ -152,16 +173,34 @@ CREATE TABLE IF NOT EXISTS traditions (
 );
 ```
 
-- `kind`: `communion` | `tradition` | `denomination` | `movement`. A *movement*
-  (Holiness, Pentecostalism, Evangelicalism) cuts across denominations rather than
-  being one — worth distinguishing so the tree can style it differently, because
-  drawing Evangelicalism as a denomination would be wrong.
+- `kind`: `communion` | `tradition` | `denomination` | `movement` | `cult`. A
+  *movement* (Holiness, Pentecostalism, Evangelicalism) cuts across denominations
+  rather than being one — worth distinguishing so the tree can style it
+  differently, because drawing Evangelicalism as a denomination would be wrong.
 - `tier`: 1 = the great communions, 2 = traditions/families, 3 = individual
   denominations. Lets the tree collapse by depth, which is how ~50 nodes stay
   readable. Start with tiers 1–2 visible and tier 3 on demand.
 - `distinctives` is the field that makes this useful to you rather than trivia —
   the roadmap asks "what's distinct about each", and that is a first-class column,
   not something buried in prose.
+
+**`kind: 'cult'`, per Hanzen's explicit instruction.** Mormonism (LDS), Jehovah's
+Witnesses and Christian Science are seeded as `traditions` rows with
+`kind = 'cult'`, tier 2, but **carry no `tradition_edges` row into the historic
+descent tree at all** — no `split_from`, no `influenced_by`, nothing. They render
+only inside a dedicated tree-picker category ("Outside Historic Christianity" or
+similar — copy TBD, kind must literally be `'cult'` in the data), never nested
+under Protestant/Restoration lineage, and never appear when browsing "Everything
+from Acts." Each still gets `distinctives` and a start year, because the point is
+to make them findable and clearly separated, not to omit them from the app.
+
+**`Non-denominational` is the default landing spot, not an edge case.** A single
+tier-2 tradition row, `kind: 'movement'`, no fixed parent (or a loose
+`influenced_by` back to Evangelicalism/independent-church roots, non-structural),
+dated to the mid-20th-century rise of independent churches. Any real congregation
+that does not cleanly map onto a named historic denomination — which by number of
+congregations is most of American Christianity today — points here rather than
+being left out or awkwardly forced under a lineage it does not actually belong to.
 
 ### New: `tradition_edges`
 
@@ -304,18 +343,18 @@ listed because getting them wrong is what would make the feature embarrassing.
 - **Denominational self-description beats outside summary** in the `distinctives`
   field. Describe what a body says it is for, not what its critics say it is against.
 
-## Open question for you
+## Resolved 2026-09-11 — no longer open
 
-**Which Church of God is Oakland Church of God?** The two main American bodies with
-that name are unrelated: Anderson, Indiana (1881, D. S. Warner, Holiness, *not*
-Pentecostal) and Cleveland, Tennessee (1886, the oldest American Pentecostal
-denomination). There are also several smaller ones. Knowing which lets the tree end
-on *your* branch, which is the most useful thing this feature could do for you —
-being able to trace your own church back to Acts. I have left the leaf unnamed until
-you say.
+**Whether to trace Oakland Church of God's specific lineage:** no. Per Hanzen, this
+does not need to trace any one church specifically — the goal is general coverage
+("what is everybody out there"), with **Non-denominational** as the honest catch-all
+for anything that does not cleanly map onto a named historic body. Both Churches of
+God (Anderson and Cleveland — still unrelated to each other) are seeded at tier 3 as
+ordinary entries, same as any other denomination; neither is treated as more
+significant than the other.
 
-The `DOC` class names in your ministry notes did not settle it — that reads like a
-local program name rather than a denominational marker.
+**Cults:** off the descent tree entirely, in their own `kind: 'cult'` category. See
+above.
 
 ## Scope recommendation
 
@@ -323,12 +362,15 @@ local program name rather than a denominational marker.
 
 - **Tier 1 (8):** Church of the East, Oriental Orthodox, Eastern Orthodox, Roman
   Catholic, Lutheran, Reformed, Anglican, Anabaptist.
-- **Tier 2 (~18):** Coptic/Armenian/Ethiopian/Syriac separately; Presbyterian,
+- **Tier 2 (~19):** Coptic/Armenian/Ethiopian/Syriac separately; Presbyterian,
   Congregational, Baptist, Methodist, Holiness, Pentecostal, Restoration,
-  Adventist, Quaker, Moravian, Evangelicalism, Non-denominational.
-- **Tier 3 (~25):** the specific bodies worth naming, including both Churches of God,
-  Assemblies of God, Southern Baptist, United Methodist, PCUSA/PCA, LCMS/ELCA,
-  Episcopal, Vineyard, Calvary Chapel.
+  Adventist, Quaker, Moravian, Evangelicalism, **Non-denominational**.
+- **Tier 3 (~25):** the specific bodies worth naming, including both Churches of God
+  (Anderson and Cleveland, unrelated to each other), Assemblies of God, Southern
+  Baptist, United Methodist, PCUSA/PCA, LCMS/ELCA, Episcopal, Vineyard, Calvary
+  Chapel.
+- **Cult category (3, off-tree):** Latter-day Saints (Mormon), Jehovah's Witnesses,
+  Christian Science.
 
 That is enough to find nearly any church someone actually attends without turning the
 tree into a bush.

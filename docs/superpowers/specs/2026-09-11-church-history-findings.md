@@ -66,39 +66,61 @@ which is what the timeline already does for the prophets.
 
 ## 2. The trunk — how the four great divisions are shaped
 
-This is the part that has to be right. See the design doc's editorial rule.
+**REVISED 2026-09-11 per Hanzen — every major split branches, none straight-descends.**
+An earlier version of this document had 431 and 1517 as "straight descent" (one side
+treated as the unbroken continuation). Hanzen's explicit instruction rejects that for
+*any* split, not only Chalcedon and the Great Schism: *"when the splits happen, don't
+keep one church as the true main church... we're not gonna say which one's the
+original church in this app."* Corrected trunk:
 
 ```
 Apostolic Church (30–100)
         │
-Early Church (100–451)
-        ├──[431, Ephesus]──→ Church of the East (431– )          ← straight descent
+Early Church (100–431)
         │
-        └──[451, Chalcedon]─┬─→ Oriental Orthodox (451– )        ← BRANCH
-                            └─→ Chalcedonian Church (451–1054)
-                                        │
-                            [1054, Great Schism]                  ← BRANCH
-                                        ├─→ Roman Catholic Church (1054– )
-                                        └─→ Eastern Orthodox Church (1054– )
-                                                    │
-Roman Catholic Church ──[1517, Reformation]──┬─→ Lutheran            ← straight descent
-   (continues, unbroken)                     ├─→ Reformed
-                                             ├─→ Anglican
-                                             └─→ Anabaptist
+   [431 · Council of Ephesus]                          ← BRANCH
+        ├──→ Church of the East (431– )
+        └──→ The Imperial Church (431–451)
+                    │
+             [451 · Council of Chalcedon]               ← BRANCH
+                    ├──→ Oriental Orthodox (451– )
+                    └──→ Chalcedonian Church (451–1054)
+                                │
+                         [1054 · The Great Schism]       ← BRANCH
+                                ├──→ Eastern Orthodox Church (1054– )
+                                └──→ Western Church (1054–1517)
+                                            │
+                                     [1517 · The Reformation] ← BRANCH
+                                            ├──→ Roman Catholic Church (1517– )
+                                            ├──→ Lutheran (1517– )
+                                            ├──→ Reformed (1517– )
+                                            ├──→ Anglican (1517– )
+                                            └──→ Anabaptist (1517– )
 ```
 
-**Why 451 and 1054 branch but 431 and 1517 do not.** Where the separating parties are
-roughly symmetric and neither can claim to be the body the other left, the parent node
-must end and children begin — otherwise the app takes a side. That is Chalcedon and the
-Great Schism.
+Every one of the four councils/events above (431, 451, 1054, 1517) is a `split_from`
+edge set where **all children start at the same year and none is the pre-split node
+under a new coat of paint.** "Western Church (1054–1517)" and "The Imperial Church
+(431–451)" are deliberately neutral, purpose-built node names — not "Roman Catholic
+Church" or "Eastern Orthodox Church" pre-dating their actual 1517/451 starting points
+— precisely so that neither the Catholic nor the Orthodox nor any Reformation body can
+be read as "the one that was already there." **Roman Catholic Church as a named node
+starts in 1517, exactly like Lutheran, Reformed, Anglican and Anabaptist do**, holding
+the app's line evenly across every branch of the tree, not only the branch someone
+happened to ask about.
 
-Where one party demonstrably continued as the same institution while others separated
-from it, straight descent is the honest shape. The Church of the East was already a
-distinct church under Persian rule that declined to follow an imperial council, and
-the imperial church carried on; Rome carried on through 1517 with its see, hierarchy
-and identity intact, which is what the Reformers themselves said they were leaving.
-Drawing Rome as a *child* of the Reformation would be as false as drawing Orthodoxy
-as a child of Rome.
+Note that the 1517 split is downstream of the Western branch of 1054 only — Eastern
+Orthodoxy is untouched by the Reformation and simply continues as its own node with
+no further branching required in this trunk.
+
+**Oriental Orthodox's five members are a special case worth noting honestly.** Coptic,
+Armenian, Ethiopian, Syriac and Malankara were never one single administrative church
+that later fragmented into five — they were separate national churches from early on
+that share a common Christology and later recognised each other as being in
+communion. Modelling them as five `split_from` children of "Oriental Orthodox" dated
+to 451 is a simplification for the tree's sake, not a historical claim that one
+"Oriental Orthodox Church" existed first and then split five ways; the
+`tradition_edges.notes` field for each of these five edges should say so plainly.
 
 ---
 
@@ -235,15 +257,39 @@ Confidence column: F = firm, G = good, U = uncertain.
 
 ### Trunk
 
+`Western Church` and `The Imperial Church` are neutral placeholder names for the
+pre-split node at 1054 and 431 respectively — not "Roman Catholic Church" or
+"Eastern Orthodox Church" wearing an earlier costume. See the branching note above.
+
 | Name | Kind | Tier | Start | End | Distinctive |
 |---|---|---|---|---|---|
 | The Apostolic Church | C | 1 | 30 | 100 | The church of the apostles themselves; no divisions yet to name |
-| The Early Church | C | 1 | 100 | 451 | Bishops, canon and creed take shape under persecution, then under an emperor |
+| The Early Church | C | 1 | 100 | 431 | Bishops, canon and creed take shape under persecution, then under an emperor |
 | Church of the East | C | 1 | 431 | – | Ancient church of Persia and the Silk Road; reached China by 635. Rejects the label "Nestorian" |
+| The Imperial Church | C | 1 | 431 | 451 | The church of the Roman Empire after Persia's church went its own way, still one body East and West |
 | Oriental Orthodox | C | 1 | 451 | – | Miaphysite: Christ's divinity and humanity united in one nature without confusion — not the "monophysitism" Chalcedon condemned |
 | The Chalcedonian Church | C | 1 | 451 | 1054 | The imperial church East and West, holding Christ in two natures |
 | Eastern Orthodox Church | C | 1 | 1054 | – | Conciliar, not papal; the seven councils; theology as worship. ~220 million |
-| Roman Catholic Church | C | 1 | 1054 | – | Universal jurisdiction of the bishop of Rome; seven sacraments; scripture and tradition together. ~1.4 billion |
+| Western Church | C | 1 | 1054 | 1517 | Latin-rite Christendom under Rome, before the Reformation divided it further |
+| Roman Catholic Church | C | 1 | 1517 | – | Universal jurisdiction of the bishop of Rome; seven sacraments; scripture and tradition together. ~1.4 billion |
+
+**Per-child edge years, not one uniform 1517.** The Reformation was not a single
+event the way Chalcedon or the Schism were — Lutheran, Anglican, Reformed and
+Anabaptist each crystallised at a different moment. Rather than force every
+`tradition_edges` row for this split to `year: 1517`, give each its own accurate
+year and its own `event_id`, all with `parent_id` = Western Church:
+
+| Child | Edge year | `event_id` → |
+|---|---|---|
+| Roman Catholic Church | 1517 | Luther's Ninety-five Theses (the conventional marker; Trent, 1545, is the more precise "Catholicism defines itself against the Reformation" moment if a second is wanted) |
+| Lutheran | 1530 | The Augsburg Confession |
+| Anglican | 1534 | The Act of Supremacy |
+| Anabaptist | 1525 | The first Anabaptist baptism |
+| Reformed | 1536 | Calvin reaches Geneva / *Institutes* |
+
+All five still render as one visual split in the tree (same parent, contiguous
+years), but the dates themselves are each defensible on their own rather than
+flattened to a single round number.
 
 ### Oriental Orthodox members (tier 2)
 
@@ -285,8 +331,50 @@ Malankara (India, tradition traced to Thomas).
   Bohemian Brethren (1415) → Moravian (1457, renewed 1727).
 - **Other:** Quaker (1652, George Fox), Restoration Movement (1832) →
   Churches of Christ (1906), Disciples of Christ (1968); Adventist (1863);
-  Evangelicalism (M, 1730s–, cross-cutting); Non-denominational / independent
-  (M, 20th c.–).
+  Evangelicalism (M, 1730s–, cross-cutting).
+
+### Non-denominational — the default landing spot, not an afterthought
+
+Per Hanzen: any real church that does not cleanly map onto a named historic body
+belongs here, and this should be treated as a first-class tier-2 tradition, not a
+footnote.
+
+| Name | Kind | Tier | Start | End | Distinctive |
+|---|---|---|---|---|---|
+| Non-denominational | M | 2 | 1970 | – | No denominational affiliation or hierarchy above the local congregation; often "community church" or "Bible church" in name. By congregation count, the largest single category of American Protestant churches today |
+
+`start_year: 1970` marks the rise of the "seeker-sensitive" and community-church
+movement (Calvary Chapel from 1965, Willow Creek 1975, Saddleback 1980) as the point
+non-denominational congregations became a recognisable category rather than
+scattered independents. No `split_from` edge into the main tree — its roots are
+genuinely diffuse across Evangelicalism, the Restoration Movement's "no creed but
+Christ" instinct, and post-Pentecostal independency all at once, so a single parent
+edge would misrepresent it. An optional `influenced_by` edge to Evangelicalism is
+reasonable; nothing structural.
+
+---
+
+## Cult category (off the descent tree entirely)
+
+Per Hanzen's explicit instruction: these get `kind: 'cult'`, tier 2, and **no
+`tradition_edges` row into the historic tree** — not `split_from`, not
+`influenced_by`. They surface only in their own dedicated tree-picker category, never
+nested under Restoration Movement or any other Christian lineage they might
+superficially resemble.
+
+| Name | Kind | Tier | Start | End | Distinctive |
+|---|---|---|---|---|---|
+| The Church of Jesus Christ of Latter-day Saints (Mormonism) | Cult | 2 | 1830 | – | Founded by Joseph Smith at Fayette, New York, 6 Apr 1830, on the claim of new scripture (the Book of Mormon) and continuing revelation through living prophets. Rejects the Trinity as historic Christianity defines it |
+| Jehovah's Witnesses | Cult | 2 | 1931 | – | Grew from Charles Taze Russell's Bible Student movement (Zion's Watch Tower, 1879/1881); took the name "Jehovah's Witnesses" in July 1931 under J. F. Rutherford. Rejects the Trinity, the soul's conscious survival of death, and Christ's bodily resurrection |
+| Christian Science | Cult | 2 | 1879 | – | Founded by Mary Baker Eddy, who chartered the Church of Christ, Scientist in Boston in 1879 after publishing *Science and Health* (1875). Teaches that sickness and matter itself are ultimately illusory, and that healing comes through correct understanding rather than medicine |
+
+All three are 19th/20th-century American in origin, and all three are regarded by
+the Catholic, Orthodox and Protestant traditions alike as outside historic Christian
+orthodoxy — chiefly for denying the Trinity and/or the nature of Christ as defined at
+Nicaea and Chalcedon, which is the same doctrinal line this dataset uses to decide
+who counts as a branch of the historic tree at all. That is the actual reason for the
+separate category: not a value judgement beyond what the historic creeds themselves
+already draw as the line.
 
 ### Edges worth getting right
 
@@ -362,9 +450,20 @@ Graham (1918–2018), Martin Luther King Jr. (1929–1968).
 5. **Describe traditions as they describe themselves.** `distinctives` should say what
    a body is for, not what its opponents say it is against. This is the field most
    likely to be read, and the easiest to get subtly wrong.
-6. **Do not place the Latter-day Saints, Jehovah's Witnesses or Christian Science on
-   the descent tree without a decision from you.** Each traces to 19th-century
-   America and each is regarded by Catholics, Orthodox and Protestants alike as
-   outside historic Christian orthodoxy on the Trinity. Options are to omit them, or
-   to include them on a visually separate footing with the disagreement stated. This
-   is a judgement call about what the app is claiming, so it is yours, not mine.
+6. ~~Do not place the Latter-day Saints, Jehovah's Witnesses or Christian Science on
+   the descent tree without a decision from you.~~ **Resolved 2026-09-11.** Per
+   Hanzen: all three are `kind: 'cult'`, kept off the descent tree entirely (no
+   `tradition_edges` row of any kind), and shown only in their own dedicated
+   tree-picker category. See "Cult category" above.
+7. **No side is "the true main church" at any split, including 1517.** Per Hanzen,
+   this overrides an earlier draft that had Rome continuing unbroken through the
+   Reformation. See the design doc's editorial rule and the corrected trunk in
+   section 2 above — Roman Catholic Church is a 1517-dated node exactly like
+   Lutheran, Reformed, Anglican and Anabaptist are, not a pre-existing institution
+   that merely acquired some new rivals.
+8. **Church of God (Anderson) and Church of God (Cleveland) are seeded as ordinary,
+   unrelated tier-3 denominations** — neither is singled out or treated as more
+   significant than the other. Per Hanzen, this dataset does not try to trace any
+   one person's specific congregation; it aims for general coverage, with
+   Non-denominational as the honest default for anything that doesn't fit a named
+   historic body.
