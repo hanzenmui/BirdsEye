@@ -127,9 +127,27 @@ the orientation choice; the book filter no longer hides Augustine.
 
 ---
 
-## Phase 4 — Traditions on the family tree
+## Phase 4 — Traditions on the family tree — **Done 2026-09-12**
 
 The part you asked for, and the reason Phase 3's shape matters.
+
+**What actually shipped, and why it differs from the plan below:** rather than
+widening `FamilyTree.tsx` in place (steps 1-3 below), a new dedicated
+`components/TraditionTree.tsx` was built instead, reusing the same visual
+language (the `ft-*` CSS classes, the pan/zoom/detail-panel interaction
+pattern) but with its own layout function. The reason: `FamilyTree.tsx`'s
+top-level component body has a lot of Bible-specific logic baked directly
+into it — the Adam-default-root, the red/blue Solomon/Nathan dual-lineage
+highlighting, the book filter — none of which generalizes to a denomination
+tree, and widening it in place risked that logic leaking into, or being
+disturbed by, a second unrelated use case. A dedicated component made the
+"pixel-unchanged genealogy tree" guarantee trivial to keep (verified in the
+browser: Phase 4 touched zero lines of `FamilyTree.tsx`) rather than
+something to prove after the fact. `TraditionTree.tsx` lays out its tree from
+`split_from` edges only (one parent per node, same as `FamilyTree`'s
+male-preferred parent choice), with `merged_into`/`influenced_by`/
+`renewal_within` drawn as decorative overlay lines exactly the way
+`FamilyTree` already draws `spouse_of`. Steps 4-6 below shipped as described.
 
 1. **Widen the tree's parameter types** in `components/FamilyTree.tsx` to the
    `TreeNode` / `TreeEdge` structural interfaces from the design doc.
@@ -180,7 +198,7 @@ touch and the side name list still work.
 
 ---
 
-## Phase 5 — Joining the two halves
+## Phase 5 — Joining the two halves — **Done 2026-09-12**
 
 1. **`tradition_people`** surfaced both ways: a tradition node lists its founders and
    key figures; a person's profile says which tradition they founded or belonged to.
@@ -191,15 +209,48 @@ touch and the side name list still work.
 **Verify:** Luther's profile names Lutheranism; the Great Schism event names both
 communions; every `event_id` on an edge resolves.
 
+**Shipped as:** a new `lib/nav-bus.ts` for the cross-section navigation this
+needs — Explorer keeps every section mounted and just toggles CSS visibility,
+so jumping to a specific node in another already-mounted section needed more
+than a prop, and reuses the localStorage + custom-event pattern Timeline.tsx's
+own orientation/act toggles already established. Verified end-to-end in the
+browser from a cold session: Luther's profile → Lutheran on the Traditions map
+→ "Open on timeline" → the Diet of Augsburg, scrolled to and highlighted,
+showing "Produced Lutheran" the other way. Caught and fixed a real race in the
+process: the cross-section jump's act-change and its scroll-to-event request
+fired synchronously in the same burst, so the first scroll attempt ran against
+the DOM as it looked *before* React had re-rendered with the new act, found
+the target under the old (wider) act, and then had the act-driven re-render
+reshuffle the page underneath that scroll position. Fixed by routing through
+the timeline's existing `pendingScrollKey` retry state instead of attempting
+the scroll immediately.
+
 ---
 
-## Phase 6 — Polish
+## Phase 6 — Polish — **Done 2026-09-12**
 
 - `distinctives` given real presentation — this is the field that answers "what's
   different about each", so it deserves better than a paragraph in a tooltip.
+  **Shipped as:** each tradition's `distinctives` field is written as several
+  semicolon-separated points, so the detail panel now splits on `;` and
+  renders a bulleted list (falling back to a plain paragraph for the handful
+  of traditions with only one point).
 - Tier-based collapse: tiers 1–2 by default, tier 3 on demand.
-- Adherent counts shown with the year they refer to.
+  **Shipped as:** the Traditions map opens showing tiers 1-2 only (~36 nodes
+  instead of 60) with a "Show individual denominations (+24)" toggle in the
+  mapbar; jumping to a tier-3 tradition by search or from a person's profile
+  auto-expands it rather than silently failing to find it.
+- Adherent counts shown with the year they refer to. **Shipped as:** an
+  honest, uniform qualifier ("early 2020s estimate") appended to each of the
+  16 traditions with an adherents figure, re-seeded live and re-verified
+  (`npm run verify:traditions`, all 26 checks pass) — deliberately not a
+  specific per-tradition year, since this dataset doesn't have solid enough
+  sourcing to justify that level of false precision for all 16.
 - Vault and `CLAUDE.md` updated; roadmap items 2 and 3 marked done.
+  **Shipped as:** `Vault/Apps/BirdsEye.md` roadmap items 2 and 3 marked done
+  with a dated summary of what shipped; this plan doc annotated phase by
+  phase with what actually happened (see Phase 4's note on why the tree
+  integration used a dedicated component instead of widening `FamilyTree.tsx`).
 
 ---
 

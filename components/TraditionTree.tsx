@@ -4,6 +4,15 @@ import type { Tradition, TraditionEdge, TraditionEdgeType, TraditionPerson, Pers
 import { formatOpenYearSpan, formatYear } from "@/lib/timeline-layout";
 import type { FocusRequest } from "@/lib/nav-bus";
 
+// The seed data writes distinctives as several semicolon-separated points
+// ("Justification by faith alone; scripture alone as final authority; ...")
+// rather than one sentence, so splitting them out as a list reads far better
+// than one dense paragraph. Falls back to the whole string as a single item
+// when there's no semicolon to split on.
+function splitDistinctives(text: string): string[] {
+  return text.split(/;\s+/).map(s => s.trim().replace(/\.$/, "")).filter(Boolean);
+}
+
 const TRADITION_PERSON_ROLE_LABELS: Record<string, string> = {
   founder: "Founder",
   key_figure: "Key figure",
@@ -178,12 +187,24 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Tier 3 (individual denominations like "Southern Baptist Convention") is
+  // collapsed by default — tiers 1-2 alone already show every communion,
+  // tradition and movement, which is plenty to read at once. Jumping to a
+  // tier-3 tradition by search or from a person's profile auto-expands it
+  // (see jumpTo/pendingJumpId below) rather than silently failing to find it.
+  const [showTier3, setShowTier3] = useState(false);
+  const [pendingJumpId, setPendingJumpId] = useState<string | null>(null);
 
   const byId = useMemo(() => new Map(traditions.map(t => [t.id, t])), [traditions]);
+  const visibleTraditions = useMemo(
+    () => (showTier3 ? traditions : traditions.filter(t => t.tier < 3)),
+    [traditions, showTier3],
+  );
+  const hiddenTier3Count = traditions.length - visibleTraditions.length;
 
   const tree = useMemo(
-    () => (traditions.length ? buildTraditionForest(traditions, edges) : null),
-    [traditions, edges],
+    () => (visibleTraditions.length ? buildTraditionForest(visibleTraditions, edges) : null),
+    [visibleTraditions, edges],
   );
   const posMap = useMemo(() => new Map(tree ? tree.all.map(n => [n.id, n]) : []), [tree]);
 
@@ -246,21 +267,39 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
   const jumpTo = useCallback((id: string) => {
     if (!containerRef.current) return;
     const node = posMap.get(id);
-    if (!node) return;
+    if (!node) {
+      // Hidden behind the tier-3 collapse rather than genuinely missing —
+      // expand it and retry once the newly-visible node has a position (see
+      // the pendingJumpId effect below).
+      const t = byId.get(id);
+      if (t && t.tier === 3 && !showTier3) {
+        setShowTier3(true);
+        setPendingJumpId(id);
+      }
+      return;
+    }
     const frame = getViewFrame(true);
     const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
     dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, zoom: Math.max(view.zoom, 0.82), topOffset, ...frame });
     setDetailId(id);
-  }, [getViewFrame, posMap, view.zoom]);
+  }, [getViewFrame, posMap, view.zoom, byId, showTier3]);
+
+  useEffect(() => {
+    if (!pendingJumpId || !posMap.has(pendingJumpId)) return;
+    jumpTo(pendingJumpId);
+    setPendingJumpId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingJumpId, posMap]);
 
   // A person's profile can ask (via lib/nav-bus) to open this map on one
   // specific tradition — e.g. clicking "Founded Lutheranism" on Luther's
-  // profile. jumpTo already centers the view and opens the detail panel.
+  // profile. jumpTo already centers the view, opens the detail panel, and
+  // (if the target is tier 3) expands tier 3 and retries on its own.
   useEffect(() => {
-    if (!focusRequest || !posMap.has(focusRequest.id)) return;
+    if (!focusRequest) return;
     jumpTo(focusRequest.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRequest, posMap]);
+  }, [focusRequest]);
 
   const fitView = useCallback(() => {
     if (!containerRef.current || !tree) return;
@@ -523,6 +562,16 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
         </div>
 
         <div className="ft-controls-tr">
+          {hiddenTier3Count > 0 || showTier3 ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowTier3(v => !v)}
+              title={showTier3 ? "Collapse individual denominations back to communions, traditions and movements" : "Show individual denominations too, not just communions, traditions and movements"}
+            >
+              {showTier3 ? "Hide individual denominations" : `Show individual denominations (+${hiddenTier3Count})`}
+            </button>
+          ) : null}
           <div className={`ft-field ft-person-search${search ? " active" : ""}`}>
             <label htmlFor="tt-search">Find a tradition</label>
             <div className="ft-field-control">
@@ -628,12 +677,21 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
               </div>
             )}
 
-            {detailTradition.distinctives && (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>Distinctives</div>
-                <p style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.distinctives}</p>
-              </div>
-            )}
+            {detailTradition.distinctives && (() => {
+              const points = splitDistinctives(detailTradition.distinctives);
+              return (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>Distinctives</div>
+                  {points.length > 1 ? (
+                    <ul style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, paddingLeft: 16, fontFamily: "var(--font, serif)" }}>
+                      {points.map((point, i) => <li key={i} style={{ marginBottom: i < points.length - 1 ? 4 : 0 }}>{point}.</li>)}
+                    </ul>
+                  ) : (
+                    <p style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.distinctives}</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {detailTradition.adherents && (
               <div>
