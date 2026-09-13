@@ -338,10 +338,27 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomBy]);
 
+  // Shared by the wheel handler below and the touch handlers further down:
+  // a wheel/touch gesture that starts over an overlay panel (the mapbar, the
+  // detail panel, etc.) must scroll or interact with THAT panel, not pan or
+  // zoom the map underneath it.
+  const isOverlayTouch = useCallback((target: EventTarget | null) => {
+    return target instanceof Element && !!target.closest(
+      ".ft-mapbar, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, button, input, select, a",
+    );
+  }, []);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      // A native addEventListener on an ancestor fires during the real DOM
+      // bubble phase, which completes before React's synthetic onWheel
+      // dispatch even begins (React delegates from the document root) — so
+      // an onWheel={stopPropagation} on the detail panel itself would run
+      // too late to stop this handler. Checking the overlay here, the same
+      // way the touch handlers below already do, is what actually works.
+      if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       if (e.ctrlKey) {
         const factor = e.deltaMode === 1 ? 0.12 : 0.008;
@@ -360,7 +377,7 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
       el.removeEventListener("gesturestart", prevent);
       el.removeEventListener("gesturechange", prevent);
     };
-  }, [tree]);
+  }, [tree, isOverlayTouch]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -379,11 +396,6 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
   const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
   const lastTouches = useRef<{ x: number; y: number }[]>([]);
-  const isOverlayTouch = useCallback((target: EventTarget | null) => {
-    return target instanceof Element && !!target.closest(
-      ".ft-mapbar, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, button, input, select, a",
-    );
-  }, []);
 
   useEffect(() => {
     const el = containerRef.current;

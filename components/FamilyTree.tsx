@@ -703,11 +703,26 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomBy]);
 
+  // Shared by the wheel handler below and the touch handlers further down:
+  // both are raw addEventListener calls on the container (not React synthetic
+  // handlers), so they fire on the way up the *real* DOM bubble chain before
+  // React's delegated listeners ever run — an onWheel/onTouchStart prop on an
+  // overlay panel, or stopPropagation() called inside one, would run too late
+  // to stop these. Every wheel/touch gesture starting inside one of those
+  // panels must be recognized and ignored here directly, so it can scroll or
+  // interact with the panel instead of panning the map underneath it.
+  const isOverlayTouch = useCallback((target: EventTarget | null) => {
+    return target instanceof Element && !!target.closest(
+      ".ft-mapbar, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, button, input, select, a",
+    );
+  }, []);
+
   // Non-passive wheel listener — required to call preventDefault() for pinch
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       if (e.ctrlKey) {
         const factor = e.deltaMode === 1 ? 0.12 : 0.008;
@@ -731,7 +746,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       el.removeEventListener("gesturestart", prevent);
       el.removeEventListener("gesturechange", prevent);
     };
-  }, [tree]);
+  }, [tree, isOverlayTouch]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -752,22 +767,11 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
 
   // Touch handlers for mobile pan + pinch-to-zoom — registered as non-passive
-  // so preventDefault() can block native browser scroll/zoom. Because these
-  // are raw addEventListener calls on the container (not React synthetic
-  // handlers), they fire on the way up the *real* DOM bubble chain before
-  // React's delegated listeners ever run — so the onMouseDown={stopPropagation}
-  // guards on the overlay panels (back button, search, legend, zoom controls,
-  // detail/name-list panels) can't protect them from these touch handlers the
-  // way they protect against the mouse-drag handlers. Every touch starting
-  // inside one of those panels must be recognized and ignored here directly,
-  // or taps there never reach the browser's normal tap-to-click synthesis.
+  // so preventDefault() can block native browser scroll/zoom. isOverlayTouch
+  // (defined above, alongside the wheel handler it's equally needed for)
+  // keeps every touch starting inside an overlay panel from being treated as
+  // a map drag.
   const lastTouches = useRef<{ x: number; y: number }[]>([]);
-
-  const isOverlayTouch = useCallback((target: EventTarget | null) => {
-    return target instanceof Element && !!target.closest(
-      ".ft-mapbar, .ft-controls-tr, .ft-legend, .ft-zoom, .ft-detail-panel, .ft-book-list, button, input, select, a",
-    );
-  }, []);
 
   useEffect(() => {
     const el = containerRef.current;

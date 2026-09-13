@@ -389,7 +389,7 @@ const EDGES: ERow[] = [
   { parent: "pentecostalism", child: "assemblies-of-god", type: "split_from", year: 1914 },
   { parent: "holiness-movement", child: "cog-cleveland", type: "split_from", year: 1886, eventTitle: "The Church of God (Cleveland, Tennessee) is founded" },
   { parent: "pentecostalism", child: "cog-cleveland", type: "influenced_by", year: 1906,
-    notes: "Predates Azusa Street by two decades and became Pentecostal only afterward -- split_from Holiness (1886) is its real descent; this is its later doctrinal turn." },
+    notes: "Predates Azusa Street by two decades and became Pentecostal only afterward -- its split from Holiness (1886) is its real descent; this is its later doctrinal turn." },
   { parent: "holiness-movement", child: "cogic", type: "split_from", year: 1897 },
   { parent: "pentecostalism", child: "cogic", type: "influenced_by", year: 1907 },
   { parent: "pentecostalism", child: "foursquare", type: "split_from", year: 1923 },
@@ -408,7 +408,7 @@ const EDGES: ERow[] = [
   // Pre-Reformation dissent
   { parent: "western-church", child: "waldensian", type: "split_from", year: 1173 },
   { parent: "waldensian", child: "reformed", type: "merged_into", year: 1532,
-    notes: "The Synod of Chanforan, where the centuries-old Waldensian movement formally joined the Reformation -- Reformed has two lines into it: Calvin's Geneva (split_from) and this older, pre-existing dissenting body (merged_into)." },
+    notes: "The Synod of Chanforan, where the centuries-old Waldensian movement formally joined the Reformation -- Reformed has two lines into it: one splitting directly from Calvin's Geneva, and this older, pre-existing dissenting body merging in alongside it." },
   { parent: "western-church", child: "hussite", type: "split_from", year: 1415, eventTitle: "Jan Hus is burned at Constance" },
   { parent: "hussite", child: "moravian", type: "split_from", year: 1457 },
 
@@ -540,6 +540,8 @@ interface PRow { traditionKey: string; name: string; aka: string; role: "founder
 const TRADITION_PEOPLE: PRow[] = [
   { traditionKey: "lutheran", name: "Martin Luther", aka: "Martin Luther, author of the Ninety-five Theses", role: "founder" },
   { traditionKey: "reformed", name: "John Calvin", aka: "John Calvin, reformer of Geneva", role: "founder" },
+  { traditionKey: "reformed", name: "Huldrych Zwingli", aka: "Huldrych Zwingli, reformer of Zurich", role: "key_figure" },
+  { traditionKey: "hussite", name: "Jan Hus", aka: "Jan Hus, Bohemian reformer", role: "founder" },
   { traditionKey: "anglican", name: "Thomas Cranmer", aka: "Thomas Cranmer, Archbishop of Canterbury", role: "key_figure" },
   { traditionKey: "presbyterian", name: "John Knox", aka: "John Knox, reformer of Scotland", role: "founder" },
   { traditionKey: "mennonite", name: "Menno Simons", aka: "Menno Simons, namesake of the Mennonites", role: "founder" },

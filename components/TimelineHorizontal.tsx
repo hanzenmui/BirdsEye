@@ -676,7 +676,7 @@ function PersonLane({ label, family, track, multiRow, people, range, selectedId,
               >
                 <span className="tl-seg-label">
                   <strong>{s.person.name}</strong>
-                  <small>{s.person.timelineStartBc}–{s.person.timelineEndBc}</small>
+                  <small>{formatYearSpan(s.startBc, s.endBc)}</small>
                 </span>
               </button>
             );
@@ -831,9 +831,9 @@ function BookLane({ range, checkedBooks }: { range: TimelineRange; checkedBooks:
                 key={s.id}
                 className="tl-seg tl-seg-book"
                 style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: ri * (ROW_H + ROW_GAP), height: ROW_H }}
-                title={`${s.id} — covers ${s.startBc}–${s.endBc} BC${note ? "\n\n" + note : ""}`}
+                title={`${s.id} — covers ${formatYearSpan(s.startBc, s.endBc)}${note ? "\n\n" + note : ""}`}
               >
-                <span className="tl-seg-label"><strong>{s.id}</strong><small>{s.startBc}–{s.endBc}</small></span>
+                <span className="tl-seg-label"><strong>{s.id}</strong><small>{formatYearSpan(s.startBc, s.endBc)}</small></span>
               </div>
             );
           }),

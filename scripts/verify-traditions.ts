@@ -20,6 +20,7 @@ function check(label: string, ok: boolean, detail = "") {
 
 interface TraditionRow { id: string; name: string; kind: string; tier: number; start_year: number; end_year: number | null; distinctives: string; date_confidence: string; date_uncertainty_note: string }
 interface EdgeRow { id: string; parent_id: string; child_id: string; type: string; year: number; event_id: string | null }
+interface TraditionPersonRow { id: string; tradition_id: string; person_id: string; role: string }
 
 async function main() {
   console.log("Traditions data verification\n");
@@ -185,6 +186,34 @@ async function main() {
   } else {
     check("Non-denominational tradition exists", false);
   }
+
+  // ── tradition_people: the founders/key-figures join the Traditions map's
+  // detail panel and a person's own profile both rely on (Phase 5) ─────────
+  const traditionPeople = (await db.execute("SELECT * FROM tradition_people")).rows as unknown as TraditionPersonRow[];
+  check("tradition_people rows present", traditionPeople.length > 0, `got ${traditionPeople.length}`);
+
+  const personIds = new Set((await db.execute("SELECT id FROM people")).rows.map(r => (r as unknown as { id: string }).id));
+  const badPersonRef = traditionPeople.filter(tp => !personIds.has(tp.person_id));
+  check("every tradition_people row's person_id resolves to a real person",
+    badPersonRef.length === 0, badPersonRef.map(tp => tp.id).join(", "));
+
+  const badTraditionRef = traditionPeople.filter(tp => !byId.has(tp.tradition_id));
+  check("every tradition_people row's tradition_id resolves to a real tradition",
+    badTraditionRef.length === 0, badTraditionRef.map(tp => tp.id).join(", "));
+
+  const validRoles = new Set(["founder", "key_figure", "opponent", "reformer"]);
+  const badRole = traditionPeople.filter(tp => !validRoles.has(tp.role));
+  check("every tradition_people row has a recognized role",
+    badRole.length === 0, badRole.map(tp => `${tp.id}=${tp.role}`).join(", "));
+
+  const dupKey = new Map<string, number>();
+  for (const tp of traditionPeople) {
+    const key = `${tp.tradition_id}/${tp.person_id}/${tp.role}`;
+    dupKey.set(key, (dupKey.get(key) ?? 0) + 1);
+  }
+  const dupes = [...dupKey.entries()].filter(([, count]) => count > 1);
+  check("no duplicate tradition_people rows (same tradition, person and role)",
+    dupes.length === 0, dupes.map(([key]) => key).join(", "));
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   process.exit(failures === 0 ? 0 : 1);
