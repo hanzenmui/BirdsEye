@@ -1,6 +1,8 @@
 "use client";
 import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
+import { navigate, useQueryState } from "@/hooks/useQueryState";
+import { LoadError } from "./LoadError";
 import { usePeople } from "@/hooks/usePeople";
 import { useRelationships } from "@/hooks/useRelationships";
 import { useRefs } from "@/hooks/useRefs";
@@ -272,6 +274,7 @@ interface AddRefProps {
   onClose: () => void;
 }
 function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ book: "Genesis", chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1, note: "" });
   // Mirrors chapterEnd/verseEnd to chapterStart/verseStart until the user
   // explicitly edits an End field — without this, a quick single-verse entry
@@ -296,8 +299,13 @@ function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
     e.preventDefault();
     // Always person-owned — event-owned refs are only written by later seed
     // scripts, not this modal.
-    await onSave({ ...form, personId, eventId: null });
-    onClose();
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave({ ...form, personId, eventId: null });
+      onClose();
+    } catch { showToast("Reference was not saved. Please retry.", "error"); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -340,7 +348,7 @@ function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm">Add Reference</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add Reference"}</button>
           </div>
         </form>
       </div>
@@ -362,6 +370,7 @@ const INVERSE_TYPES: Partial<Record<RelationshipType, RelationshipType>> = {
 };
 
 function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
+  const [saving, setSaving] = useState(false);
   const [type, setType] = useState<RelationshipType>("parent_of");
   const [personBId, setPersonBId] = useState("");
   const [notes, setNotes] = useState("");
@@ -376,17 +385,22 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!personBId || !personB) return;
-    const flip = type in INVERSE_TYPES;
-    const canonicalType = INVERSE_TYPES[type] ?? type;
-    await onSave({
-      personAId:   flip ? personBId        : focalPerson.id,
-      personAName: flip ? personB.name     : focalPerson.name,
-      type:        canonicalType,
-      personBId:   flip ? focalPerson.id   : personBId,
-      personBName: flip ? focalPerson.name : personB.name,
-      notes,
-    });
-    onClose();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const flip = type in INVERSE_TYPES;
+      const canonicalType = INVERSE_TYPES[type] ?? type;
+      await onSave({
+        personAId:   flip ? personBId        : focalPerson.id,
+        personAName: flip ? personB.name     : focalPerson.name,
+        type:        canonicalType,
+        personBId:   flip ? focalPerson.id   : personBId,
+        personBName: flip ? focalPerson.name : personB.name,
+        notes,
+      });
+      onClose();
+    } catch { showToast("Relationship was not saved. Please retry.", "error"); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -429,7 +443,7 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId}>Add Relationship</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId || saving}>{saving ? "Saving…" : "Add Relationship"}</button>
           </div>
         </form>
       </div>
@@ -617,8 +631,8 @@ interface PeopleSectionProps {
   onDeletePerson: (id: string) => void;
 }
 function PeopleSection({ people, relationships, refs, traditions, traditionPeople, selectedId, onSelect, onOpenTradition, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "OT" | "NT" | "both" | "CH">("all");
+  const [query, setQuery] = useQueryState<string>("peopleQuery", "", true);
+  const [filter, setFilter] = useQueryState<"all" | "OT" | "NT" | "both" | "CH">("peopleTestament", "all");
 
   const referenceCountByPerson = useMemo(() => {
     const counts = new Map<string, number>();
@@ -752,13 +766,13 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
           traditionPeople={traditionPeople}
           onNavigate={onSelect}
           onOpenTradition={onOpenTradition}
-          onClose={() => onSelect(selected.id)}
+          onClose={() => navigate({ person: null })}
           onEdit={() => onEditPerson(selected)}
           onAddRef={() => onAddRef(selected)}
           onDeleteRef={onDeleteRef}
           onAddRel={() => onAddRel(selected)}
           onDeleteRel={onDeleteRel}
-          onDelete={() => { onDeletePerson(selected.id); onSelect(selected.id); }}
+          onDelete={() => { onDeletePerson(selected.id); }}
         />
       )}
     </div>
@@ -772,9 +786,11 @@ interface BooksSectionProps {
   onSelect: (id: string) => void;
 }
 function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
-  const [activeBook, setActiveBook] = useState<string | null>(null);
-  const [activeChapter, setActiveChapter] = useState<number | null>(null);
-  const [testament, setTestament] = useState<"all" | "OT" | "NT">("all");
+  const [activeBook, setActiveBook] = useQueryState<string | null>("book", null);
+  const [chapter, setChapter] = useQueryState<string>("chapter", "");
+  const activeChapter = /^\d+$/.test(chapter) && Number(chapter) > 0 ? Number(chapter) : null;
+  const setActiveChapter = (value: number | null) => setChapter(value === null ? "" : String(value));
+  const [testament, setTestament] = useQueryState<"all" | "OT" | "NT">("testament", "all");
 
   const peopleById = useMemo(() => new Map(people.map(person => [person.id, person])), [people]);
   const peopleIdsByBook = useMemo(() => {
@@ -861,7 +877,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
     return grouped;
   }, [activeBook, activeChapter, bookRefs]);
 
-  const openBook = (name: string) => { setActiveBook(name); setActiveChapter(null); };
+  const openBook = (name: string) => navigate({ book: name, chapter: null });
 
   return (
     <div className={`books-layout${activeBook ? " book-open" : ""}`}>
@@ -890,7 +906,6 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
               return (
                 <button type="button" key={b.name} className={`book-tile${activeBook === b.name ? " active" : ""}`}
                   onClick={() => openBook(b.name)}
-                  disabled={count === 0}
                   aria-current={activeBook === b.name ? "true" : undefined}>
                   <span className="book-tile-order">{String(b.order).padStart(2, "0")}</span>
                   <span className="book-tile-copy">
@@ -913,18 +928,12 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
               <span>OT</span><i /><span>NT</span>
             </div>
             <div className="book-welcome-kicker">Scripture index</div>
-            <h2>Meet the people inside each book.</h2>
+            <h2>What are you reading?</h2>
             <p>Select a book to see its cast, their story at a glance, and every recorded passage where they appear.</p>
             <div className="book-welcome-stats">
               <span><strong>39</strong> Old Testament</span>
               <span><strong>27</strong> New Testament</span>
             </div>
-          </div>
-        ) : bookPeople.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">✦</div>
-            <div className="empty-state-title">No people recorded in {activeBook}</div>
-            <div className="empty-state-sub">Add scripture references to people to see them here.</div>
           </div>
         ) : (
           <>
@@ -936,6 +945,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 <TestamentBadge testament={activeBookMeta?.testament ?? "OT"} />
               </div>
               <p>{activeBookMeta?.summary}</p>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "tree", treeCategory: "books", treeBook: activeBook, family: null, treePerson: null, treeFilter: null })}>View this book’s family tree</button>
               <div className="book-detail-count">
                 <strong>{bookPeople.length}</strong> {bookPeople.length === 1 ? "person" : "people"}
                 {activeChapter !== null ? ` in ${activeBook} ${activeChapter}` : " recorded in this book"}
@@ -957,6 +967,10 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 ))}
               </div>
             )}
+            {bookPeople.length === 0 && <div className="empty-state">
+              <div className="empty-state-title">No people recorded for this passage yet</div>
+              <div className="empty-state-sub">Missing records do not mean nobody is mentioned. Try another chapter or view the whole book.</div>
+            </div>}
             <div className="people-grid book-people-grid">
               {bookPeople.map(({ person: p, spanOnly }, i) => (
                 <PersonIndexCard
@@ -1143,13 +1157,19 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
 
 // ── Explorer (main orchestrator) ──────────────────────────────────────────────
 export function Explorer() {
-  const { people, loading: loadingPeople, addPerson, updatePerson, deletePerson } = usePeople();
-  const { relationships, addRelationship, deleteRelationship } = useRelationships();
-  const { refs, addRef, deleteRef } = useRefs();
-  const { traditions, traditionEdges, traditionPeople } = useTraditions();
+  const { people, loading: loadingPeople, error: peopleError, reload: reloadPeople, addPerson, updatePerson, deletePerson } = usePeople();
+  const { relationships, loading: loadingRelationships, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
+  const { refs, loading: loadingRefs, error: refsError, reload: reloadRefs, addRef, deleteRef } = useRefs();
+  const { traditions, traditionEdges, traditionPeople, error: traditionsError, reload: reloadTraditions } = useTraditions();
 
-  const [section, setSection] = useState<Section>("people");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rawSection, setSection] = useQueryState<Section>("section", "books");
+  const section = NAV.some(item => item.key === rawSection) ? rawSection : "books";
+  const [selectedId, setSelectedId] = useQueryState<string | null>("person", null);
+  const [readingBook] = useQueryState<string | null>("book", null);
+  const [readingChapter] = useQueryState<string>("chapter", "");
+  const [returnSection] = useQueryState<string>("return", "books");
+  const loadError = peopleError || relationshipsError || refsError || traditionsError;
+  const retry = () => { reloadPeople(); reloadRelationships(); reloadRefs(); reloadTraditions(); };
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [editPersonFor, setEditPersonFor] = useState<Person | null>(null);
   const [addRefFor, setAddRefFor] = useState<Person | null>(null);
@@ -1164,8 +1184,9 @@ export function Explorer() {
   const toggleSidebar = () => { setSidebarOpen(o => !o); setSidebarCollapsed(c => !c); };
 
   const selectPerson = useCallback((id: string) => {
-    setSelectedId(prev => prev === id ? null : id);
-    setSection("people");
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get("section") ?? "books";
+    navigate({ person: id, section: "people", return: from === "people" ? params.get("return") ?? "books" : from });
   }, []);
 
   // Cross-section navigation between the Traditions map and the Timeline —
@@ -1173,20 +1194,38 @@ export function Explorer() {
   const navigateToEvent = useCallback((eventId: string) => {
     setSection("timeline");
     requestEventFocus(eventId);
-  }, []);
+  }, [setSection]);
   const navigateToTradition = useCallback((traditionId: string) => {
-    setSection("tree");
+    navigate({ section: "tree", treePerson: null, family: null, treeBook: null });
     requestTraditionFocus(traditionId);
   }, []);
 
   const handleDeletePerson = useCallback(async (id: string) => {
     if (!confirm("Delete this person and all their relationships and references?")) return;
-    await deletePerson(id);
-    setSelectedId(null);
-    showToast("Person deleted");
-  }, [deletePerson]);
+    try {
+      await deletePerson(id);
+      reloadRelationships();
+      reloadRefs();
+      reloadTraditions();
+      setSelectedId(null);
+      showToast("Person deleted");
+    } catch { showToast("Could not delete this person. Please retry.", "error"); }
+  }, [deletePerson, reloadRelationships, reloadRefs, reloadTraditions, setSelectedId]);
 
   const closeSidebar = () => setSidebarOpen(false);
+  const readingBar = <div className="reading-bar">
+    {loadError && <LoadError message={loadError} onRetry={retry} />}
+    {readingBook && section !== "books" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "books", person: null })}>← Back to {readingBook}{readingChapter ? ` ${readingChapter}` : ""}</button>}
+    {section === "people" && selectedId && <>
+      {!readingBook && <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: NAV.some(n => n.key === returnSection) ? returnSection : "books", person: null })}>← Back to {returnSection === "tree" ? "family tree" : returnSection === "timeline" ? "timeline" : "books"}</button>}
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "tree", treePerson: selectedId })}>View family</button>
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!people.find(p => p.id === selectedId)?.timelineTrack} title="People with recorded timeline dates can be shown on the timeline" onClick={() => {
+        window.localStorage.setItem("birdseye-timeline-act", "everything");
+        window.dispatchEvent(new Event("birdseye-timeline-act-change"));
+        navigate({ section: "timeline", timelineQuery: people.find(p => p.id === selectedId)?.name ?? "", timelineAct: "everything", timelineOrientation: "vertical", timelineBooks: null, timelinePeople: "1" });
+      }}>View on timeline</button>
+    </>}
+  </div>;
 
   return (
     <>
@@ -1219,6 +1258,7 @@ export function Explorer() {
 
         {/* People section */}
         <div className={`app-section${section === "people" ? " active" : ""}`}>
+          {readingBar}
           <div className="section-header">
             <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1231,9 +1271,9 @@ export function Explorer() {
               <div className="section-subtitle">{people.length} {people.length === 1 ? "person" : "people"} in the database</div>
             </div>
           </div>
-          {loadingPeople ? (
+          {loadingPeople || loadingRefs || loadingRelationships ? (
             <div className="loading-wrap"><div className="spinner" /></div>
-          ) : (
+          ) : !peopleError && !refsError && !relationshipsError && (
             <PeopleSection
               people={people}
               relationships={relationships}
@@ -1246,9 +1286,9 @@ export function Explorer() {
               onAddPerson={() => setShowAddPerson(true)}
               onEditPerson={p => setEditPersonFor(p)}
               onAddRef={p => setAddRefFor(p)}
-              onDeleteRef={async id => { await deleteRef(id); showToast("Reference removed"); }}
+              onDeleteRef={async id => { try { await deleteRef(id); showToast("Reference removed"); } catch { showToast("Could not remove reference. Please retry.", "error"); } }}
               onAddRel={p => setAddRelFor(p)}
-              onDeleteRel={async id => { await deleteRelationship(id); showToast("Relationship removed"); }}
+              onDeleteRel={async id => { try { await deleteRelationship(id); showToast("Relationship removed"); } catch { showToast("Could not remove relationship. Please retry.", "error"); } }}
               onDeletePerson={handleDeletePerson}
             />
           )}
@@ -1256,6 +1296,7 @@ export function Explorer() {
 
         {/* Books section */}
         <div className={`app-section${section === "books" ? " active" : ""}`}>
+          {readingBar}
           <div className="section-header">
             <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1268,11 +1309,12 @@ export function Explorer() {
               <div className="section-subtitle">Find people by where they appear in scripture</div>
             </div>
           </div>
-          <BooksSection people={people} refs={refs} onSelect={id => { selectPerson(id); }} />
+          {loadingPeople || loadingRefs ? <div className="loading-wrap"><div className="spinner" /></div> : !peopleError && !refsError && <BooksSection people={people} refs={refs} onSelect={selectPerson} />}
         </div>
 
         {/* Tree section */}
         <div className={`app-section${section === "tree" ? " active" : ""}`}>
+          {readingBar}
           <div className="section-header">
             <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1285,7 +1327,7 @@ export function Explorer() {
               <div className="section-subtitle">Pick a family or book to explore, or view the full tree</div>
             </div>
           </div>
-          <TreeCategoryPicker
+          {loadingPeople || loadingRefs || loadingRelationships ? <div className="loading-wrap"><div className="spinner" /></div> : !loadError && <TreeCategoryPicker
             people={people}
             relationships={relationships}
             refs={refs}
@@ -1294,11 +1336,12 @@ export function Explorer() {
             traditionPeople={traditionPeople}
             onSelect={selectPerson}
             onOpenEvent={navigateToEvent}
-          />
+          />}
         </div>
 
         {/* Timeline section */}
         <div className={`app-section${section === "timeline" ? " active" : ""}`}>
+          {readingBar}
           <div className="section-header">
             <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1322,6 +1365,7 @@ export function Explorer() {
 
         {/* Stats section */}
         <div className={`app-section${section === "stats" ? " active" : ""}`}>
+          {readingBar}
           <div className="section-header">
             <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1334,12 +1378,12 @@ export function Explorer() {
               <div className="section-subtitle">Most referenced, most connected, coverage by book</div>
             </div>
           </div>
-          <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />
+          {loadingPeople || loadingRefs || loadingRelationships ? <div className="loading-wrap"><div className="spinner" /></div> : !peopleError && !refsError && !relationshipsError && <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />}
         </div>
       </div>
 
       {/* Toast container */}
-      <div id="toast-wrap" className="toast-wrap" />
+      <div id="toast-wrap" className="toast-wrap" role="status" aria-live="polite" />
 
       {/* Modals */}
       {showAddPerson && (

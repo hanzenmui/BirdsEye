@@ -1,5 +1,7 @@
 "use client";
 import { useDeferredValue, useMemo, useState, useEffect, useRef, useSyncExternalStore } from "react";
+import { LoadError } from "./LoadError";
+import { useQueryState, useQuerySet, useQueryBoolean } from "@/hooks/useQueryState";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
@@ -108,13 +110,13 @@ function writeIntroOpen(open: boolean) {
 }
 
 export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Props) {
-  const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
-  const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
-  const [showBooksLayer, setShowBooksLayer] = useState(false);
-  const [showPeopleLayer, setShowPeopleLayer] = useState(true);
-  const [showEventsLayer, setShowEventsLayer] = useState(true);
-  const [showLinksLayer, setShowLinksLayer] = useState(true);
-  const [query, setQuery] = useState("");
+  const { people, events, prophecyLinks, eventRefs, personBooks, loading, error, reload } = useTimeline();
+  const [checkedBooks, setCheckedBooks] = useQuerySet("timelineBooks", TIMELINE_BOOKS);
+  const [showBooksLayer, setShowBooksLayer] = useQueryBoolean("timelineBands", false);
+  const [showPeopleLayer, setShowPeopleLayer] = useQueryBoolean("timelinePeople", true);
+  const [showEventsLayer, setShowEventsLayer] = useQueryBoolean("timelineEvents", true);
+  const [showLinksLayer, setShowLinksLayer] = useQueryBoolean("timelineLinks", true);
+  const [query, setQuery] = useQueryState<string>("timelineQuery", "", true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   // Starts above "fit" (1) rather than at it: even the narrowest act's span
@@ -127,7 +129,8 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   // render -- only reacts to act.id actually flipping), since a zoom level
   // tuned for "Everything" is generally wrong for "Old Testament" and vice
   // versa.
-  useEffect(() => { setZoom(act.zoom); }, [act.id]);
+  const [zoomAct, setZoomAct] = useState(act.id);
+  if (zoomAct !== act.id) { setZoomAct(act.id); setZoom(act.zoom); }
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
@@ -387,6 +390,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
     // attach. Re-running once those resolve is what actually binds it.
   }, [loading, people.length]);
 
+  if (error) return <LoadError message={error} onRetry={reload} />;
   if (loading) {
     return <div className="loading-wrap"><div className="spinner" /></div>;
   }

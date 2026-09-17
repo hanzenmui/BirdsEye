@@ -13,18 +13,21 @@ export function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ passcode }),
-    });
-    if (res.ok) {
-      router.push("/explore");
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Invalid passcode");
-      setLoading(false);
-    }
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode }),
+      });
+      if (res.ok) {
+        const next = new URLSearchParams(window.location.search).get("next");
+        router.push(next === "/explore" || next?.startsWith("/explore?") ? next : "/explore");
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Invalid passcode");
+      }
+    } catch { setError("Could not connect. Check your connection and try again."); }
+    finally { setLoading(false); }
   };
 
   return (

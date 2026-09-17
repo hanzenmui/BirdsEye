@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+.reading-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+.reading-bar:empty { display: none; }
+.app-section .people-layout .detail-pane { height: 100%; min-height: 0; }
+.load-error { padding: 12px 18px; background: var(--danger-bg); color: var(--text2); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.reading-bar .load-error { width: 100%; }
+.ft-roster-toggle { display: none; }
+@media (max-width: 768px) {
+  .app-section .ft-detail-panel { max-height: min(52dvh, calc(100% - 200px)) !important; }
+  .ft-roster-toggle { display: block; position: absolute; bottom: 60px; left: 12px; z-index: 35; }
+  .ft-book-list.roster-open { display: flex !important; top: 130px; bottom: 104px; width: min(300px, calc(100% - 24px)); left: 12px; z-index: 34; border: 1px solid var(--border2); border-radius: 12px; }
+}
+
 /* ── Design tokens — Birdseye v2 (vintage-editorial) ───────────────────── */
 :root {
   /* Canvas & surfaces */

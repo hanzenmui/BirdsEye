@@ -4,6 +4,7 @@ import type { Person, Relationship, ScriptureRef, Tradition, TraditionEdge, Trad
 import { BIBLE_BOOKS } from "@/lib/types";
 import { FAMILIES, resolveFamilyMembers } from "@/lib/families";
 import { FamilyTree } from "./FamilyTree";
+import { navigate, useQueryState } from "@/hooks/useQueryState";
 import { TraditionTree } from "./TraditionTree";
 import { subscribeTraditionFocus, readTraditionFocus, type FocusRequest } from "@/lib/nav-bus";
 
@@ -21,9 +22,10 @@ interface Props {
 type Step1 = "all" | "families" | "books" | "traditions" | "cults";
 
 export function TreeCategoryPicker({ people, relationships, refs, traditions, traditionEdges, traditionPeople, onSelect, onOpenEvent }: Props) {
-  const [step1, setStep1] = useState<Step1 | null>(null);
-  const [familyKey, setFamilyKey] = useState<string | null>(null);
-  const [bookName, setBookName] = useState<string | null>(null);
+  const [step1, setStep1] = useQueryState<Step1 | null>("treeCategory", null);
+  const [familyKey, setFamilyKey] = useQueryState<string | null>("family", null);
+  const [bookName, setBookName] = useQueryState<string | null>("treeBook", null);
+  const [focusPerson] = useQueryState<string | null>("treePerson", null);
   const [traditionFocus, setTraditionFocus] = useState<FocusRequest | null>(null);
 
   const historicTraditions = useMemo(() => traditions.filter(t => t.kind !== "cult"), [traditions]);
@@ -39,7 +41,7 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
     const t = traditions.find(x => x.id === focus.id);
     setStep1(t?.kind === "cult" ? "cults" : "traditions");
     setTraditionFocus(focus);
-  }), [traditions]);
+  }), [traditions, setStep1]);
 
   const bookCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -54,6 +56,18 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
     for (const f of FAMILIES) counts.set(f.key, resolveFamilyMembers(people, f).size);
     return counts;
   }, [people]);
+
+  const focused = people.find(p => p.id === focusPerson);
+  if (focused) {
+    const memberIds = new Set([focused.id]);
+    relationships.filter(r => ["parent_of", "spouse_of", "sibling_of"].includes(r.type)).forEach(r => {
+      if (r.personAId === focused.id || r.personBId === focused.id) {
+        memberIds.add(r.personAId); memberIds.add(r.personBId);
+      }
+    });
+    return <FamilyTree key={`person:${focused.id}`} people={people} relationships={relationships} refs={refs} onSelect={onSelect}
+      scope={{ label: `Family of ${focused.name}`, memberIds, onBack: () => navigate({ treePerson: null }) }} />;
+  }
 
   // "All" — the plain, unscoped tree, unchanged from today's behavior aside
   // from the added back-to-categories button (onExitCategory).
@@ -72,7 +86,7 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
   // A family has been picked — render the scoped tree. key= forces a fresh
   // FamilyTree instance per family so it auto-fits instead of trying to
   // recenter at whatever zoom the previous category was left at.
-  if (familyKey) {
+  if (familyKey && FAMILIES.some(f => f.key === familyKey)) {
     const family = FAMILIES.find(f => f.key === familyKey)!;
     const memberIds = resolveFamilyMembers(people, family);
     return (

@@ -1,4 +1,5 @@
 "use client";
+import { useQueryState } from "@/hooks/useQueryState";
 import { useMemo, useRef, useReducer, useEffect, useCallback, useState } from "react";
 import type { Person, Relationship, ScriptureRef } from "@/lib/types";
 import {
@@ -367,7 +368,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const [view, dispatch] = useReducer(viewReducer, { zoom: 1, pan: { x: 0, y: 0 } });
 
   // ── Root picker state ────────────────────────────────────────────────────────
-  const [rootId, setRootId] = useState<string | null>(null);
+  const [rootId, setRootId] = useQueryState<string | null>("treeRoot", null);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFocused, setPickerFocused] = useState(false);
@@ -375,15 +376,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   // ── Node search + book filter ────────────────────────────────────────────────
   const [nodeSearch, setNodeSearch] = useState("");
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
-  const [bookFilter, setBookFilter] = useState("");
+  const [bookFilterParam, setBookFilter] = useQueryState<string>("treeFilter", "");
+  const bookFilter = scope ? "" : bookFilterParam;
   const [rosterQuery, setRosterQuery] = useState("");
+  const [rosterOpen, setRosterOpen] = useState(false);
 
   // ── Detail panel ─────────────────────────────────────────────────────────────
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const adam  = useMemo(() => people.find(p => p.name === "Adam")  ?? null, [people]);
   const jesus = useMemo(() => people.find(p => p.name === "Jesus") ?? null, [people]);
-  const effectiveRootId = rootId ?? adam?.id ?? null;
+  const effectiveRootId = people.some(p => p.id === rootId) ? rootId : adam?.id ?? null;
+  useEffect(() => { hasFitted.current = false; }, [effectiveRootId]);
   const rootPerson = useMemo(
     () => (effectiveRootId ? people.find(p => p.id === effectiveRootId) ?? null : null),
     [people, effectiveRootId],
@@ -449,8 +453,11 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   // ── Search and filter highlights ─────────────────────────────────────────────
   const scopedPeople = useMemo(
-    () => (scope ? people.filter(p => scope.memberIds.has(p.id)) : people),
-    [people, scope],
+    () => {
+      const ids = scope?.memberIds ?? (bookFilter ? new Set(refs.filter(r => r.book === bookFilter).map(r => r.personId)) : null);
+      return ids ? people.filter(p => ids.has(p.id)) : people;
+    },
+    [people, scope, bookFilter, refs],
   );
 
   // Alphabetical roster for the left-side name list shown in scoped
@@ -497,7 +504,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   // active book filter's matches when filtering the unscoped tree.
   const sideList = useMemo(() => {
     if (scope) return { title: scope.label, items: scopedPeopleSorted };
-    if (bookFilter && bookHits.size > 0) {
+    if (bookFilter) {
       const items = people.filter(p => bookHits.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
       return { title: bookFilter, items };
     }
@@ -535,13 +542,13 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const tree = useMemo(() => {
     if (people.length === 0) return null;
-    if (scope) {
-      const forest = buildForest(people, relationships, scope.memberIds);
+    if (scope || bookFilter) {
+      const forest = buildForest(people, relationships, scope?.memberIds ?? bookHits);
       return forest.all.length === 0 ? null : forest;
     }
     if (!effectiveRootId) return null;
     return buildLayout(people, relationships, effectiveRootId);
-  }, [people, relationships, effectiveRootId, scope]);
+  }, [people, relationships, effectiveRootId, scope, bookFilter, bookHits]);
 
   const posMap = useMemo(
     () => new Map(tree ? tree.all.map(n => [n.id, n]) : []),
@@ -581,7 +588,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     const node = posMap.get(id);
     if (!node) return;
     const frame = getViewFrame(true);
-    const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
+    const topOffset = window.matchMedia("(max-width: 768px)").matches ? 152 : CENTER_TOP_OFFSET;
     dispatch({
       type: "CENTER",
       nodeX: node.x,
@@ -837,7 +844,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🌿</div>
-        <div className="empty-state-title">Loading…</div>
+        <div className="empty-state-title">No people recorded yet</div>
       </div>
     );
   }
@@ -846,8 +853,9 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🌿</div>
-        <div className="empty-state-title">No people in the database</div>
-        <div className="empty-state-sub">Seed the database to see the family tree.</div>
+        <div className="empty-state-title">No people recorded in this view yet</div>
+        <div className="empty-state-sub">Missing records do not mean nobody is mentioned in the passage.</div>
+        <button type="button" className="btn btn-ghost" onClick={() => { if (scope) scope.onBack(); else setBookFilter(""); }}>Back to tree</button>
       </div>
     );
   }
@@ -1048,9 +1056,12 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
       {/* ── Name list — left side, scoped (book/family) views or an active
           book filter on the unscoped tree ─────────────────────────────── */}
+      {sideList && <button type="button" className="ft-roster-toggle btn btn-primary btn-sm" aria-expanded={rosterOpen} aria-controls="tree-roster" onClick={() => setRosterOpen(value => !value)}>{rosterOpen ? "Close names" : `People (${sideList.items.length})`}</button>}
       {sideList && (
         <div
-          className="ft-book-list"
+          id="tree-roster"
+          className={`ft-book-list${rosterOpen ? " roster-open" : ""}`}
+          onKeyDown={e => { if (e.key === "Escape") setRosterOpen(false); }}
           onMouseDown={e => e.stopPropagation()}
         >
           <div className="ft-roster-header">
@@ -1083,7 +1094,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                 <button
                   type="button"
                   key={p.id}
-                  onClick={() => { if (inTree) jumpToPerson(p.id); }}
+                  onClick={() => { if (inTree) { setRosterOpen(false); jumpToPerson(p.id); } }}
                   className={`ft-roster-person${isActive ? " active" : ""}`}
                   disabled={!inTree}
                   title={!inTree ? `${p.name} isn't connected to anyone else in ${sideList.title}` : undefined}
@@ -1118,7 +1129,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
           </button>
           <div className="ft-mapbar-heading">
             <span>Genealogy map</span>
-            <strong>{scope?.label ?? `${rootPerson?.name ?? "Adam"}${(rootPerson?.name ?? "Adam").endsWith("s") ? "’" : "’s"} family`}</strong>
+            <strong>{scope?.label ?? (bookFilter || `${rootPerson?.name ?? "Adam"}${(rootPerson?.name ?? "Adam").endsWith("s") ? "’" : "’s"} family`)}</strong>
             <small>{all.length} people · {generationDepth} {generationDepth === 1 ? "generation" : "generations"} deep</small>
           </div>
         </div>

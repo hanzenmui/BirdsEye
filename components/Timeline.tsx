@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useQueryState } from "@/hooks/useQueryState";
 import { TimelineVertical } from "./TimelineVertical";
 import { TimelineHorizontal } from "./TimelineHorizontal";
 import { TIMELINE_ACTS, getAct, type TimelineActId } from "@/lib/timeline-acts";
@@ -49,16 +50,22 @@ function subscribeToAct(onChange: () => void) {
 }
 
 export function Timeline({ onSelectPerson, onOpenTradition, traditions, traditionEdges, active }: Props) {
-  const orientation = useSyncExternalStore(subscribeToOrientation, readOrientation, () => "vertical");
-  const actId = useSyncExternalStore(subscribeToAct, readActId, (): TimelineActId => "everything");
+  const savedOrientation = useSyncExternalStore(subscribeToOrientation, readOrientation, () => "vertical");
+  const savedActId = useSyncExternalStore(subscribeToAct, readActId, (): TimelineActId => "everything");
+  const [orientationParam, setOrientation] = useQueryState<string>("timelineOrientation", "");
+  const [actParam, setAct] = useQueryState<string>("timelineAct", "");
+  const orientation = orientationParam === "horizontal" || orientationParam === "vertical" ? orientationParam : savedOrientation;
+  const actId = TIMELINE_ACTS.some(a => a.id === actParam) ? actParam as TimelineActId : savedActId;
   const act = getAct(actId);
 
   const choose = (next: Orientation) => {
+    setOrientation(next);
     window.localStorage.setItem(STORAGE_KEY, next);
     window.dispatchEvent(new Event(CHANGE_EVENT));
   };
 
   const chooseAct = (next: TimelineActId) => {
+    setAct(next);
     window.localStorage.setItem(ACT_STORAGE_KEY, next);
     window.dispatchEvent(new Event(ACT_CHANGE_EVENT));
   };

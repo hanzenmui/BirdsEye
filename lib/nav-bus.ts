@@ -1,4 +1,5 @@
 "use client";
+import { navigate } from "@/hooks/useQueryState";
 
 // Cross-section navigation that doesn't fit ordinary React prop-drilling:
 // Explorer keeps every section mounted and toggles visibility with a CSS
@@ -39,6 +40,7 @@ function read(key: string): FocusRequest | null {
 // scroll-to mechanism) and the After New Testament act (every tradition
 // split event lives there), then fires the focus request itself.
 export function requestEventFocus(eventId: string) {
+  navigate({ timelineOrientation: "vertical", timelineAct: "after-nt" }, true);
   window.localStorage.setItem(ORIENTATION_STORAGE_KEY, "vertical");
   window.dispatchEvent(new Event(ORIENTATION_CHANGE_EVENT));
   window.localStorage.setItem(ACT_STORAGE_KEY, "after-nt");

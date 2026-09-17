@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { LoadError } from "./LoadError";
+import { useQueryState, useQuerySet, useQueryBoolean } from "@/hooks/useQueryState";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { HistoricalEvent, Person, ProphecyLink, Tradition, TraditionEdge } from "@/lib/types";
@@ -139,19 +141,19 @@ const ZOOM_STEP = 0.1;
 const EVERYTHING_ACT = TIMELINE_ACTS[TIMELINE_ACTS.length - 1];
 
 export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, traditionEdges, active, act = EVERYTHING_ACT }: Props) {
-  const { people, events, prophecyLinks, eventRefs, personBooks, loading } = useTimeline();
+  const { people, events, prophecyLinks, eventRefs, personBooks, loading, error, reload } = useTimeline();
   // A viewport preset: only the chapters inside the chosen act render at all,
   // and only people/events whose start year falls in it count toward the
   // result total below. computeRange-style filtering, not a different dataset.
   const ERAS = useMemo(() => ALL_ERAS.filter(era => yearInAct(era.startBc, act) || yearInAct(era.endBc, act)), [act]);
-  const [checkedBooks, setCheckedBooks] = useState<Set<string>>(() => new Set(TIMELINE_BOOKS));
-  const [showBooksLayer, setShowBooksLayer] = useState(false);
-  const [showPeopleLayer, setShowPeopleLayer] = useState(true);
-  const [showEventsLayer, setShowEventsLayer] = useState(true);
-  const [showLinksLayer, setShowLinksLayer] = useState(true);
+  const [checkedBooks, setCheckedBooks] = useQuerySet("timelineBooks", TIMELINE_BOOKS);
+  const [showBooksLayer, setShowBooksLayer] = useQueryBoolean("timelineBands", false);
+  const [showPeopleLayer, setShowPeopleLayer] = useQueryBoolean("timelinePeople", true);
+  const [showEventsLayer, setShowEventsLayer] = useQueryBoolean("timelineEvents", true);
+  const [showLinksLayer, setShowLinksLayer] = useQueryBoolean("timelineLinks", true);
   const [zoom, setZoom] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useQueryState<string>("timelineQuery", "", true);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
@@ -383,7 +385,7 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
     setCheckedBooks(new Set(TIMELINE_BOOKS));
     setShowEventsLayer(true);
     setPendingScrollKey(`event-${focus.id}`);
-  }), []);
+  }), [setQuery, setCheckedBooks, setShowEventsLayer]);
 
   const resetFilters = () => {
     setCheckedBooks(new Set(TIMELINE_BOOKS));
@@ -392,6 +394,7 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
     setQuery("");
   };
 
+  if (error) return <LoadError message={error} onRetry={reload} />;
   if (loading) return <div className="loading-wrap"><div className="spinner" /></div>;
   if (people.length === 0 && events.length === 0) {
     return (
