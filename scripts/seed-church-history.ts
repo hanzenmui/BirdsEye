@@ -99,7 +99,7 @@ const CHURCH_FATHER_NOTES: Record<string, string> = {
 
 // ── Church rulers (popes and organisers) ───────────────────────────────────
 const CHURCH_RULERS: Row[] = [
-  ["Leo I", "Leo the Great, Pope Leo I", -400, -461],
+  ["Leo I", "Leo the Great, Pope Leo I", -391, -461],
   ["Gregory the Great", "Pope Gregory I", -540, -604],
 ];
 const CHURCH_RULER_NOTES: Record<string, string> = {
@@ -409,8 +409,9 @@ const EVENTS: EventDef[] = [
     description: "Despite a promised safe conduct, the Council of Constance burns the Bohemian reformer Jan Hus for teaching influenced by Wycliffe. His followers, the Hussites, fight a series of wars in his name." },
   { key: "constantinople-falls", title: "Constantinople falls to the Ottomans", yearBc: -1453, era: "Christendom Divided",
     description: "The Byzantine Empire ends after over a thousand years. Orthodox Christianity survives under Ottoman rule and increasingly looks to Moscow -- soon calling itself the 'Third Rome' -- for leadership." },
-  { key: "gutenberg-bible", title: "The Gutenberg Bible", yearBc: -1456, era: "Christendom Divided",
-    description: "Johannes Gutenberg's printing press produces the first major book printed with movable type in the West. The technology that will spread Luther's ideas across Europe within weeks already exists." },
+  { key: "gutenberg-bible", title: "The Gutenberg Bible", yearBc: -1455, era: "Christendom Divided",
+    description: "Johannes Gutenberg's printing press produces the first major book printed with movable type in the West. The technology that will spread Luther's ideas across Europe within weeks already exists.",
+    dateConfidence: "good", dateUncertaintyNote: "The first finished copies were available in 1454 or 1455. The often-quoted 1456 is the date a rubricator and binder finished work on one surviving copy, not when the Bible was printed." },
 
   // ── The Reformation (1517-1648) ──────────────────────────────────────────
   { key: "ninety-five-theses", title: "Luther posts the Ninety-five Theses", yearBc: -1517, era: "The Reformation",

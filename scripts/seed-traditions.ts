@@ -109,7 +109,8 @@ const TRADITIONS: TRow[] = [
   { key: "reformed", name: "Reformed", aka: "Calvinist", kind: "tradition", tier: 1, start: 1536,
     description: "The tradition descending from Zwingli's Zurich and, above all, Calvin's Geneva.",
     distinctives: "God's sovereignty in salvation, classically summarized (after Calvin) in the five points of Dort; a covenantal reading of scripture; church government by elders (presbyterian or congregational) rather than bishops.",
-    adherents: "~75 million across its Presbyterian, Congregational and Reformed-national-church descendants (early 2020s estimate)" },
+    adherents: "~75 million across its Presbyterian, Congregational and Reformed-national-church descendants (early 2020s estimate)",
+    note: "Dated to Calvin's arrival in Geneva in 1536. Its roots go back to Zwingli's reforms in Zurich from 1519, which is why he appears on the timeline before the tradition begins." },
   { key: "anglican", name: "Anglican", kind: "tradition", tier: 1, start: 1534,
     description: "The tradition descending from the Church of England's break with Rome under Henry VIII, later given its lasting doctrinal shape under Elizabeth I and Cranmer.",
     distinctives: "Catholic order (bishops, liturgy, sacraments) combined with Reformed doctrine, held together above all by the Book of Common Prayer rather than one confessional statement.",
@@ -125,7 +126,8 @@ const TRADITIONS: TRow[] = [
   // being in communion. See the findings doc's honesty note on this.
   { key: "coptic-orthodox", name: "Coptic Orthodox Church", kind: "communion", tier: 2, start: 451, region: "Egypt",
     description: "The historic church of Egypt, tracing its founding to the apostle Mark.",
-    distinctives: "Alexandria's own liturgical and monastic tradition -- Egyptian Christian monasticism (Antony, Pachomius) predates the Oriental Orthodox split itself.", adherents: "~10-15 million (early 2020s estimate)" },
+    distinctives: "Alexandria's own liturgical and monastic tradition -- Egyptian Christian monasticism (Antony, Pachomius) predates the Oriental Orthodox split itself.", adherents: "~10-15 million (early 2020s estimate)",
+    note: "Dated to 451, when it rejected the Council of Chalcedon and became part of the Oriental Orthodox communion. The church itself is far older: by tradition it was founded by the apostle Mark in Alexandria in the first century." },
   { key: "armenian-apostolic", name: "Armenian Apostolic Church", kind: "communion", tier: 2, start: 301, region: "Armenia",
     description: "Armenia's national church, and by tradition the first kingdom to adopt Christianity as its state religion.",
     distinctives: "A distinct national identity fused with the faith since Gregory the Illuminator's mission; joined the Oriental Orthodox communion's rejection of Chalcedon from 451.", adherents: "~9 million (early 2020s estimate)",
@@ -136,7 +138,8 @@ const TRADITIONS: TRow[] = [
     confidence: "uncertain", note: "Traditionally dated to the fourth century under King Ezana; the exact year is not firmly fixed." },
   { key: "syriac-orthodox", name: "Syriac Orthodox Church", kind: "communion", tier: 2, start: 451, region: "Syria/Middle East",
     description: "The historic church of Antioch and the Syriac-speaking Middle East.",
-    distinctives: "Liturgy in Syriac, a dialect of Aramaic close to the language Jesus himself spoke.", adherents: "~2-4 million (early 2020s estimate)" },
+    distinctives: "Liturgy in Syriac, a dialect of Aramaic close to the language Jesus himself spoke.", adherents: "~2-4 million (early 2020s estimate)",
+    note: "Dated to 451, when it rejected the Council of Chalcedon and became part of the Oriental Orthodox communion. The church itself is far older: it is the historic church of Antioch, where the disciples were first called Christians (Acts 11:26)." },
   { key: "malankara", name: "Malankara (Saint Thomas Christians)", kind: "communion", tier: 2, start: 1653, region: "India",
     description: "The ancient Christian community of Kerala, India, tracing its founding to the apostle Thomas but reasserting an independent, Oriental-aligned identity in the Coonan Cross Oath of 1653 after a century of Portuguese Catholic pressure.",
     distinctives: "Combines an apostolic founding tradition older than most of Christendom with a distinctly modern (17th-century) act of independence from imposed Roman authority.",
@@ -428,10 +431,10 @@ const EDGES: ERow[] = [
   // here at all, per Hanzen's explicit instruction. Do not add any.
 ];
 
-async function resolveTraditionByName(name: string): Promise<{ id: string; description: string; distinctives: string; adherents: string; endYear: number | null } | null> {
-  const r = await db.execute({ sql: "SELECT id, description, distinctives, adherents, end_year FROM traditions WHERE name = ? LIMIT 1", args: [name] });
-  const row = r.rows[0] as unknown as { id: string; description: string; distinctives: string; adherents: string; end_year: number | null } | undefined;
-  return row ? { id: row.id, description: row.description, distinctives: row.distinctives, adherents: row.adherents, endYear: row.end_year } : null;
+async function resolveTraditionByName(name: string): Promise<{ id: string; description: string; distinctives: string; adherents: string; startYear: number; endYear: number | null; note: string; confidence: string } | null> {
+  const r = await db.execute({ sql: "SELECT id, description, distinctives, adherents, start_year, end_year, date_uncertainty_note, date_confidence FROM traditions WHERE name = ? LIMIT 1", args: [name] });
+  const row = r.rows[0] as unknown as { id: string; description: string; distinctives: string; adherents: string; start_year: number; end_year: number | null; date_uncertainty_note: string; date_confidence: string } | undefined;
+  return row ? { id: row.id, description: row.description, distinctives: row.distinctives, adherents: row.adherents, startYear: row.start_year, endYear: row.end_year, note: row.date_uncertainty_note, confidence: row.date_confidence } : null;
 }
 
 const traditionIds: Record<string, string> = {};
@@ -448,15 +451,19 @@ async function seedTraditions() {
 
     if (existing) {
       traditionIds[t.key] = existing.id;
+      // Compare every field the UPDATE below writes. This once checked only the
+      // first four, so a change to just a note, a confidence or a start year was
+      // judged "unchanged" and silently skipped on every run, on every machine.
       const changed = existing.description !== t.description || existing.distinctives !== t.distinctives
-        || existing.adherents !== adherents || existing.endYear !== endYear;
+        || existing.adherents !== adherents || existing.endYear !== endYear
+        || existing.startYear !== startYear || existing.note !== note || existing.confidence !== confidence;
       if (changed) {
         console.log(`  ${DRY_RUN ? "would update" : "updating"}: ${t.name}`);
         if (!DRY_RUN) {
           await db.execute({
-            sql: `UPDATE traditions SET description = ?, distinctives = ?, adherents = ?, end_year = ?,
+            sql: `UPDATE traditions SET description = ?, distinctives = ?, adherents = ?, start_year = ?, end_year = ?,
                   date_uncertainty_note = ?, date_confidence = ? WHERE id = ?`,
-            args: [t.description, t.distinctives, adherents, endYear, note, confidence, existing.id],
+            args: [t.description, t.distinctives, adherents, startYear, endYear, note, confidence, existing.id],
           });
         }
       }
