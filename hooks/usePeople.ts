@@ -13,7 +13,6 @@ async function fetchPeople(
   try {
     const res = await fetch("/api/people");
     if (!res.ok) {
-      if (res.status === 401) { window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search); return; }
       console.error("Failed to load people:", res.status);
       if (gen === genRef.current) { setLoading(false); setError("Could not load people. Check your connection and retry."); }
       return;

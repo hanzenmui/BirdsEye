@@ -13,7 +13,6 @@ async function fetchRefs(
   try {
     const res = await fetch("/api/refs");
     if (!res.ok) {
-      if (res.status === 401) { window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search); return; }
       console.error("Failed to load refs:", res.status);
       if (gen === genRef.current) { setLoading(false); setError("Could not load refs. Check your connection and retry."); }
       return;

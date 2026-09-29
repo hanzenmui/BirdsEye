@@ -13,7 +13,6 @@ async function fetchRelationships(
   try {
     const res = await fetch("/api/relationships");
     if (!res.ok) {
-      if (res.status === 401) { window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search); return; }
       console.error("Failed to load relationships:", res.status);
       if (gen === genRef.current) { setLoading(false); setError("Could not load relationships. Check your connection and retry."); }
       return;

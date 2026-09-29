@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { requireAuth, apiHandler } from "@/lib/auth";
+import { apiHandler } from "@/lib/auth";
 import { personFromDb, personToDb, validatePersonFields } from "@/lib/mappers";
 import type { Person } from "@/lib/types";
 
 export async function GET() {
   return apiHandler(async () => {
-    await requireAuth();
     const db = getDb();
     const rows = await db.query("SELECT * FROM people ORDER BY name ASC");
     return NextResponse.json(rows.map(personFromDb));
@@ -15,7 +14,6 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return apiHandler(async () => {
-    await requireAuth();
     const db = getDb();
     const body: Omit<Person, "id" | "createdAt"> = await req.json();
     const validationError = validatePersonFields(body);

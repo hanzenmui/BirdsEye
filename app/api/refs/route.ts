@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { requireAuth, apiHandler } from "@/lib/auth";
+import { apiHandler } from "@/lib/auth";
 import { scriptureRefFromDb } from "@/lib/mappers";
 import type { ScriptureRef } from "@/lib/types";
 
 export async function GET() {
   return apiHandler(async () => {
-    await requireAuth();
     const db = getDb();
     const rows = await db.query(
       `SELECT * FROM scripture_refs
@@ -19,7 +18,6 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return apiHandler(async () => {
-    await requireAuth();
     const db = getDb();
     const body: Omit<ScriptureRef, "id" | "createdAt"> = await req.json();
     const ref: ScriptureRef = { ...body, id: crypto.randomUUID(), createdAt: new Date().toISOString() };

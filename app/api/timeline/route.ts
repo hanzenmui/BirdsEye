@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { requireAuth, apiHandler } from "@/lib/auth";
+import { apiHandler } from "@/lib/auth";
 import { personFromDb, historicalEventFromDb, prophecyLinkFromDb, scriptureRefFromDb } from "@/lib/mappers";
 
 export async function GET() {
   return apiHandler(async () => {
-    await requireAuth();
     const db = getDb();
     const [people, events, links, eventRefs, personBookRows] = await Promise.all([
       db.query("SELECT * FROM people WHERE timeline_start_bc IS NOT NULL ORDER BY timeline_start_bc DESC"),

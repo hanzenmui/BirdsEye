@@ -23,7 +23,6 @@ async function fetchTimeline(
   try {
     const res = await fetch("/api/timeline");
     if (!res.ok) {
-      if (res.status === 401) { window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search); return; }
       console.error("Failed to load timeline:", res.status);
       if (gen === genRef.current) { setLoading(false); setError("Could not load timeline. Check your connection and retry."); }
       return;
