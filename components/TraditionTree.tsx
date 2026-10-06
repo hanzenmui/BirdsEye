@@ -124,7 +124,7 @@ type ViewAction =
   | { type: "PINCH"; delta: number; cx: number; cy: number }
   | { type: "PAN"; dx: number; dy: number }
   | ({ type: "FIT"; treeW: number; treeH: number } & ViewFrame)
-  | ({ type: "CENTER"; nodeX: number; nodeY: number; zoom?: number; topOffset?: number } & ViewFrame);
+  | ({ type: "CENTER"; nodeX: number; nodeY: number; zoom?: number; minZoom?: number; topOffset?: number } & ViewFrame);
 
 const CENTER_TOP_OFFSET = 138;
 
@@ -150,7 +150,7 @@ function viewReducer(s: ViewState, a: ViewAction): ViewState {
       return { zoom: scale, pan: { x: left + (usableW - a.treeW * scale) / 2, y: top + (usableH - a.treeH * scale) / 2 } };
     }
     case "CENTER": {
-      const z = a.zoom ?? s.zoom;
+      const z = a.zoom ?? Math.max(s.zoom, a.minZoom ?? s.zoom);
       const left = a.insetLeft ?? 0, right = a.insetRight ?? 0;
       return {
         zoom: z,
@@ -194,6 +194,7 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
   // (see jumpTo/pendingJumpId below) rather than silently failing to find it.
   const [showTier3, setShowTier3] = useState(false);
   const [pendingJumpId, setPendingJumpId] = useState<string | null>(null);
+  const handledFocusNonce = useRef<number | null>(null);
 
   const byId = useMemo(() => new Map(traditions.map(t => [t.id, t])), [traditions]);
   const visibleTraditions = useMemo(
@@ -280,26 +281,29 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
     }
     const frame = getViewFrame(true);
     const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
-    dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, zoom: Math.max(view.zoom, 0.82), topOffset, ...frame });
+    dispatch({ type: "CENTER", nodeX: node.x, nodeY: node.y, minZoom: 0.82, topOffset, ...frame });
     setDetailId(id);
-  }, [getViewFrame, posMap, view.zoom, byId, showTier3]);
+  }, [getViewFrame, posMap, byId, showTier3]);
 
   useEffect(() => {
     if (!pendingJumpId || !posMap.has(pendingJumpId)) return;
-    jumpTo(pendingJumpId);
-    setPendingJumpId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingJumpId, posMap]);
+    const frame = window.requestAnimationFrame(() => {
+      jumpTo(pendingJumpId);
+      setPendingJumpId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingJumpId, posMap, jumpTo]);
 
   // A person's profile can ask (via lib/nav-bus) to open this map on one
   // specific tradition — e.g. clicking "Founded Lutheranism" on Luther's
   // profile. jumpTo already centers the view, opens the detail panel, and
   // (if the target is tier 3) expands tier 3 and retries on its own.
   useEffect(() => {
-    if (!focusRequest) return;
-    jumpTo(focusRequest.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRequest]);
+    if (!focusRequest || handledFocusNonce.current === focusRequest.nonce) return;
+    handledFocusNonce.current = focusRequest.nonce;
+    const frame = window.requestAnimationFrame(() => jumpTo(focusRequest.id));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest, jumpTo]);
 
   const fitView = useCallback(() => {
     if (!containerRef.current || !tree) return;
@@ -684,8 +688,8 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
           <div className="ft-detail-body">
             {detailTradition.description && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>About</div>
-                <p style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.description}</p>
+                <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 6 }}>About</div>
+                <p style={{ fontSize: 14, color: "var(--text, #4a3d1e)", lineHeight: 1.7, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.description}</p>
               </div>
             )}
 
@@ -693,13 +697,13 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
               const points = splitDistinctives(detailTradition.distinctives);
               return (
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>Distinctives</div>
+                  <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 6 }}>Distinctives</div>
                   {points.length > 1 ? (
-                    <ul style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, paddingLeft: 16, fontFamily: "var(--font, serif)" }}>
+                    <ul style={{ fontSize: 14, color: "var(--text, #4a3d1e)", lineHeight: 1.7, margin: 0, paddingLeft: 18, fontFamily: "var(--font, serif)" }}>
                       {points.map((point, i) => <li key={i} style={{ marginBottom: i < points.length - 1 ? 4 : 0 }}>{point}.</li>)}
                     </ul>
                   ) : (
-                    <p style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.distinctives}</p>
+                    <p style={{ fontSize: 14, color: "var(--text, #4a3d1e)", lineHeight: 1.7, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.distinctives}</p>
                   )}
                 </div>
               );
@@ -707,30 +711,30 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
 
             {detailTradition.adherents && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 4 }}>Adherents</div>
-                <p style={{ fontSize: 12, color: "var(--text2, #4a3d1e)", lineHeight: 1.65, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.adherents}</p>
+                <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 6 }}>Adherents</div>
+                <p style={{ fontSize: 14, color: "var(--text, #4a3d1e)", lineHeight: 1.7, margin: 0, fontFamily: "var(--font, serif)" }}>{detailTradition.adherents}</p>
               </div>
             )}
 
             {detailTradition.dateConfidence === "uncertain" && detailTradition.dateUncertaintyNote && (
-              <div style={{ fontSize: 11.5, color: "var(--text3, #888)", fontStyle: "italic", lineHeight: 1.5 }}>{detailTradition.dateUncertaintyNote}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text3, #888)", fontStyle: "italic", lineHeight: 1.55 }}>{detailTradition.dateUncertaintyNote}</div>
             )}
 
             {detailPeople.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 6 }}>Founders &amp; key figures</div>
+                <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 7 }}>Founders &amp; key figures</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   {detailPeople.map(tp => {
                     const person = peopleById.get(tp.personId);
                     return (
-                      <div key={tp.id} style={{ fontSize: 12 }}>
-                        <span style={{ color: "var(--text3, #888)", fontSize: 11 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role} · </span>
+                      <div key={tp.id} style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--text3, #888)", fontSize: 12.5 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role} · </span>
                         {person ? (
                           <button type="button" className="ft-detail-rel-link" onClick={() => onSelectPerson(person.id)}>{person.name}</button>
                         ) : (
                           <span className="ft-detail-rel-name">Unknown</span>
                         )}
-                        {tp.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{tp.notes}</div>}
+                        {tp.notes && <div style={{ fontSize: 12.5, color: "var(--text3, #888)", marginTop: 2, lineHeight: 1.5 }}>{tp.notes}</div>}
                       </div>
                     );
                   })}
@@ -740,21 +744,21 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
 
             {detailParentEdges.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 6 }}>Where it came from</div>
+                <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 7 }}>Where it came from</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   {detailParentEdges.map(e => {
                     const parent = byId.get(e.parentId);
                     const inTree = parent && posMap.has(parent.id);
                     return (
-                      <div key={e.id} style={{ fontSize: 12 }}>
-                        <span style={{ color: "var(--text3, #888)", fontSize: 11 }}>{EDGE_TYPE_LABELS[e.type]} </span>
+                      <div key={e.id} style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--text3, #888)", fontSize: 12.5 }}>{EDGE_TYPE_LABELS[e.type]} </span>
                         {inTree ? (
                           <button type="button" className="ft-detail-rel-link" onClick={() => jumpTo(parent!.id)}>{parent!.name}</button>
                         ) : (
                           <span className="ft-detail-rel-name">{parent?.name ?? "Unknown"}</span>
                         )}
-                        <span style={{ color: "var(--text3, #888)", fontSize: 11 }}> · {formatYear(e.year)}</span>
-                        {e.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{e.notes}</div>}
+                        <span style={{ color: "var(--text3, #888)", fontSize: 12.5 }}> · {formatYear(e.year)}</span>
+                        {e.notes && <div style={{ fontSize: 12.5, color: "var(--text3, #888)", marginTop: 2, lineHeight: 1.5 }}>{e.notes}</div>}
                         {e.eventId && (
                           <button type="button" className="ft-detail-rel-link" style={{ display: "block", marginTop: 2 }} onClick={() => onOpenEvent(e.eventId!)}>
                             Open on timeline →
@@ -769,7 +773,7 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
 
             {detailChildEdges.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3, #888)", marginBottom: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 750, letterSpacing: "0.01em", color: "var(--text2, #4a3d1e)", marginBottom: 7 }}>
                   What came from it ({detailChildEdges.length})
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -777,14 +781,14 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
                     const child = byId.get(e.childId);
                     const inTree = child && posMap.has(child.id);
                     return (
-                      <div key={e.id} style={{ fontSize: 12 }}>
+                      <div key={e.id} style={{ fontSize: 13.5 }}>
                         {inTree ? (
                           <button type="button" className="ft-detail-rel-link" onClick={() => jumpTo(child!.id)}>{child!.name}</button>
                         ) : (
                           <span className="ft-detail-rel-name">{child?.name ?? "Unknown"}</span>
                         )}
-                        <span style={{ color: "var(--text3, #888)", fontSize: 11 }}> · {EDGE_TYPE_LABELS[e.type].toLowerCase()} · {formatYear(e.year)}</span>
-                        {e.notes && <div style={{ fontSize: 11, color: "var(--text3, #888)", marginTop: 1, lineHeight: 1.4 }}>{e.notes}</div>}
+                        <span style={{ color: "var(--text3, #888)", fontSize: 12.5 }}> · {EDGE_TYPE_LABELS[e.type].toLowerCase()} · {formatYear(e.year)}</span>
+                        {e.notes && <div style={{ fontSize: 12.5, color: "var(--text3, #888)", marginTop: 2, lineHeight: 1.5 }}>{e.notes}</div>}
                         {e.eventId && (
                           <button type="button" className="ft-detail-rel-link" style={{ display: "block", marginTop: 2 }} onClick={() => onOpenEvent(e.eventId!)}>
                             Open on timeline →
@@ -798,7 +802,7 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
             )}
 
             {!detailTradition.description && !detailTradition.distinctives && detailPeople.length === 0 && detailParentEdges.length === 0 && detailChildEdges.length === 0 && (
-              <div style={{ fontSize: 12, color: "var(--text3, #888)", fontStyle: "italic" }}>No additional information recorded.</div>
+              <div style={{ fontSize: 13, color: "var(--text3, #888)", fontStyle: "italic" }}>No additional information recorded.</div>
             )}
           </div>
         </div>

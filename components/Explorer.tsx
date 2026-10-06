@@ -544,7 +544,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
             <div className="detail-section-title">Traditions</div>
             {personTraditions.map(({ tp, tradition }) => (
               <div key={tp.id} className="rel-item">
-                <span style={{ fontSize: 11, color: "var(--text3)", flexShrink: 0 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role}</span>
+                <span style={{ fontSize: 12.5, color: "var(--text3)", flexShrink: 0 }}>{TRADITION_PERSON_ROLE_LABELS[tp.role] ?? tp.role}</span>
                 <button type="button" className="rel-person-name" onClick={() => onOpenTradition(tradition.id)}>{tradition.name}</button>
               </div>
             ))}
@@ -570,7 +570,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
                   <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: RELATIONSHIP_COLORS[r.type] ?? RELATIONSHIP_COLORS.other, flexShrink: 0 }} />
                   <span className="rel-type-label">{label}</span>
                   <button type="button" className="rel-person-name" onClick={() => onNavigate(otherId)}>{otherName}</button>
-                  {r.notes && <span style={{ fontSize: 11, color: "var(--text3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.notes}</span>}
+                  {r.notes && <span style={{ fontSize: 12.5, color: "var(--text3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.notes}</span>}
                   <button className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRel(r.id)} title="Remove" style={{ marginLeft: "auto", flexShrink: 0, color: "var(--danger)" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                   </button>

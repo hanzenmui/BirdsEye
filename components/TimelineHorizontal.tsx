@@ -458,8 +458,16 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
     }
   };
 
+  // Keep year labels readable at every act and zoom. A fixed 100-year interval
+  // made the all-history view print labels on top of one another, while the
+  // narrower New Testament view had too few guideposts. Pick a human-friendly
+  // interval from the span and the chart's approximate rendered width instead.
+  const spanYears = range.startBc - range.endBc;
+  const targetTickCount = Math.max(4, Math.floor((920 * zoom) / 72));
+  const rawTickStep = spanYears / targetTickCount;
+  const tickStep = [10, 25, 50, 100, 200, 500, 1000].find(step => step >= rawTickStep) ?? 2000;
   const ticks: number[] = [];
-  for (let y = Math.floor(range.startBc / 100) * 100; y > range.endBc; y -= 100) {
+  for (let y = Math.floor(range.startBc / tickStep) * tickStep; y > range.endBc; y -= tickStep) {
     // There is no year zero — the calendar runs 1 BC straight into AD 1 — so
     // the century mark that lands on it is skipped rather than labelled.
     if (y === 0) continue;
@@ -487,6 +495,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
         onZoomIn={() => setZoom(value => Math.min(ZOOM_MAX, value + ZOOM_STEP))}
         onZoomOut={() => setZoom(value => Math.max(ZOOM_MIN, value - ZOOM_STEP))}
         onZoomReset={() => setZoom(1)}
+        zoomResetLabel="Overview"
         open={filtersOpen}
         onToggleOpen={() => setFiltersOpen(value => !value)}
       />
@@ -538,7 +547,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
           className="tl-canvas tlh-canvas"
           style={{ paddingRight: panelOpen ? 32 + 340 : 32 }}
         >
-          <div className="tlh-chart" style={{ width: `${zoom * 100}%` }}>
+          <div className="tlh-chart" style={{ width: `max(${zoom * 100}%, ${Math.round(920 * zoom)}px)` }}>
             <div className="tlh-era-strip" aria-label="Historical eras">
               <div className="tlh-gutter-title">Bible eras</div>
               <div className="tlh-era-track">

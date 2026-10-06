@@ -34,6 +34,7 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  zoomResetLabel?: string;
   open: boolean;
   onToggleOpen: () => void;
 }
@@ -57,6 +58,7 @@ export function TimelineFilters({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  zoomResetLabel = "Reset",
   open,
   onToggleOpen,
 }: Props) {
@@ -101,7 +103,7 @@ export function TimelineFilters({
           <button type="button" onClick={onZoomOut} aria-label="Zoom out">−</button>
           <span className="tl-zoom-level">{Math.round(zoom * 100)}%</span>
           <button type="button" onClick={onZoomIn} aria-label="Zoom in">+</button>
-          {zoom !== 1 && <button type="button" className="tl-zoom-fit" onClick={onZoomReset}>Reset</button>}
+          {zoom !== 1 && <button type="button" className="tl-zoom-fit" onClick={onZoomReset}>{zoomResetLabel}</button>}
         </div>
       </div>
 
