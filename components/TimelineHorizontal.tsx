@@ -9,6 +9,7 @@ import { spanToBox, packRows, computeRange, yearToPct, formatYear, formatYearSpa
 import { TIMELINE_PERIODS } from "@/lib/timeline-periods";
 import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
+import { InterfaceState, LoadingState } from "./InterfaceState";
 
 // Lane colours drawn from the app's palette: terracotta family for Judah,
 // teal/plum for Israel, muted purple for prophets, warm sand for judges.
@@ -392,15 +393,11 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
 
   if (error) return <LoadError message={error} onRetry={reload} />;
   if (loading) {
-    return <div className="loading-wrap"><div className="spinner" /></div>;
+    return <LoadingState label="Laying out the timeline…" />;
   }
   if (people.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">🕰️</div>
-        <div className="empty-state-title">No timeline data</div>
-        <div className="empty-state-sub">Run <code>npm run seed:timeline</code> to populate it.</div>
-      </div>
+      <InterfaceState kind="timeline" title="No timeline records yet" description="People and events will appear here when historical dates are available." />
     );
   }
 

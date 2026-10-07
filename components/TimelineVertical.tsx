@@ -11,6 +11,7 @@ import { formatYear, formatYearSpan } from "@/lib/timeline-layout";
 import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
 import { subscribeEventFocus, readEventFocus } from "@/lib/nav-bus";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
+import { InterfaceState, LoadingState } from "./InterfaceState";
 
 interface Props {
   onSelectPerson: (id: string) => void;
@@ -395,14 +396,10 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   };
 
   if (error) return <LoadError message={error} onRetry={reload} />;
-  if (loading) return <div className="loading-wrap"><div className="spinner" /></div>;
+  if (loading) return <LoadingState label="Laying out the timeline…" />;
   if (people.length === 0 && events.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">🕰️</div>
-        <div className="empty-state-title">No timeline data</div>
-        <div className="empty-state-sub">Run <code>npm run seed:timeline</code> to populate it.</div>
-      </div>
+      <InterfaceState kind="timeline" title="No timeline records yet" description="People and events will appear here when historical dates are available." />
     );
   }
 

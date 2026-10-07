@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import Image from "next/image";
 import { navigate, useQueryState } from "@/hooks/useQueryState";
 import { LoadError } from "./LoadError";
@@ -13,6 +13,7 @@ import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATION
 import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
+import { InterfaceState, LoadingState } from "./InterfaceState";
 
 // A scripture reference that opens the passage on Bible Gateway. stopPropagation
 // matters because these sit inside cards and rows that are themselves clickable —
@@ -45,8 +46,10 @@ let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 function showToast(msg: string, type: "success" | "error" = "success") {
   const wrap = document.getElementById("toast-wrap");
   if (!wrap) return;
+  wrap.replaceChildren();
   const el = document.createElement("div");
   el.className = `toast${type === "error" ? " error" : ""}`;
+  el.setAttribute("role", type === "error" ? "alert" : "status");
   el.textContent = msg;
   wrap.appendChild(el);
   if (_toastTimer) clearTimeout(_toastTimer);
@@ -66,6 +69,67 @@ const NAV: { key: Section; label: string; icon: string }[] = [
   { key: "timeline", label: "Timeline",  icon: "M12 8v4l3 2M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0" },
   { key: "stats",  label: "Insights",    icon: "M18 20V10M12 20V4M6 20v-6" },
 ];
+
+interface SectionHeaderProps {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  titleId: string;
+  onMenu: () => void;
+}
+
+function SectionHeader({ eyebrow, title, subtitle, titleId, onMenu }: SectionHeaderProps) {
+  return (
+    <div className="section-header">
+      <button type="button" className="mob-menu-btn" aria-label="Open navigation" onClick={onMenu}>
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div className="section-heading-copy">
+        <div className="section-eyebrow">{eyebrow}</div>
+        <h1 className="section-title" id={titleId}>{title}</h1>
+        <div className="section-subtitle">{subtitle}</div>
+      </div>
+    </div>
+  );
+}
+
+interface ModalFrameProps {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  tone?: "default" | "danger";
+}
+
+function ModalFrame({ id, eyebrow, title, description, onClose, children, tone = "default" }: ModalFrameProps) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className={`modal${tone === "danger" ? " modal-danger" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}>
+        <div className="modal-header">
+          <div className="modal-heading">
+            <span className="modal-eyebrow">{eyebrow}</span>
+            <h2 className="modal-title" id={`${id}-title`}>{title}</h2>
+            <p className="modal-subtitle" id={`${id}-description`}>{description}</p>
+          </div>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 // "CH" covers everyone from the apostles onward who isn't a Bible-text figure —
@@ -193,21 +257,22 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={isEdit ? `Edit ${initial!.name}` : "Add person"}>
-        <div className="modal-header">
-          <span className="modal-title">{isEdit ? `Edit ${initial!.name}` : "Add Person"}</span>
-          <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
-        </div>
+    <ModalFrame
+      id="person-record"
+      eyebrow="Person record"
+      title={isEdit ? `Edit ${initial!.name}` : "Add a person"}
+      description="Create a clear, searchable record. Approximate dates are welcome."
+      onClose={onClose}
+    >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-grid">
               <div className="form-group full">
                 <label className="form-label">Name *</label>
-                <input className="form-input" value={form.name} onChange={f("name")} autoFocus placeholder="e.g. Moses" />
+                <input className="form-input" value={form.name} onChange={f("name")} autoFocus required placeholder="e.g. Moses" />
               </div>
               <div className="form-group full">
-                <label className="form-label">Also Known As</label>
+                <label className="form-label">Also known as</label>
                 <input className="form-input" value={form.alsoKnownAs} onChange={f("alsoKnownAs")} placeholder="Comma-separated aliases" />
               </div>
               <div className="form-group">
@@ -228,11 +293,11 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Birth Year</label>
+                <label className="form-label">Birth year</label>
                 <input className="form-input" value={form.birthYear} onChange={f("birthYear")} placeholder="e.g. c. 1526 BC" />
               </div>
               <div className="form-group">
-                <label className="form-label">Death Year</label>
+                <label className="form-label">Death year</label>
                 <input className="form-input" value={form.deathYear} onChange={f("deathYear")} placeholder="e.g. c. 1406 BC" />
               </div>
               <div className="form-group full">
@@ -246,11 +311,11 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
                   <button type="button" className="btn btn-ghost btn-sm" onClick={addTag}>Add</button>
                 </div>
                 {form.tags.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                  <div className="form-tags" aria-label="Added tags">
                     {form.tags.map(t => (
-                      <span key={t} className="badge badge-tag" style={{ cursor: "pointer" }} onClick={() => setForm(p => ({ ...p, tags: p.tags.filter(x => x !== t) }))}>
-                        {t} ×
-                      </span>
+                      <button type="button" key={t} className="badge badge-tag form-tag" onClick={() => setForm(p => ({ ...p, tags: p.tags.filter(x => x !== t) }))} aria-label={`Remove ${t} tag`}>
+                        {t} <span aria-hidden="true">×</span>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -259,21 +324,21 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save Changes" : "Add Person"}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Add person"}</button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
 // ── Add Ref Modal ─────────────────────────────────────────────────────────────
 interface AddRefProps {
   personId: string;
+  personName: string;
   onSave: (r: Omit<ScriptureRef, "id" | "createdAt">) => Promise<void>;
   onClose: () => void;
 }
-function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
+function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ book: "Genesis", chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1, note: "" });
   // Mirrors chapterEnd/verseEnd to chapterStart/verseStart until the user
@@ -309,12 +374,13 @@ function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Add scripture reference">
-        <div className="modal-header">
-          <span className="modal-title">Add Scripture Reference</span>
-          <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
-        </div>
+    <ModalFrame
+      id="scripture-reference"
+      eyebrow="Scripture index"
+      title="Add a scripture reference"
+      description={`Connect ${personName} to the exact passage where they appear.`}
+      onClose={onClose}
+    >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-grid">
@@ -325,34 +391,35 @@ function AddRefModal({ personId, onSave, onClose }: AddRefProps) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">From Chapter : Verse</label>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input className="form-input" type="number" min={1} value={form.chapterStart} onChange={f("chapterStart")} style={{ width: 70 }} />
-                  <span style={{ color: "var(--text3)" }}>:</span>
-                  <input className="form-input" type="number" min={1} value={form.verseStart} onChange={f("verseStart")} style={{ width: 70 }} />
+                <label className="form-label">Starts at</label>
+                <div className="verse-coordinate">
+                  <input className="form-input" aria-label="Starting chapter" type="number" min={1} value={form.chapterStart} onChange={f("chapterStart")} />
+                  <span aria-hidden="true">:</span>
+                  <input className="form-input" aria-label="Starting verse" type="number" min={1} value={form.verseStart} onChange={f("verseStart")} />
                 </div>
+                <span className="form-hint">Chapter : verse</span>
               </div>
               <div className="form-group">
-                <label className="form-label">To Chapter : Verse</label>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input className="form-input" type="number" min={1} value={form.chapterEnd} onChange={f("chapterEnd")} style={{ width: 70 }} />
-                  <span style={{ color: "var(--text3)" }}>:</span>
-                  <input className="form-input" type="number" min={1} value={form.verseEnd} onChange={f("verseEnd")} style={{ width: 70 }} />
+                <label className="form-label">Ends at</label>
+                <div className="verse-coordinate">
+                  <input className="form-input" aria-label="Ending chapter" type="number" min={1} value={form.chapterEnd} onChange={f("chapterEnd")} />
+                  <span aria-hidden="true">:</span>
+                  <input className="form-input" aria-label="Ending verse" type="number" min={1} value={form.verseEnd} onChange={f("verseEnd")} />
                 </div>
+                <span className="form-hint">Chapter : verse</span>
               </div>
               <div className="form-group full">
-                <label className="form-label">Context Note</label>
+                <label className="form-label">Context note</label>
                 <input className="form-input" value={form.note} onChange={f("note")} placeholder="e.g. Birth of Moses described" />
               </div>
             </div>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add Reference"}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add reference"}</button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
@@ -404,20 +471,21 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Add relationship">
-        <div className="modal-header">
-          <span className="modal-title">Add Relationship</span>
-          <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
-        </div>
+    <ModalFrame
+      id="person-relationship"
+      eyebrow="Relationship map"
+      title="Add a relationship"
+      description={`Show how ${focalPerson.name} connects to someone else in the archive.`}
+      onClose={onClose}
+    >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-grid">
-              <div className="form-group full" style={{ background: "var(--bg3)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{preview}</span>
+              <div className="relationship-preview full" aria-live="polite">
+                <span>{preview}</span>
               </div>
               <div className="form-group">
-                <label className="form-label">Relationship Type</label>
+                <label className="form-label">Relationship type</label>
                 <select className="form-input" value={type} onChange={e => setType(e.target.value as RelationshipType)}>
                   {(Object.entries(RELATIONSHIP_LABELS) as [RelationshipType, string][]).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
@@ -425,9 +493,9 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">The Other Person</label>
+                <label className="form-label">Other person</label>
                 <select className="form-input" value={personBId} onChange={e => setPersonBId(e.target.value)} required>
-                  <option value="">— Select person —</option>
+                  <option value="">Select a person</option>
                   {others.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.alsoKnownAs ? `${p.name} — ${p.alsoKnownAs.split(",")[0].trim()}` : p.name}
@@ -443,11 +511,49 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId || saving}>{saving ? "Saving…" : "Add Relationship"}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId || saving}>{saving ? "Saving…" : "Add relationship"}</button>
           </div>
         </form>
+    </ModalFrame>
+  );
+}
+
+function DeletePersonModal({ person, onConfirm, onClose }: { person: Person; onConfirm: () => Promise<void>; onClose: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+
+  const removePerson = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <ModalFrame
+      id="delete-person"
+      eyebrow="Permanent change"
+      title={`Delete ${person.name}?`}
+      description="This also removes every relationship and scripture reference attached to this person. This cannot be undone."
+      onClose={onClose}
+      tone="danger"
+    >
+      <div className="modal-body">
+        <div className="delete-record-preview">
+          <span className="delete-record-monogram" aria-hidden="true">{person.name[0]}</span>
+          <div>
+            <strong>{person.name}</strong>
+            <span>{person.alsoKnownAs || TESTAMENT_LABELS[person.testament]}</span>
+          </div>
+        </div>
       </div>
-    </div>
+      <div className="modal-footer">
+        <button type="button" className="btn btn-ghost" onClick={onClose} disabled={deleting}>Keep person</button>
+        <button type="button" className="btn btn-danger" onClick={removePerson} disabled={deleting}>{deleting ? "Deleting…" : "Delete person"}</button>
+      </div>
+    </ModalFrame>
   );
 }
 
@@ -708,7 +814,7 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
         <div className="people-toolbar">
           <div className="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input className="search-input" aria-label="Search people" placeholder="Search names, roles, or a passage like 2 Kings 18…" value={query} onChange={e => setQuery(e.target.value)} />
+            <input className="search-input" aria-label="Search people" placeholder="Find a person…" value={query} onChange={e => setQuery(e.target.value)} />
             {query ? <button type="button" className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button> : null}
           </div>
           <div className="filter-bar" aria-label="Filter people by testament">
@@ -734,11 +840,12 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
             </small>
           </div>
           {filtered.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">✦</div>
-              <div className="empty-state-title">{query ? "No results" : "No people yet"}</div>
-              <div className="empty-state-sub">{query ? "Try a different search." : "Add your first person to get started."}</div>
-            </div>
+            <InterfaceState
+              kind="people"
+              title={query ? "No people match that search" : "No people recorded yet"}
+              description={query ? "Try a shorter name, a role such as prophet, or a scripture reference." : "Add the first person to begin building the index."}
+              action={!query ? <button type="button" className="btn btn-primary" onClick={onAddPerson}>Add a person</button> : undefined}
+            />
           ) : (
             <div className="people-grid">
               {filtered.map((p, i) => (
@@ -967,10 +1074,14 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 ))}
               </div>
             )}
-            {bookPeople.length === 0 && <div className="empty-state">
-              <div className="empty-state-title">No people recorded for this passage yet</div>
-              <div className="empty-state-sub">Missing records do not mean nobody is mentioned. Try another chapter or view the whole book.</div>
-            </div>}
+            {bookPeople.length === 0 && (
+              <InterfaceState
+                kind="books"
+                title="No people recorded for this passage yet"
+                description="Missing records do not mean nobody is mentioned. Try another chapter or view the whole book."
+                compact
+              />
+            )}
             <div className="people-grid book-people-grid">
               {bookPeople.map(({ person: p, spanOnly }, i) => (
                 <PersonIndexCard
@@ -1174,6 +1285,7 @@ export function Explorer() {
   const [editPersonFor, setEditPersonFor] = useState<Person | null>(null);
   const [addRefFor, setAddRefFor] = useState<Person | null>(null);
   const [addRelFor, setAddRelFor] = useState<Person | null>(null);
+  const [deletePersonFor, setDeletePersonFor] = useState<Person | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Desktop counterpart to sidebarOpen. The single menu button toggles both:
   // on mobile only `open` has any effect (the collapse rule is scoped above
@@ -1201,13 +1313,13 @@ export function Explorer() {
   }, []);
 
   const handleDeletePerson = useCallback(async (id: string) => {
-    if (!confirm("Delete this person and all their relationships and references?")) return;
     try {
       await deletePerson(id);
       reloadRelationships();
       reloadRefs();
       reloadTraditions();
       setSelectedId(null);
+      setDeletePersonFor(null);
       showToast("Person deleted");
     } catch { showToast("Could not delete this person. Please retry.", "error"); }
   }, [deletePerson, reloadRelationships, reloadRefs, reloadTraditions, setSelectedId]);
@@ -1249,7 +1361,11 @@ export function Explorer() {
             ))}
           </div>
           <div className="sidebar-footer">
-            <div className="sidebar-footer-label">Birdseye — Bible Explorer</div>
+            <span className="sidebar-footer-mark" aria-hidden="true">66</span>
+            <div className="sidebar-footer-copy">
+              <strong>Every book indexed</strong>
+              <span>People, lineages, and history</span>
+            </div>
           </div>
         </nav>
 
@@ -1257,22 +1373,11 @@ export function Explorer() {
         {sidebarOpen && <div className="sidebar-backdrop open" onClick={closeSidebar} />}
 
         {/* People section */}
-        <div className={`app-section${section === "people" ? " active" : ""}`}>
+        <section className={`app-section${section === "people" ? " active" : ""}`} aria-labelledby="people-section-title">
           {readingBar}
-          <div className="section-header">
-            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div>
-              <div className="section-eyebrow">Browse</div>
-              <div className="section-title">People</div>
-              <div className="section-subtitle">{people.length} {people.length === 1 ? "person" : "people"} in the database</div>
-            </div>
-          </div>
+          <SectionHeader eyebrow="Bible people" title="People" titleId="people-section-title" subtitle={`${people.length} ${people.length === 1 ? "person" : "people"}, from Genesis through the early church`} onMenu={toggleSidebar} />
           {loadingPeople || loadingRefs || loadingRelationships ? (
-            <div className="loading-wrap"><div className="spinner" /></div>
+            <LoadingState label="Opening the people index…" />
           ) : !peopleError && !refsError && !relationshipsError && (
             <PeopleSection
               people={people}
@@ -1289,45 +1394,23 @@ export function Explorer() {
               onDeleteRef={async id => { try { await deleteRef(id); showToast("Reference removed"); } catch { showToast("Could not remove reference. Please retry.", "error"); } }}
               onAddRel={p => setAddRelFor(p)}
               onDeleteRel={async id => { try { await deleteRelationship(id); showToast("Relationship removed"); } catch { showToast("Could not remove relationship. Please retry.", "error"); } }}
-              onDeletePerson={handleDeletePerson}
+              onDeletePerson={id => setDeletePersonFor(people.find(person => person.id === id) ?? null)}
             />
           )}
-        </div>
+        </section>
 
         {/* Books section */}
-        <div className={`app-section${section === "books" ? " active" : ""}`}>
+        <section className={`app-section${section === "books" ? " active" : ""}`} aria-labelledby="books-section-title">
           {readingBar}
-          <div className="section-header">
-            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div>
-              <div className="section-eyebrow">Browse</div>
-              <div className="section-title">By Book</div>
-              <div className="section-subtitle">Find people by where they appear in scripture</div>
-            </div>
-          </div>
-          {loadingPeople || loadingRefs ? <div className="loading-wrap"><div className="spinner" /></div> : !peopleError && !refsError && <BooksSection people={people} refs={refs} onSelect={selectPerson} />}
-        </div>
+          <SectionHeader eyebrow="Scripture index" title="By Book" titleId="books-section-title" subtitle="All 66 books, organized by chapter and person" onMenu={toggleSidebar} />
+          {loadingPeople || loadingRefs ? <LoadingState label="Opening the scripture index…" /> : !peopleError && !refsError && <BooksSection people={people} refs={refs} onSelect={selectPerson} />}
+        </section>
 
         {/* Tree section */}
-        <div className={`app-section${section === "tree" ? " active" : ""}`}>
+        <section className={`app-section${section === "tree" ? " active" : ""}`} aria-labelledby="tree-section-title">
           {readingBar}
-          <div className="section-header">
-            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div>
-              <div className="section-eyebrow">Explore</div>
-              <div className="section-title">Family Tree</div>
-              <div className="section-subtitle">Pick a family or book to explore, or view the full tree</div>
-            </div>
-          </div>
-          {loadingPeople || loadingRefs || loadingRelationships ? <div className="loading-wrap"><div className="spinner" /></div> : !loadError && <TreeCategoryPicker
+          <SectionHeader eyebrow="Lineage atlas" title="Family Tree" titleId="tree-section-title" subtitle="Trace families, books, and the line from Adam to Jesus" onMenu={toggleSidebar} />
+          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Drawing the lineage map…" /> : !loadError && <TreeCategoryPicker
             people={people}
             relationships={relationships}
             refs={refs}
@@ -1337,23 +1420,12 @@ export function Explorer() {
             onSelect={selectPerson}
             onOpenEvent={navigateToEvent}
           />}
-        </div>
+        </section>
 
         {/* Timeline section */}
-        <div className={`app-section${section === "timeline" ? " active" : ""}`}>
+        <section className={`app-section${section === "timeline" ? " active" : ""}`} aria-labelledby="timeline-section-title">
           {readingBar}
-          <div className="section-header">
-            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div>
-              <div className="section-eyebrow">Explore</div>
-              <div className="section-title">Timeline</div>
-              <div className="section-subtitle">Who lived when, and when prophecy came true</div>
-            </div>
-          </div>
+          <SectionHeader eyebrow="Bible chronology" title="Timeline" titleId="timeline-section-title" subtitle="See who lived when and where prophecy was fulfilled" onMenu={toggleSidebar} />
           <Timeline
             onSelectPerson={selectPerson}
             onOpenTradition={navigateToTradition}
@@ -1361,25 +1433,14 @@ export function Explorer() {
             traditionEdges={traditionEdges}
             active={section === "timeline"}
           />
-        </div>
+        </section>
 
         {/* Stats section */}
-        <div className={`app-section${section === "stats" ? " active" : ""}`}>
+        <section className={`app-section${section === "stats" ? " active" : ""}`} aria-labelledby="insights-section-title">
           {readingBar}
-          <div className="section-header">
-            <button className="mob-menu-btn" aria-label="Toggle navigation" onClick={toggleSidebar}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <div>
-              <div className="section-eyebrow">Explore</div>
-              <div className="section-title">Insights</div>
-              <div className="section-subtitle">Most referenced, most connected, coverage by book</div>
-            </div>
-          </div>
-          {loadingPeople || loadingRefs || loadingRelationships ? <div className="loading-wrap"><div className="spinner" /></div> : !peopleError && !refsError && !relationshipsError && <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />}
-        </div>
+          <SectionHeader eyebrow="Collection overview" title="Insights" titleId="insights-section-title" subtitle="See who appears most, who connects most, and how the books are covered" onMenu={toggleSidebar} />
+          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Reading the collection…" /> : !peopleError && !refsError && !relationshipsError && <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />}
+        </section>
       </div>
 
       {/* Toast container */}
@@ -1402,6 +1463,7 @@ export function Explorer() {
       {addRefFor && (
         <AddRefModal
           personId={addRefFor.id}
+          personName={addRefFor.name}
           onSave={async r => { await addRef(r); showToast("Reference added"); }}
           onClose={() => setAddRefFor(null)}
         />
@@ -1412,6 +1474,13 @@ export function Explorer() {
           people={people}
           onSave={async r => { await addRelationship(r); showToast("Relationship added"); }}
           onClose={() => setAddRelFor(null)}
+        />
+      )}
+      {deletePersonFor && (
+        <DeletePersonModal
+          person={deletePersonFor}
+          onConfirm={() => handleDeletePerson(deletePersonFor.id)}
+          onClose={() => setDeletePersonFor(null)}
         />
       )}
     </>

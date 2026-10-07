@@ -6,6 +6,7 @@ import {
   RELATIONSHIP_COLORS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, BIBLE_BOOKS,
 } from "@/lib/types";
 import { formatRef } from "@/lib/mappers";
+import { InterfaceState } from "./InterfaceState";
 
 // Resolves each person to at most one parent — male parents preferred, same
 // tie-break rule buildLayout/buildForest use to lay out the tree. Shared so
@@ -842,21 +843,18 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   if (people.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">🌿</div>
-        <div className="empty-state-title">No people recorded yet</div>
-      </div>
+      <InterfaceState kind="tree" title="No people recorded yet" description="Family connections will appear here once people are added to the archive." />
     );
   }
 
   if (!tree) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">🌿</div>
-        <div className="empty-state-title">No people recorded in this view yet</div>
-        <div className="empty-state-sub">Missing records do not mean nobody is mentioned in the passage.</div>
-        <button type="button" className="btn btn-ghost" onClick={() => { if (scope) scope.onBack(); else setBookFilter(""); }}>Back to tree</button>
-      </div>
+      <InterfaceState
+        kind="tree"
+        title="No people recorded in this view yet"
+        description="Missing records do not mean nobody is mentioned in the passage."
+        action={<button type="button" className="btn btn-ghost" onClick={() => { if (scope) scope.onBack(); else setBookFilter(""); }}>Back to tree</button>}
+      />
     );
   }
 

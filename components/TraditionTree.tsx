@@ -3,6 +3,7 @@ import { useMemo, useRef, useReducer, useEffect, useCallback, useState } from "r
 import type { Tradition, TraditionEdge, TraditionEdgeType, TraditionPerson, Person } from "@/lib/types";
 import { formatOpenYearSpan, formatYear } from "@/lib/timeline-layout";
 import type { FocusRequest } from "@/lib/nav-bus";
+import { InterfaceState } from "./InterfaceState";
 
 // The seed data writes distinctives as several semicolon-separated points
 // ("Justification by faith alone; scripture alone as final authority; ...")
@@ -453,11 +454,11 @@ export function TraditionTree({ traditions, edges, traditionPeople, people, titl
 
   if (traditions.length === 0) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">⛪</div>
-        <div className="empty-state-title">No traditions in the database</div>
-        <div className="empty-state-sub">Seed the database to see this map.</div>
-      </div>
+      <InterfaceState
+        kind="traditions"
+        title="No tradition records yet"
+        description="Church-history branches will appear here when records are available."
+      />
     );
   }
 
