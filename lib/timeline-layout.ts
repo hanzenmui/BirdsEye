@@ -18,6 +18,12 @@ export interface Span {
   endBc: number;
 }
 
+/** Clip an overlapping lifespan/book span to a focused era, including points. */
+export function clipSpanToRange<T extends TimelineRange>(span: T, range: TimelineRange): T | null {
+  if (span.startBc < range.endBc || span.endBc > range.startBc) return null;
+  return { ...span, startBc: Math.min(span.startBc, range.startBc), endBc: Math.max(span.endBc, range.endBc) };
+}
+
 /** Horizontal position of a year, as a percentage across the range. */
 export function yearToPct(year: number, range: TimelineRange): number {
   const total = range.startBc - range.endBc;

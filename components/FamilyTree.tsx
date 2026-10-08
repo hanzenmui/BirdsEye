@@ -112,7 +112,7 @@ const PAD = 48;   // outer padding
 
 interface N { id: string; name: string; x: number; y: number; children: N[] }
 
-function buildLayout(people: Person[], rels: Relationship[], rootId: string) {
+export function buildLayout(people: Person[], rels: Relationship[], rootId: string, maxDepth = Infinity) {
   const byId = new Map(people.map(p => [p.id, p]));
   const parentOf = computeParentMap(people, rels);
   const childrenOf = new Map<string, string[]>();
@@ -124,7 +124,7 @@ function buildLayout(people: Person[], rels: Relationship[], rootId: string) {
   const visited = new Set<string>();
   function build(id: string, gen: number): N {
     visited.add(id);
-    const kids = (childrenOf.get(id) ?? [])
+    const kids = (gen < maxDepth ? childrenOf.get(id) ?? [] : [])
       .filter(c => byId.has(c) && !visited.has(c))
       .map(c => build(c, gen + 1))
       .reverse(); // API returns DESC order; reverse restores seed/birth order
@@ -371,6 +371,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   // ── Root picker state ────────────────────────────────────────────────────────
   const [rootId, setRootId] = useQueryState<string | null>("treeRoot", null);
+  const [treeView, setTreeView] = useQueryState<string>("treeView", "nearby");
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFocused, setPickerFocused] = useState(false);
@@ -380,6 +381,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
   const [bookFilterParam, setBookFilter] = useQueryState<string>("treeFilter", "");
   const bookFilter = scope ? "" : bookFilterParam;
+  const nearbyView = !scope && !bookFilter && treeView !== "whole";
   const [rosterQuery, setRosterQuery] = useState("");
   const [rosterOpen, setRosterOpen] = useState(false);
 
@@ -389,12 +391,15 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const adam  = useMemo(() => people.find(p => p.name === "Adam")  ?? null, [people]);
   const jesus = useMemo(() => people.find(p => p.name === "Jesus") ?? null, [people]);
   const effectiveRootId = people.some(p => p.id === rootId) ? rootId : adam?.id ?? null;
-  useEffect(() => { hasFitted.current = false; }, [effectiveRootId]);
+  useEffect(() => { hasFitted.current = false; }, [effectiveRootId, nearbyView]);
   const rootPerson = useMemo(
     () => (effectiveRootId ? people.find(p => p.id === effectiveRootId) ?? null : null),
     [people, effectiveRootId],
   );
   const peopleById = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+  const resolvedParents = useMemo(() => computeParentMap(people, relationships), [people, relationships]);
+  const rootParent = effectiveRootId ? peopleById.get(resolvedParents.get(effectiveRootId) ?? "") : undefined;
+  const parentsWithChildren = useMemo(() => new Set(resolvedParents.values()), [resolvedParents]);
 
   // David's two genealogies (Matthew via Solomon, Luke via Nathan) share
   // Adam→David and Joseph→Jesus but otherwise diverge; findLineagePath's
@@ -549,8 +554,8 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       return forest.all.length === 0 ? null : forest;
     }
     if (!effectiveRootId) return null;
-    return buildLayout(people, relationships, effectiveRootId);
-  }, [people, relationships, effectiveRootId, scope, bookFilter, bookHits]);
+    return buildLayout(people, relationships, effectiveRootId, nearbyView ? 2 : Infinity);
+  }, [people, relationships, effectiveRootId, scope, bookFilter, bookHits, nearbyView]);
 
   const posMap = useMemo(
     () => new Map(tree ? tree.all.map(n => [n.id, n]) : []),
@@ -591,19 +596,26 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
   const jumpToPerson = useCallback((id: string) => {
     if (!containerRef.current) return;
     const node = posMap.get(id);
-    if (!node) return;
+    if (!node) {
+      if (!scope && !bookFilter) {
+        hasFitted.current = false;
+        setRootId(id);
+        setDetailId(id);
+      }
+      return;
+    }
     const frame = getViewFrame(true);
     const topOffset = (frame.insetTop ?? CENTER_TOP_OFFSET) + 18;
     dispatch({
       type: "CENTER",
       nodeX: node.x,
       nodeY: node.y,
-      zoom: Math.max(view.zoom, 0.82),
+      zoom: Math.max(view.zoom, nearbyView ? 1.05 : 0.82),
       topOffset,
       ...frame,
     });
     setDetailId(id);
-  }, [getViewFrame, posMap, view.zoom]);
+  }, [getViewFrame, posMap, view.zoom, scope, bookFilter, setRootId, nearbyView]);
 
   // Bounding box (in tree coordinates) around every node the active book
   // filter matches — only meaningful on the unscoped tree, since a scoped
@@ -654,15 +666,16 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     } else if (!bookFilter && hasFitted.current && tree) {
       const root = tree.all[0];
       const topOffset = (frame.insetTop ?? CENTER_TOP_OFFSET) + 18;
-      dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, zoom: 0.88, topOffset, ...frame });
+      dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, zoom: nearbyView ? 1.05 : 0.88, topOffset, ...frame });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookFilterBox, scope]);
 
   // Establish the first useful view once the flex container has dimensions.
   // Explicit root changes reset hasFitted so they receive the same readable
-  // opening treatment; ordinary ResizeObserver callbacks leave the user's
-  // current pan and zoom alone.
+  // opening treatment. Resizing keeps the same map point in the usable frame
+  // instead of leaving it offscreen after rotating a phone or opening a panel.
+  const previousFrame = useRef<ViewFrame | null>(null);
   useEffect(() => {
     if (!tree || !containerRef.current) return;
     const el = containerRef.current;
@@ -681,20 +694,28 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             type: "CENTER",
             nodeX: root.x,
             nodeY: root.y,
-            zoom: 0.88,
+            zoom: nearbyView ? 1.05 : 0.88,
             topOffset: (frame.insetTop ?? CENTER_TOP_OFFSET) + 18,
             ...frame,
           });
         }
         hasFitted.current = true;
+      } else if (previousFrame.current) {
+        const old = previousFrame.current;
+        const centerX = (f: ViewFrame) => ((f.insetLeft ?? 0) + f.vpW - (f.insetRight ?? 0)) / 2;
+        const centerY = (f: ViewFrame) => ((f.insetTop ?? 0) + f.vpH - (f.insetBottom ?? 0)) / 2;
+        const dx = centerX(frame) - centerX(old);
+        const dy = centerY(frame) - centerY(old);
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) dispatch({ type: "PAN", dx, dy });
       }
+      previousFrame.current = frame;
     };
     tryFit();
     const ro = new ResizeObserver(tryFit);
     ro.observe(el);
     if (mapbarRef.current) ro.observe(mapbarRef.current);
     return () => ro.disconnect();
-  }, [tree, scope, getViewFrame]);
+  }, [tree, scope, getViewFrame, nearbyView]);
 
   // Keyboard +/= zoom in, - zoom out toward viewport center
   useEffect(() => {
@@ -787,7 +808,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       e.preventDefault();
       lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
       isDragging.current = true;
-      didDrag.current = false;
+      didDrag.current = e.touches.length > 1;
     };
 
     const onTouchMove = (e: TouchEvent) => {
@@ -823,7 +844,14 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       if (isOverlayTouch(e.target)) return;
       e.preventDefault();
       lastTouches.current = Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }));
-      if (e.touches.length === 0) isDragging.current = false;
+      if (e.touches.length === 0) {
+        isDragging.current = false;
+        // preventDefault suppresses the browser's synthetic click. Restore
+        // activation only for a completed tap, never a drag/pinch/cancel.
+        if (e.type === "touchend" && !didDrag.current && e.target instanceof Element) {
+          e.target.closest(".ft-node, .ft-continue")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        }
+      }
     };
 
     el.addEventListener("touchstart",  onTouchStart, { passive: false });
@@ -886,7 +914,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
           willChange: "transform",
         }}
       >
-        <svg width={w} height={h} style={{ display: "block", overflow: "visible" }}>
+        <svg width={w} height={h} role="group" aria-label="Family connections" style={{ display: "block", overflow: "visible" }}>
           {/* Quiet generation rules make the reading direction obvious without
               turning the genealogy into a spreadsheet. */}
           {Array.from({ length: generationDepth }).map((_, generation) => (
@@ -1046,6 +1074,25 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
               </g>
             );
           })}
+          {nearbyView && zoom >= 0.42 && all.filter(n => n.children.length === 0 && parentsWithChildren.has(n.id)).map(n => (
+            <g
+              key={`continue-${n.id}`}
+              className="ft-continue"
+              transform={`translate(${n.x - NW / 2},${n.y + NH + 6})`}
+              role="button"
+              tabIndex={0}
+              aria-label={`Continue family from ${n.name}`}
+              onClick={() => { if (!didDrag.current) { setRootId(n.id); setDetailId(null); setNodeSearch(""); } }}
+              onKeyDown={event => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault(); setRootId(n.id); setDetailId(null); setNodeSearch("");
+                }
+              }}
+            >
+              <rect width={NW} height={44} rx={6} />
+              <text x={NW / 2} y={22} textAnchor="middle" dominantBaseline="middle">More family ↓</text>
+            </g>
+          ))}
         </svg>
       </div>
 
@@ -1194,7 +1241,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
                 onChange={e => { setNodeSearch(e.target.value); setNodeSearchOpen(true); }}
                 onFocus={() => setNodeSearchOpen(true)}
                 onBlur={() => setTimeout(() => setNodeSearchOpen(false), 120)}
-                placeholder="Search names"
+                placeholder="Find a person"
                 autoComplete="off"
               />
               {(nodeSearch || bookFilter) && (
@@ -1221,6 +1268,17 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             )}
           </div>
         </div>
+
+        {!scope && !bookFilter && (
+          <div className="ft-family-navigation">
+            <div className="ft-view-switch" role="group" aria-label="Family tree detail">
+              <button type="button" aria-pressed={nearbyView} onClick={() => setTreeView("nearby")}>Nearby family</button>
+              <button type="button" aria-pressed={!nearbyView} onClick={() => setTreeView("whole")}>Whole tree</button>
+            </div>
+            {rootParent && <button type="button" className="ft-parent-step" onClick={() => { setRootId(rootParent.id); setDetailId(null); setNodeSearch(""); }}>↑ {rootParent.name}</button>}
+            <span>{nearbyView ? "3 generations at a time. Follow “More family” to keep going." : "All recorded descendants. Search a name to jump to them."}</span>
+          </div>
+        )}
 
         {hasFilter && (
           <div className={`ft-match-status${highlightedIds.size === 0 ? " empty" : ""}`}>

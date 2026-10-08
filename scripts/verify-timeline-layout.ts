@@ -1,7 +1,7 @@
 // Assertion suite for the pure timeline layout math. This project has no test
 // framework; this script is the test suite. Run: npx tsx scripts/verify-timeline-layout.ts
 import {
-  yearToPct, spanToBox, spansOverlap, packRows, computeRange, MIN_WIDTH_PCT,
+  clipSpanToRange, yearToPct, spanToBox, spansOverlap, packRows, computeRange, MIN_WIDTH_PCT,
   formatYear, formatYearSpan, formatOpenYearSpan,
   type TimelineRange, type Span,
 } from "../lib/timeline-layout";
@@ -16,6 +16,14 @@ function near(a: number, b: number, tol = 0.001) { return Math.abs(a - b) < tol;
 const RANGE: TimelineRange = { startBc: 1000, endBc: 500 }; // 500-year span
 
 console.log("Timeline layout verification\n");
+
+const ministry = { startBc: -28, endBc: -30 };
+const clipped = clipSpanToRange({ id: "ruler", startBc: -14, endBc: -37 }, ministry);
+check("era focus keeps and clips a ruler whose reign crosses both boundaries", clipped?.startBc === -28 && clipped?.endBc === -30 && clipped.id === "ruler");
+check("era focus excludes spans wholly before the era", clipSpanToRange({ startBc: 6, endBc: -27 }, ministry) === null);
+check("era focus excludes spans wholly after the era", clipSpanToRange({ startBc: -31, endBc: -48 }, ministry) === null);
+check("era focus includes a single-year event at its boundary", clipSpanToRange({ startBc: -30, endBc: -30 }, ministry)?.endBc === -30);
+check("clipping also works across BC and AD", clipSpanToRange({ startBc: 20, endBc: -40 }, { startBc: 6, endBc: -27 })?.startBc === 6);
 
 // yearToPct: BC counts down, so the range start is the LEFT edge (0%).
 check("yearToPct maps range start to 0%", near(yearToPct(1000, RANGE), 0));

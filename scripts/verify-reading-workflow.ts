@@ -1,6 +1,6 @@
 // No database access: checks the filtered graph and browser-history updates.
 import assert from "node:assert/strict";
-import { buildForest } from "../components/FamilyTree";
+import { buildForest, buildLayout } from "../components/FamilyTree";
 import { navigate } from "../hooks/useQueryState";
 import type { Person, Relationship } from "../lib/types";
 
@@ -18,6 +18,13 @@ assert.equal(forest.all.length, members.size, "No duplicate people from multiple
 assert.ok(forest.all.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)));
 assert.equal(buildForest(people, rels, new Set()).all.length, 0);
 assert.equal(buildForest(people, rels, new Set(["child"])).all.length, 1);
+
+const generations = ["ancestor", "parent", "child", "grandchild", "great-grandchild"].map(id => person(id));
+const chain = generations.slice(1).map((p, i) => ({ personAId: generations[i].id, personBId: p.id, type: "parent_of" })) as Relationship[];
+const nearby = buildLayout(generations, chain, "ancestor", 2);
+assert.deepEqual(new Set(nearby?.all.map(p => p.id)), new Set(["ancestor", "parent", "child"]), "Nearby view shows exactly three generations");
+assert.equal(buildLayout(generations, chain, "ancestor")?.all.length, 5, "Whole tree keeps all generations");
+assert.deepEqual(new Set(buildLayout(generations, chain, "child", 2)?.all.map(p => p.id)), new Set(["child", "grandchild", "great-grandchild"]), "Continuing a branch reveals the next generations");
 
 let href = "http://localhost/explore?book=Genesis&chapter=38";
 const entries = [href];
@@ -45,4 +52,4 @@ params = new URL(href).searchParams;
 assert.equal(params.get("person"), null);
 assert.equal(params.get("chapter"), "38");
 assert.equal(changeCount, 3);
-console.log("Reading workflow checks passed: complete filtered forest, standalone names, navigation and return context.");
+console.log("Reading workflow checks passed: complete filtered forest, nearby/whole-tree generations, standalone names, navigation and return context.");

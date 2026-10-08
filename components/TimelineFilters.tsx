@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { BIBLE_BOOKS, BOOK_COVERAGE } from "@/lib/types";
 
 const GROUPS: { label: string; books: string[] }[] = [
@@ -63,9 +64,10 @@ export function TimelineFilters({
   onToggleOpen,
 }: Props) {
   const allChecked = TIMELINE_BOOKS.every(book => checkedBooks.has(book));
+  const [displayOpen, setDisplayOpen] = useState(false);
 
   return (
-    <div className="tlv-tools">
+    <div className={`tlv-tools${displayOpen ? " display-open" : ""}`}>
       <div className="tlv-tools-main">
         <label className="tlv-search">
           <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -83,6 +85,11 @@ export function TimelineFilters({
             <button type="button" onClick={() => onQueryChange("")} aria-label="Clear search">×</button>
           )}
         </label>
+
+        <button type="button" className="tlv-mobile-tools-trigger" aria-expanded={displayOpen} onClick={() => setDisplayOpen(value => !value)}>
+          {displayOpen ? "Hide display options" : "Display & filters"}{!allChecked ? ` · ${checkedBooks.size} books` : ""}
+          <span aria-hidden="true">{displayOpen ? "−" : "+"}</span>
+        </button>
 
         <div className="tlv-layer-toggles" aria-label="Timeline layers">
           <button type="button" className={showPeopleLayer ? "active" : ""} aria-pressed={showPeopleLayer} onClick={onTogglePeopleLayer}>People</button>

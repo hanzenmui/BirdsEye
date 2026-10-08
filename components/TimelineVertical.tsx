@@ -155,6 +155,7 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   const [zoom, setZoom] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [query, setQuery] = useQueryState<string>("timelineQuery", "", true);
+  const [eraId, setEraId] = useQueryState<string>("timelineEra", "");
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
@@ -162,6 +163,15 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   const storyRef = useRef<HTMLDivElement>(null);
   const [linkGeoms, setLinkGeoms] = useState<{ id: string; d: string }[]>([]);
   const [naturalHeight, setNaturalHeight] = useState(0);
+
+  // Keep the same chapter when switching between the chart and story views.
+  useEffect(() => {
+    if (!active || loading || !naturalHeight || !ERAS.some(era => era.id === eraId)) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`tlv-era-${eraId}`)?.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, loading, eraId, ERAS, naturalHeight]);
 
   const peopleById = useMemo(() => new Map(people.map(person => [person.id, person])), [people]);
   const eventsById = useMemo(() => new Map(events.map(event => [event.id, event])), [events]);
@@ -348,6 +358,7 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   });
 
   const scrollToEntry = (key: string) => {
+    setEraId("");
     const element = document.getElementById(`tlv-${key}`);
     if (element) {
       setFocusedKey(key);
@@ -382,11 +393,12 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   useEffect(() => subscribeEventFocus(() => {
     const focus = readEventFocus();
     if (!focus) return;
+    setEraId("");
     setQuery("");
     setCheckedBooks(new Set(TIMELINE_BOOKS));
     setShowEventsLayer(true);
     setPendingScrollKey(`event-${focus.id}`);
-  }), [setQuery, setCheckedBooks, setShowEventsLayer]);
+  }), [setQuery, setCheckedBooks, setShowEventsLayer, setEraId]);
 
   const resetFilters = () => {
     setCheckedBooks(new Set(TIMELINE_BOOKS));
@@ -444,7 +456,10 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
 
         <nav className="tlv-era-nav" aria-label="Jump to an era">
           {eraEntries.map(({ era }) => (
-            <button key={era.id} type="button" onClick={() => document.getElementById(`tlv-era-${era.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <button key={era.id} type="button" aria-current={eraId === era.id ? "location" : undefined} onClick={() => {
+              setEraId(era.id);
+              document.getElementById(`tlv-era-${era.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}>
               {era.label}
             </button>
           ))}

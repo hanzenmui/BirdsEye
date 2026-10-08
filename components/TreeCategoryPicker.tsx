@@ -259,8 +259,8 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
         <button type="button" className="tree-entry-card featured" onClick={() => setStep1("all")}>
           <span className="tree-entry-index">01</span>
           <span className="tree-entry-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22V12M12 12L6 7M12 12l6-5M6 7V4M18 7V4M6 7h12"/></svg></span>
-          <strong>Full family tree</strong>
-          <small>Begin with Adam and explore the complete connected map.</small>
+          <strong>Explore the family tree</strong>
+          <small>Start with Adam. Follow a branch or switch to the whole map.</small>
           <span className="tree-entry-meta">Start with Adam <b>Open map →</b></span>
         </button>
         <button type="button" className="tree-entry-card" onClick={() => setStep1("families")}>

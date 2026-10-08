@@ -483,6 +483,18 @@ select.form-input { cursor: pointer; }
 }
 .ft-node:hover .ft-node-rect, .ft-node:focus-visible .ft-node-rect { fill: #fffdf7; stroke: var(--accent); filter: drop-shadow(0 4px 4px rgba(36,52,56,.13)); }
 .ft-node:focus-visible .ft-node-rect { stroke-width: 2.5; }
+.ft-continue { cursor: pointer; outline: none; }
+.ft-continue rect { fill: var(--accent-dim); stroke: var(--accent); stroke-width: 1; }
+.ft-continue text { fill: var(--accent); font: 700 13px var(--ui-font); pointer-events: none; }
+.ft-continue:hover rect, .ft-continue:focus-visible rect { fill: var(--bg); stroke-width: 2.5; }
+.ft-family-navigation { flex: 1 0 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.ft-view-switch { display: inline-flex; flex-shrink: 0; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }
+.ft-view-switch button, .ft-parent-step { min-height: 44px; border-radius: 6px; padding: 8px 12px; color: var(--text2); font: 700 13px var(--ui-font); }
+.ft-view-switch button { border: 0; background: transparent; cursor: pointer; }
+.ft-view-switch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.ft-view-switch button:not([aria-pressed="true"]):hover, .ft-parent-step:hover { background: var(--accent-dim); }
+.ft-parent-step { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--border); }
+.ft-family-navigation > span { flex: 1 1 220px; color: var(--text3); font-size: 13px; line-height: 1.45; }
 .ft-node-text { font-size: 14px; fill: var(--text2); font-weight: 750; pointer-events: none; font-family: var(--font); letter-spacing: -.01em; }
 .ft-gender-mark { fill: var(--text3); opacity: .65; pointer-events: none; }
 .ft-gender-female { fill: var(--gold); opacity: .8; }
@@ -712,6 +724,8 @@ select.form-input { cursor: pointer; }
   .ft-field-control { height: 44px; padding: 0 9px; }
   .ft-field input, .ft-field select { width: 100%; font-size: 16px; }
   .ft-person-search { grid-column: 1 / -1; }
+  .ft-person-search > label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .ft-mapbar.panel-open .ft-controls-tr, .ft-mapbar.panel-open .ft-family-navigation { display: none; }
   .ft-suggestions { width: 100%; min-width: 0; }
   .ft-match-status { top: calc(100% + 5px); }
   .ft-legend { display: none !important; }
@@ -727,6 +741,7 @@ select.form-input { cursor: pointer; }
 
   /* FamilyTree detail panel: full-width bottom sheet */
   .ft-detail-panel {
+    z-index: 60;
     top: auto !important;
     left: 0 !important;
     right: 0 !important;
@@ -1063,6 +1078,7 @@ select.form-input { cursor: pointer; }
   backdrop-filter: blur(12px);
 }
 .tlv-tools-main { display: flex; align-items: center; gap: 10px; max-width: 1160px; margin: 0 auto; }
+.tlv-mobile-tools-trigger { display: none; }
 .tlv-search { min-height: 42px; min-width: 220px; flex: 1; display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid var(--border2); border-radius: 10px; background: var(--bg2); color: var(--text3); transition: border-color 140ms, box-shadow 140ms; }
 .tlv-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
 .tlv-search input { width: 100%; min-width: 0; border: none; outline: none; background: transparent; color: var(--text2); font: 550 14px/1 var(--ui-font); }
@@ -1335,6 +1351,25 @@ select.form-input { cursor: pointer; }
   border-bottom: 1px solid var(--border);
   background: rgba(255,255,255,.28);
 }
+.tlh-era-focus { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.tlh-era-focus label { color: var(--text2); font: 750 13px var(--ui-font); }
+.tlh-era-focus select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 30px 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--tlv-paper); color: var(--text2); font: 650 14px var(--ui-font); }
+.tlh-era-steps { display: flex; gap: 4px; }
+.tlh-era-steps button { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--tlv-paper); color: var(--accent); font-size: 20px; }
+.tlh-era-steps button:hover:not(:disabled) { background: var(--accent-dim); }
+.tlh-era-steps button:disabled { opacity: .35; cursor: default; }
+.tlh-era-focus p { grid-column: 1 / -1; max-width: 80ch; margin: 0; color: var(--text); font-size: 14px; line-height: 1.55; }
+.tlv-era-nav button[aria-current="location"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+@media (max-width: 700px) {
+  .ft-family-navigation { gap: 6px 8px; }
+  .ft-family-navigation > span { flex-basis: 100%; font-size: 12px; }
+  .ft-view-switch button { padding-inline: 10px; }
+  .ft-parent-step { max-width: 115px; padding-inline: 8px; }
+  .tlh-era-focus { grid-template-columns: minmax(0,1fr) auto; gap: 6px; padding: 9px 10px; }
+  .tlh-era-focus label { grid-column: 1 / -1; }
+  .tlh-era-focus select { font-size: 16px; }
+  .tlh-era-focus p { font-size: 13px; }
+}
 .tlh-chart-heading > div:first-child { display: flex; flex-direction: column; gap: 4px; }
 .tlh-chart-heading strong { color: var(--text2); font: 700 14px/1.3 var(--font); }
 .tlh-chart-kicker { color: var(--gold-deep); font: 750 12px/1 var(--ui-font); letter-spacing: .02em; }
@@ -1349,6 +1384,13 @@ select.form-input { cursor: pointer; }
 .tlh-banner { flex-direction: row; align-items: baseline; gap: 8px 16px; margin: 10px 18px 0; padding: 9px 12px; }
 .tlh-banner > strong { flex-shrink: 0; color: var(--gold-deep); font: 800 12px/1 var(--ui-font); letter-spacing: .015em; }
 .tlh-banner .tl-banner-line { font-size: 12.5px; }
+@media (min-width: 681px) {
+  .tlh-main.panel-open .tlh-era-focus, .tlh-main.panel-open .tlh-chart-heading { margin-right: 340px; }
+  .tlh-main.panel-open .tlh-banner { margin-right: 358px; flex-wrap: wrap; }
+  .tlh-main.panel-open .tlh-era-focus { grid-template-columns: minmax(0,1fr) auto; }
+  .tlh-main.panel-open .tlh-era-focus label { grid-column: 1 / -1; }
+  .tlh-main.panel-open .tlh-chart-heading { flex-wrap: wrap; gap: 8px; }
+}
 
 .tlh-canvas {
   padding: 0 32px 30px 0;
@@ -1509,7 +1551,8 @@ select.form-input { cursor: pointer; }
   .tlh-grid { left: 104px; }
   .tlh-root .tl-lane-label strong { font-size: 12px; }
   .tlh-root .tl-lane-label span { font-size: 12px; }
-  .tlh-root .tl-detail-panel { width: 100% !important; max-height: 68dvh !important; }
+  .tlh-root .tl-detail-panel { position: fixed; z-index: 60; width: 100% !important; max-height: 68dvh !important; }
+  .tlh-root .tl-detail-close { width: 44px; height: 44px; flex-shrink: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1876,6 +1919,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .tlh-intro-compact p { display: none; }
 .tlh-intro-compact { align-items: center; padding-top: 10px; padding-bottom: 10px; }
 .tlh-intro-compact .tlv-kicker { margin-bottom: 2px; }
+@media (max-width: 680px) {
+  .tlv-mobile-tools-trigger { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--accent); background: var(--bg); font: 700 13px var(--ui-font); }
+  .tlv-tools:not(.display-open) .tlv-layer-toggles,
+  .tlv-tools:not(.display-open) .tlv-books-trigger,
+  .tlv-tools:not(.display-open) .tlv-zoom-row { display: none; }
+  .tlv-tools:not(.display-open) .tlv-book-drawer { display: none; }
+  .tlh-root { overflow-y: auto; display: block; overscroll-behavior-y: contain; }
+  .tlh-intro-compact { flex-direction: row; gap: 12px; }
+  .tlh-intro-compact .tlv-kicker { display: none; }
+  .tlh-intro-compact .tlh-at-a-glance { width: auto; flex: 1; }
+  .tlh-intro-compact .tlh-at-a-glance strong { font-size: 19px; }
+  .tlh-main { flex: none; height: max(480px, 78dvh); }
+  .tlh-canvas { overscroll-behavior-y: auto; }
+}
 
 /* Family tree map bar: let the controls drop to their own line when they stop
    fitting. Between the 768px mobile stack and roughly 1100px there was a band

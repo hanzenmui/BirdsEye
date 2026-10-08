@@ -1,11 +1,11 @@
 "use client";
 import { useDeferredValue, useMemo, useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { LoadError } from "./LoadError";
-import { useQueryState, useQuerySet, useQueryBoolean } from "@/hooks/useQueryState";
+import { navigate, useQueryState, useQuerySet, useQueryBoolean } from "@/hooks/useQueryState";
 import { useTimeline } from "@/hooks/useTimeline";
 import { BOOK_COVERAGE } from "@/lib/types";
 import type { Person, HistoricalEvent, ProphecyLink } from "@/lib/types";
-import { spanToBox, packRows, computeRange, yearToPct, formatYear, formatYearSpan, type Span, type TimelineRange } from "@/lib/timeline-layout";
+import { clipSpanToRange, spanToBox, packRows, computeRange, yearToPct, formatYear, formatYearSpan, type Span, type TimelineRange } from "@/lib/timeline-layout";
 import { TIMELINE_PERIODS } from "@/lib/timeline-periods";
 import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
@@ -118,6 +118,10 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   const [showEventsLayer, setShowEventsLayer] = useQueryBoolean("timelineEvents", true);
   const [showLinksLayer, setShowLinksLayer] = useQueryBoolean("timelineLinks", true);
   const [query, setQuery] = useQueryState<string>("timelineQuery", "", true);
+  const [eraId, setEraId] = useQueryState<string>("timelineEra", "");
+  const availablePeriods = useMemo(() => TIMELINE_PERIODS.filter(period =>
+    yearInAct(period.startBc, act) || yearInAct(period.endBc, act)), [act]);
+  const focusedEra = availablePeriods.find(period => period.id === eraId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   // Starts above "fit" (1) rather than at it: even the narrowest act's span
@@ -125,13 +129,14 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   // hovering. Each act carries its own sensible starting zoom (see
   // lib/timeline-acts.ts); "Fit" (below) still zooms out to 1 for the
   // whole-picture view in one click regardless of act.
-  const [zoom, setZoom] = useState(act.zoom);
+  const [zoom, setZoom] = useState(focusedEra ? 1.5 : act.zoom);
   // Re-picks a sensible zoom when the act itself changes (not on every
   // render -- only reacts to act.id actually flipping), since a zoom level
   // tuned for "Everything" is generally wrong for "Old Testament" and vice
   // versa.
-  const [zoomAct, setZoomAct] = useState(act.id);
-  if (zoomAct !== act.id) { setZoomAct(act.id); setZoom(act.zoom); }
+  const zoomContext = `${act.id}:${focusedEra?.id ?? "all"}`;
+  const [zoomAct, setZoomAct] = useState(zoomContext);
+  if (zoomAct !== zoomContext) { setZoomAct(zoomContext); setZoom(focusedEra ? 1.5 : act.zoom); }
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [linkGeoms, setLinkGeoms] = useState<LinkGeom[]>([]);
   const [lanesHeight, setLanesHeight] = useState(0);
@@ -159,6 +164,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const range: TimelineRange = useMemo(() => {
+    if (focusedEra) return { startBc: focusedEra.startBc + 1, endBc: focusedEra.endBc - 1 };
     // A chosen act (anything but "Everything") is a fixed viewport, not a
     // data-derived one -- the axis should show exactly that act's span
     // whether or not this act's own start/end happen to have data right at
@@ -179,10 +185,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
       ? Object.entries(BOOK_COVERAGE).map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }))
       : [];
     return computeRange([...spans, ...bookSpans], events.map(e => e.yearBc), 25);
-  }, [act, people, events, showBooksLayer]);
-
-  const selectedPerson = selectedId ? people.find(p => p.id === selectedId) ?? null : null;
-  const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) ?? null : null;
+  }, [act, people, events, showBooksLayer, focusedEra]);
 
   const eventBooks = useMemo(() => {
     const result: Record<string, string[]> = {};
@@ -198,7 +201,9 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
     if (!showPeopleLayer) return [];
     return people.filter(person => {
       if (person.timelineStartBc === null || person.timelineEndBc === null) return false;
-      if (!yearInAct(person.timelineStartBc, act)) return false;
+      if (focusedEra) {
+        if (!clipSpanToRange({ startBc: person.timelineStartBc, endBc: person.timelineEndBc }, focusedEra)) return false;
+      } else if (!yearInAct(person.timelineStartBc, act)) return false;
       const books = personBooks[person.id] ?? [];
       // Bible-only axis -- nobody after the New Testament has a scripture_refs
       // row, so the filter must not silently erase them. See
@@ -208,31 +213,43 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
       if (!deferredQuery) return true;
       return searchable([person.name, person.alsoKnownAs, person.description, person.timelineTrack, ...books]).includes(deferredQuery);
     });
-  }, [act, allChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer]);
+  }, [act, allChecked, checkedBooks, deferredQuery, people, personBooks, showPeopleLayer, focusedEra]);
 
   const visibleEvents = useMemo(() => {
     if (!showEventsLayer) return [];
     return events.filter(event => {
       if (!yearInAct(event.yearBc, act)) return false;
+      if (focusedEra && (event.yearBc > focusedEra.startBc || event.yearBc < focusedEra.endBc)) return false;
       const books = eventBooks[event.id] ?? [];
       const isAfterNt = event.yearBc <= -101;
       if (!isAfterNt && !allChecked && !books.some(book => checkedBooks.has(book))) return false;
       if (!deferredQuery) return true;
       return searchable([event.title, event.description, event.era, ...books]).includes(deferredQuery);
     });
-  }, [act, allChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer]);
+  }, [act, allChecked, checkedBooks, deferredQuery, eventBooks, events, showEventsLayer, focusedEra]);
 
   const resultCount = visiblePeople.length + visibleEvents.length;
+  const selectedPerson = selectedId ? visiblePeople.find(p => p.id === selectedId) ?? null : null;
+  const selectedEvent = selectedEventId ? visibleEvents.find(e => e.id === selectedEventId) ?? null : null;
+
+  useEffect(() => {
+    if (loading) return;
+    const canvas = canvasRef.current;
+    canvas?.scrollTo({ left: 0, top: 0 });
+    if (window.matchMedia("(max-width: 680px)").matches && focusedEra) {
+      canvas?.closest(".tlh-main")?.scrollIntoView({ block: "start" });
+    }
+  }, [zoomContext, loading, focusedEra]);
 
   // Search is most useful when the matching person is brought into view, not
   // merely left highlighted somewhere offscreen in a very wide chart.
   useEffect(() => {
-    if (!deferredQuery) return;
+    if (!deferredQuery && !selectedId && !selectedEventId) return;
     const canvas = canvasRef.current;
     const lanes = lanesRef.current;
     if (!canvas || !lanes) return;
-    const person = visiblePeople[0];
-    const event = visibleEvents[0];
+    const person = visiblePeople.find(item => item.id === selectedId) ?? (deferredQuery ? visiblePeople[0] : undefined);
+    const event = visibleEvents.find(item => item.id === selectedEventId) ?? (deferredQuery ? visibleEvents[0] : undefined);
     const target = person
       ? lanes.querySelector<HTMLElement>(`[data-person-id="${person.id}"]`)
       : event
@@ -245,11 +262,12 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
       const targetCenter = targetRect.left + targetRect.width / 2;
       canvas.scrollTo({
         left: Math.max(0, canvas.scrollLeft + targetCenter - (canvasRect.left + canvasRect.width / 2)),
+        top: Math.max(0, canvas.scrollTop + targetRect.top - canvasRect.top - 60),
         behavior: "smooth",
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [deferredQuery, visibleEvents, visiblePeople]);
+  }, [deferredQuery, selectedId, selectedEventId, visibleEvents, visiblePeople]);
 
   // The same prophecy_links rows read from either end. Picking a prophet asks
   // "what did this foretell?"; picking an event asks the reverse — "who
@@ -265,8 +283,19 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   // Which books narrate the selected event.
   const selectedEventBooks = selectedEvent ? eventBooks[selectedEvent.id] ?? [] : [];
 
-  const selectPerson = (id: string) => { setSelectedEventId(null); setSelectedId(id); };
+  const selectPerson = (id: string) => {
+    const person = people.find(item => item.id === id);
+    if (person && !visiblePeople.some(item => item.id === id)) {
+      // Following a prophecy must reveal its prophet, even across testaments
+      // or when the search, era, book filters or layer toggle hide that person.
+      navigate({ timelineEra: null, timelineQuery: null, timelineBooks: "*", timelinePeople: "1",
+        ...(person.timelineStartBc !== null && !yearInAct(person.timelineStartBc, act) ? { timelineAct: "everything" } : {}) });
+    }
+    setSelectedEventId(null); setSelectedId(id);
+  };
   const selectEvent = (id: string) => { setSelectedId(null); setSelectedEventId(prev => prev === id ? null : id); };
+  const focusEra = (id: string) => { setEraId(id); setSelectedId(null); setSelectedEventId(null); };
+  const focusedEraIndex = focusedEra ? availablePeriods.indexOf(focusedEra) : -1;
   const panelOpen = selectedPerson !== null || selectedEvent !== null;
 
   // Draw each fulfillment curve: from the selected prophet's segment to the
@@ -462,7 +491,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
   const spanYears = range.startBc - range.endBc;
   const targetTickCount = Math.max(4, Math.floor((920 * zoom) / 72));
   const rawTickStep = spanYears / targetTickCount;
-  const tickStep = [10, 25, 50, 100, 200, 500, 1000].find(step => step >= rawTickStep) ?? 2000;
+  const tickStep = [1, 2, 5, 10, 25, 50, 100, 200, 500, 1000].find(step => step >= rawTickStep) ?? 2000;
   const ticks: number[] = [];
   for (let y = Math.floor(range.startBc / tickStep) * tickStep; y > range.endBc; y -= tickStep) {
     // There is no year zero — the calendar runs 1 BC straight into AD 1 — so
@@ -491,7 +520,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
         onToggleLinksLayer={() => setShowLinksLayer(value => !value)}
         onZoomIn={() => setZoom(value => Math.min(ZOOM_MAX, value + ZOOM_STEP))}
         onZoomOut={() => setZoom(value => Math.max(ZOOM_MIN, value - ZOOM_STEP))}
-        onZoomReset={() => setZoom(1)}
+        onZoomReset={() => { setZoomAct(`${act.id}:all`); setEraId(""); setZoom(1); }}
         zoomResetLabel="Overview"
         open={filtersOpen}
         onToggleOpen={() => setFiltersOpen(value => !value)}
@@ -509,11 +538,23 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
         <div className="tlh-at-a-glance" aria-label="Visible timeline summary">
           <div><strong>{visiblePeople.length}</strong><span>people</span></div>
           <div><strong>{visibleEvents.length}</strong><span>events</span></div>
-          <div><strong>{TIMELINE_PERIODS.length}</strong><span>eras</span></div>
+          <div><strong>{focusedEra ? 1 : availablePeriods.length}</strong><span>{focusedEra ? "era" : "eras"}</span></div>
         </div>
       </section>
 
-      <div className="tl-main tlh-main">
+      <div className={`tl-main tlh-main${panelOpen ? " panel-open" : ""}`}>
+        <div className="tlh-era-focus">
+          <label htmlFor="tlh-era-picker">Focus on an era</label>
+          <select id="tlh-era-picker" value={focusedEra?.id ?? ""} onChange={event => focusEra(event.target.value)}>
+            <option value="">All eras in this period</option>
+            {availablePeriods.map(period => <option key={period.id} value={period.id}>{period.label} ({period.years})</option>)}
+          </select>
+          <div className="tlh-era-steps">
+            <button type="button" aria-label="Previous era" disabled={focusedEraIndex <= 0} onClick={() => focusEra(availablePeriods[focusedEraIndex - 1].id)}>←</button>
+            <button type="button" aria-label="Next era" disabled={focusedEraIndex >= availablePeriods.length - 1} onClick={() => focusEra(availablePeriods[focusedEraIndex + 1].id)}>→</button>
+          </div>
+          {focusedEra && <p>{focusedEra.summary}</p>}
+        </div>
         <div className="tlh-chart-heading">
           <div>
             <span className="tlh-chart-kicker">Earlier <span aria-hidden="true">→</span> Later</span>
@@ -529,8 +570,8 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
 
         {selectedLinks.length > 0 && (
           <div className="tl-banner tlh-banner">
-            <strong>Prophecy connection</strong>
-            {selectedLinks.map(link => <div key={link.id} className="tl-banner-line">{link.explanation}</div>)}
+            <strong>Prophecy connections</strong>
+            <span className="tl-banner-line">{selectedLinks.length} recorded {selectedLinks.length === 1 ? "connection" : "connections"} · explained in the profile.</span>
           </div>
         )}
 
@@ -548,7 +589,7 @@ export function TimelineHorizontal({ onSelectPerson, act = EVERYTHING_ACT }: Pro
             <div className="tlh-era-strip" aria-label="Historical eras">
               <div className="tlh-gutter-title">Bible eras</div>
               <div className="tlh-era-track">
-                {TIMELINE_PERIODS.map(period => {
+                {(focusedEra ? [focusedEra] : availablePeriods).map(period => {
                   const left = clampedYearPct(period.startBc, range);
                   const right = clampedYearPct(period.endBc, range);
                   return (
@@ -664,7 +705,9 @@ function PersonLane({ label, family, track, multiRow, people, range, selectedId,
       <div className="tl-lane-body" style={{ height: rows.length * (ROW_H + ROW_GAP) }}>
         {rows.map((row, ri) =>
           row.map((s, si) => {
-            const { leftPct, widthPct, floored } = spanToBox(s, range);
+            const clipped = clipSpanToRange(s, range);
+            if (!clipped) return null;
+            const { leftPct, widthPct, floored } = spanToBox(clipped, range);
             return (
               <button
                 key={s.id}
@@ -819,9 +862,10 @@ function BookLane({ range, checkedBooks }: { range: TimelineRange; checkedBooks:
   const rows = useMemo(() => {
     const spans = Object.entries(BOOK_COVERAGE)
       .filter(([name]) => checkedBooks.has(name))
-      .map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }));
+      .map(([name, c]) => ({ id: name, startBc: c.startBc, endBc: c.endBc }))
+      .filter(span => clipSpanToRange(span, range) !== null);
     return packRows(spans);
-  }, [checkedBooks]);
+  }, [checkedBooks, range]);
 
   if (rows.length === 0) return null;
 
@@ -834,7 +878,7 @@ function BookLane({ range, checkedBooks }: { range: TimelineRange; checkedBooks:
       <div className="tl-lane-body" style={{ height: rows.length * (ROW_H + ROW_GAP) }}>
         {rows.map((row, ri) =>
           row.map(s => {
-            const { leftPct, widthPct } = spanToBox(s, range);
+            const { leftPct, widthPct } = spanToBox(clipSpanToRange(s, range)!, range);
             const note = BOOK_COVERAGE[s.id]?.note;
             return (
               <div
