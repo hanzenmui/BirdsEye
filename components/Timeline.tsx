@@ -21,6 +21,13 @@ interface Props {
 
 type Orientation = "vertical" | "horizontal";
 
+const MOBILE_ACT_LABELS: Record<TimelineActId, string> = {
+  "old-testament": "OT",
+  "new-testament": "NT",
+  "after-nt": "After NT",
+  everything: "All",
+};
+
 function readOrientation(): Orientation {
   const saved = window.localStorage.getItem(STORAGE_KEY);
   return saved === "horizontal" ? "horizontal" : "vertical";
@@ -103,9 +110,11 @@ export function Timeline({ onSelectPerson, onOpenTradition, traditions, traditio
               type="button"
               className={actId === a.id ? "active" : ""}
               aria-pressed={actId === a.id}
+              aria-label={a.label}
               onClick={() => chooseAct(a.id)}
             >
-              {a.label}
+              <span className="tl-act-label-full">{a.label}</span>
+              <span className="tl-act-label-short">{MOBILE_ACT_LABELS[a.id]}</span>
             </button>
           ))}
         </div>

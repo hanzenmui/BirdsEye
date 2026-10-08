@@ -85,8 +85,8 @@
   --shadow-lg: 0 16px 40px rgba(30,45,48,0.14), 0 5px 10px rgba(30,45,48,0.06);
 
   /* Typography */
-  --font:     'Fraunces', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
-  --ui-font:  'Red Hat Text', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font:     var(--font-fraunces), 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --ui-font:  var(--font-red-hat-text), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono:     ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
   /* Paper grain */
@@ -102,6 +102,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 /* ── App shell ──────────────────────────────────────────────────────────── */
 #layout-root { display: flex; height: 100dvh; overflow: hidden; }
+.skip-link {
+  position: fixed; top: 10px; left: 10px; z-index: 200;
+  transform: translateY(-150%); padding: 10px 14px;
+  border: 2px solid var(--accent); border-radius: 9px;
+  background: var(--bg2); color: var(--text2); box-shadow: var(--shadow-md);
+  font: 800 14px/1 var(--ui-font); text-decoration: none;
+}
+.skip-link:focus { transform: translateY(0); }
 
 /* ── Sidebar ────────────────────────────────────────────────────────────── */
 .app-sidebar {
@@ -187,6 +195,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   color: var(--text3); margin-bottom: 3px; font-family: var(--ui-font);
 }
 .section-title { font-size: 26px; font-weight: 700; color: var(--text2); font-family: var(--font); letter-spacing: -0.02em; line-height: 1.1; }
+.section-title:focus { outline: none; }
 .section-subtitle { font-size: 14px; color: var(--text3); margin-top: 4px; }
 .section-body { flex: 1; overflow-y: auto; padding: 24px 28px; background: var(--bg); }
 
@@ -407,6 +416,7 @@ select.form-input { cursor: pointer; }
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(25,39,42,.62); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 18px; }
 .modal { width: 100%; max-width: 600px; max-height: min(90dvh, 760px); overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border2); border-radius: 18px; background: var(--bg2); box-shadow: 0 24px 64px rgba(18,31,34,.28), 5px 6px 0 rgba(36,52,56,.18); }
+.modal:focus { outline: none; }
 .modal-danger { border-top: 4px solid var(--danger); }
 .modal > form { min-height: 0; display: flex; flex: 1; flex-direction: column; }
 .modal-header { position: relative; padding: 22px 66px 18px 24px; border-bottom: 1px solid var(--border); display: block; flex-shrink: 0; background: linear-gradient(180deg, #fffdf7 0%, var(--bg2) 100%); }
@@ -695,17 +705,18 @@ select.form-input { cursor: pointer; }
   .ft-mapbar-context { min-width: 0; }
   .ft-mapbar-heading > span, .ft-mapbar-heading small { display: none; }
   .ft-mapbar-heading strong { font-size: 15px; }
-  .ft-back-button { width: 32px; height: 32px; }
+  .ft-back-button { width: 44px; height: 44px; }
   .ft-controls-tr { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .ft-field { min-width: 0; }
-  .ft-field > label { font-size: 12px; }
-  .ft-field-control { height: 34px; padding: 0 7px; }
-  .ft-field input, .ft-field select { width: 100%; font-size: 13px; }
+  .ft-field > label { font-size: 13px; }
+  .ft-field-control { height: 44px; padding: 0 9px; }
+  .ft-field input, .ft-field select { width: 100%; font-size: 16px; }
   .ft-person-search { grid-column: 1 / -1; }
   .ft-suggestions { width: 100%; min-width: 0; }
   .ft-match-status { top: calc(100% + 5px); }
   .ft-legend { display: none !important; }
   .ft-zoom { right: 16px !important; }
+  .ft-zoom button { min-width: 44px; height: 44px; }
   .ft-zoom-level { display: none; }
   .ft-overview-note { bottom: 60px; }
 
@@ -1264,6 +1275,7 @@ select.form-input { cursor: pointer; }
    as the secondary control it is. */
 .tlv-act-toggle { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--bg2) 78%, transparent); flex-shrink: 0; }
 .tlv-act-toggle button { min-height: 36px; border: none; border-radius: 7px; background: transparent; color: var(--text3); font: 700 12.5px/1 var(--ui-font); padding: 8px 13px; cursor: pointer; white-space: nowrap; }
+.tl-act-label-short { display: none; }
 .tlv-act-toggle button.active { background: var(--accent); color: #fff; }
 .tlv-act-toggle button:hover:not(.active) { background: var(--bg3); color: var(--text2); }
 @media (max-width: 900px) {
@@ -1469,10 +1481,18 @@ select.form-input { cursor: pointer; }
   .tlv-orient-toggle { gap: 6px; padding: 7px 10px; }
   .tlv-orient-toggle button,
   .tlv-orient-toggle button:first-child,
-  .tlv-orient-toggle button:last-child { min-width: 0; min-height: 42px; justify-content: center; padding: 5px 8px; }
+  .tlv-orient-toggle button:last-child { min-width: 0; min-height: 44px; justify-content: center; padding: 5px 8px; }
   .tlv-orient-toggle button svg { width: 17px; height: 17px; flex-basis: 17px; }
   .tlv-orient-toggle button small { display: none; }
-  .tlv-orient-toggle button strong { font-size: 12px; }
+  .tlv-orient-toggle button strong { font-size: 13px; }
+  .tlv-act-toggle { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tlv-act-toggle button { min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 13px; }
+  .tl-act-label-full { display: none; }
+  .tl-act-label-short { display: inline; }
+  .tlv-search, .tlv-books-trigger { min-height: 44px; }
+  .tlv-layer-toggles button { min-height: 44px; font-size: 13px; }
+  .tl-zoom-row button { min-width: 44px; height: 44px; }
+  .tlv-era-nav button { min-height: 44px; }
 
   .tlh-intro { align-items: flex-start; flex-direction: column; gap: 13px; padding: 17px 14px 14px; }
   .tlh-intro h2 { font-size: 25px; }
@@ -1846,7 +1866,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    at-a-glance counts, so it still reads as a header, and hides the headline and
    the explanatory paragraph behind a toggle. */
 .tlh-intro-toggle {
-  margin-top: 2px; padding: 0; border: none; background: none;
+  min-height: 40px; display: inline-flex; align-items: center;
+  margin-top: 2px; padding: 8px 0; border: none; background: none;
   color: var(--text3); font: 650 12px/1.45 var(--ui-font); cursor: pointer;
   text-decoration: underline; text-underline-offset: 3px;
 }

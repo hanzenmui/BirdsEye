@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import { navigate, useQueryState } from "@/hooks/useQueryState";
 import { LoadError } from "./LoadError";
@@ -70,6 +70,14 @@ const NAV: { key: Section; label: string; icon: string }[] = [
   { key: "stats",  label: "Insights",    icon: "M18 20V10M12 20V4M6 20v-6" },
 ];
 
+const SECTION_TITLE_IDS: Record<Section, string> = {
+  people: "people-section-title",
+  books: "books-section-title",
+  tree: "tree-section-title",
+  timeline: "timeline-section-title",
+  stats: "insights-section-title",
+};
+
 interface SectionHeaderProps {
   eyebrow: string;
   title: string;
@@ -81,14 +89,14 @@ interface SectionHeaderProps {
 function SectionHeader({ eyebrow, title, subtitle, titleId, onMenu }: SectionHeaderProps) {
   return (
     <div className="section-header">
-      <button type="button" className="mob-menu-btn" aria-label="Open navigation" onClick={onMenu}>
+      <button type="button" className="mob-menu-btn" aria-label="Toggle navigation" aria-controls="app-sidebar" onClick={onMenu}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
       <div className="section-heading-copy">
         <div className="section-eyebrow">{eyebrow}</div>
-        <h1 className="section-title" id={titleId}>{title}</h1>
+        <h1 className="section-title" id={titleId} tabIndex={-1}>{title}</h1>
         <div className="section-subtitle">{subtitle}</div>
       </div>
     </div>
@@ -106,17 +114,60 @@ interface ModalFrameProps {
 }
 
 function ModalFrame({ id, eyebrow, title, description, onClose, children, tone = "default" }: ModalFrameProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+
   useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    closeRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const dialog = dialogRef.current;
+    const focusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]";
+
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => dialog?.focus());
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter(element => element.getAttribute("aria-hidden") !== "true" && element.offsetParent !== null);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, []);
 
   return (
     <div className="modal-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className={`modal${tone === "danger" ? " modal-danger" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}>
+      <div ref={dialogRef} tabIndex={-1} className={`modal${tone === "danger" ? " modal-danger" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}>
         <div className="modal-header">
           <div className="modal-heading">
             <span className="modal-eyebrow">{eyebrow}</span>
@@ -677,7 +728,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
                   <span className="rel-type-label">{label}</span>
                   <button type="button" className="rel-person-name" onClick={() => onNavigate(otherId)}>{otherName}</button>
                   {r.notes && <span style={{ fontSize: 12.5, color: "var(--text3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.notes}</span>}
-                  <button className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRel(r.id)} title="Remove" style={{ marginLeft: "auto", flexShrink: 0, color: "var(--danger)" }}>
+                  <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRel(r.id)} aria-label={`Remove ${label.toLowerCase()} relationship with ${otherName}`} title="Remove relationship" style={{ marginLeft: "auto", flexShrink: 0, color: "var(--danger)" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                   </button>
                 </div>
@@ -701,7 +752,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
                   <RefLink refItem={r} className="ref-location ref-location-link" />
                   {r.note && <div className="ref-note">{r.note}</div>}
                 </div>
-                <button className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRef(r.id)} title="Remove" style={{ flexShrink: 0, color: "var(--danger)" }}>
+                <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRef(r.id)} aria-label={`Remove scripture reference ${formatRef(r)}`} title="Remove reference" style={{ flexShrink: 0, color: "var(--danger)" }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                 </button>
               </div>
@@ -1295,6 +1346,18 @@ export function Explorer() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const toggleSidebar = () => { setSidebarOpen(o => !o); setSidebarCollapsed(c => !c); };
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+        setSidebarCollapsed(false);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [sidebarOpen]);
+
   const selectPerson = useCallback((id: string) => {
     const params = new URLSearchParams(window.location.search);
     const from = params.get("section") ?? "books";
@@ -1324,7 +1387,10 @@ export function Explorer() {
     } catch { showToast("Could not delete this person. Please retry.", "error"); }
   }, [deletePerson, reloadRelationships, reloadRefs, reloadTraditions, setSelectedId]);
 
-  const closeSidebar = () => setSidebarOpen(false);
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+    if (window.matchMedia("(max-width: 768px)").matches) setSidebarCollapsed(false);
+  };
   const readingBar = <div className="reading-bar">
     {loadError && <LoadError message={loadError} onRetry={retry} />}
     {readingBook && section !== "books" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "books", person: null })}>← Back to {readingBook}{readingChapter ? ` ${readingChapter}` : ""}</button>}
@@ -1341,9 +1407,10 @@ export function Explorer() {
 
   return (
     <>
+      <a className="skip-link" href={`#${SECTION_TITLE_IDS[section]}`}>Skip to content</a>
       <div id="layout-root">
         {/* Sidebar */}
-        <nav className={`app-sidebar${sidebarOpen ? " open" : ""}${sidebarCollapsed ? " nav-collapsed" : ""}`} id="app-sidebar">
+        <nav className={`app-sidebar${sidebarOpen ? " open" : ""}${sidebarCollapsed ? " nav-collapsed" : ""}`} id="app-sidebar" aria-label="Primary navigation">
           <div className="sidebar-logo">
             <Image src="/logo-birdseye.png" alt="" width={28} height={28} className="sidebar-logo-icon" priority />
             <span>Birds<span className="logo-eye">eye</span></span>
@@ -1356,7 +1423,7 @@ export function Explorer() {
                   <path d={n.icon} />
                 </svg>
                 <span className="sidebar-item-label">{n.label}</span>
-                {n.key === "people" && <span className="sidebar-badge">{people.length}</span>}
+                {n.key === "people" && <span className="sidebar-badge">{loadingPeople ? "—" : people.length}</span>}
               </button>
             ))}
           </div>
@@ -1375,7 +1442,7 @@ export function Explorer() {
         {/* People section */}
         <section className={`app-section${section === "people" ? " active" : ""}`} aria-labelledby="people-section-title">
           {readingBar}
-          <SectionHeader eyebrow="Bible people" title="People" titleId="people-section-title" subtitle={`${people.length} ${people.length === 1 ? "person" : "people"}, from Genesis through the early church`} onMenu={toggleSidebar} />
+          <SectionHeader eyebrow="Bible people" title="People" titleId="people-section-title" subtitle={loadingPeople ? "Opening the people index…" : `${people.length} ${people.length === 1 ? "person" : "people"}, from Genesis through the early church`} onMenu={toggleSidebar} />
           {loadingPeople || loadingRefs || loadingRelationships ? (
             <LoadingState label="Opening the people index…" />
           ) : !peopleError && !refsError && !relationshipsError && (

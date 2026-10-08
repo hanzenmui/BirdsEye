@@ -362,6 +362,7 @@ interface Props {
 
 export function FamilyTree({ people, relationships, refs, onSelect, scope, onExitCategory }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapbarRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const didDrag = useRef(false);
@@ -563,14 +564,17 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
   const getViewFrame = useCallback((reserveDetail = detailPerson !== null): ViewFrame => {
     if (!containerRef.current) return { vpW: 0, vpH: 0 };
-    const { width, height } = containerRef.current.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    const mapbarBottom = mapbarRef.current
+      ? mapbarRef.current.getBoundingClientRect().bottom - containerRect.top
+      : 0;
     return {
-      vpW: width,
-      vpH: height,
+      vpW: containerRect.width,
+      vpH: containerRect.height,
       insetLeft: !isMobile && sideList ? 280 : 0,
       insetRight: !isMobile && reserveDetail ? 300 : 0,
-      insetTop: isMobile ? 132 : 92,
+      insetTop: Math.max(mapbarBottom + 12, isMobile ? 132 : 92),
       insetBottom: 54,
     };
   }, [detailPerson, sideList]);
@@ -589,7 +593,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     const node = posMap.get(id);
     if (!node) return;
     const frame = getViewFrame(true);
-    const topOffset = window.matchMedia("(max-width: 768px)").matches ? 152 : CENTER_TOP_OFFSET;
+    const topOffset = (frame.insetTop ?? CENTER_TOP_OFFSET) + 18;
     dispatch({
       type: "CENTER",
       nodeX: node.x,
@@ -649,7 +653,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
       dispatch({ type: "FIT_BOX", ...bookFilterBox, ...frame });
     } else if (!bookFilter && hasFitted.current && tree) {
       const root = tree.all[0];
-      const topOffset = window.matchMedia("(max-width: 768px)").matches ? 184 : CENTER_TOP_OFFSET;
+      const topOffset = (frame.insetTop ?? CENTER_TOP_OFFSET) + 18;
       dispatch({ type: "CENTER", nodeX: root.x, nodeY: root.y, zoom: 0.88, topOffset, ...frame });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -664,16 +668,8 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     const el = containerRef.current;
     const root = tree.all[0];
     const tryFit = () => {
-      const { width, height } = el.getBoundingClientRect();
-      if (width === 0 || height === 0) return;
-      const isMobile = window.matchMedia("(max-width: 768px)").matches;
-      const frame: ViewFrame = {
-        vpW: width,
-        vpH: height,
-        insetLeft: !isMobile && sideList ? 280 : 0,
-        insetTop: isMobile ? 132 : 92,
-        insetBottom: 54,
-      };
+      const frame = getViewFrame();
+      if (frame.vpW === 0 || frame.vpH === 0) return;
       if (!hasFitted.current) {
         if (scope) {
           dispatch({ type: "FIT", treeW: tree.w, treeH: tree.h, ...frame });
@@ -686,7 +682,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
             nodeX: root.x,
             nodeY: root.y,
             zoom: 0.88,
-            topOffset: isMobile ? 184 : CENTER_TOP_OFFSET,
+            topOffset: (frame.insetTop ?? CENTER_TOP_OFFSET) + 18,
             ...frame,
           });
         }
@@ -696,8 +692,9 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
     tryFit();
     const ro = new ResizeObserver(tryFit);
     ro.observe(el);
+    if (mapbarRef.current) ro.observe(mapbarRef.current);
     return () => ro.disconnect();
-  }, [tree, scope, sideList]);
+  }, [tree, scope, getViewFrame]);
 
   // Keyboard +/= zoom in, - zoom out toward viewport center
   useEffect(() => {
@@ -1112,6 +1109,7 @@ export function FamilyTree({ people, relationships, refs, onSelect, scope, onExi
 
       {/* ── One calm command bar replaces the old collection of floating boxes. */}
       <div
+        ref={mapbarRef}
         className={`ft-mapbar${panelOpen ? " panel-open" : ""}${sideList ? " has-roster" : ""}`}
         style={{ left: sideList ? 292 : 12, right: panelOpen ? 292 : 12 }}
         onMouseDown={e => e.stopPropagation()}
