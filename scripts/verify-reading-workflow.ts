@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { buildForest, buildLayout } from "../components/FamilyTree";
 import { navigate } from "../hooks/useQueryState";
+import { requestEventFocus, readEventFocus, consumeEventFocus } from "../lib/nav-bus";
 import type { Person, Relationship } from "../lib/types";
 
 const person = (id: string, gender: Person["gender"] = "male") => ({ id, name: id, gender } as Person);
@@ -29,6 +30,7 @@ assert.deepEqual(new Set(buildLayout(generations, chain, "child", 2)?.all.map(p 
 let href = "http://localhost/explore?book=Genesis&chapter=38";
 const entries = [href];
 let changeCount = 0;
+const stored = new Map<string, string>();
 Object.defineProperty(globalThis, "window", { configurable: true, value: {
   location: { get href() { return href; } },
   history: {
@@ -36,6 +38,7 @@ Object.defineProperty(globalThis, "window", { configurable: true, value: {
     replaceState(_state: unknown, _unused: string, url: URL) { href = String(url); entries[entries.length - 1] = href; },
   },
   dispatchEvent() { changeCount++; },
+  localStorage: { setItem(key: string, value: string) { stored.set(key, value); }, getItem(key: string) { return stored.get(key) ?? null; }, removeItem(key: string) { stored.delete(key); } },
 } });
 navigate({ section: "people", person: "judah", return: "books" });
 let params = new URL(href).searchParams;
@@ -52,4 +55,11 @@ params = new URL(href).searchParams;
 assert.equal(params.get("person"), null);
 assert.equal(params.get("chapter"), "38");
 assert.equal(changeCount, 3);
+requestEventFocus("kingdom-splits", "everything");
+assert.equal(new URL(href).searchParams.get("timelineAct"), "everything", "Chapter events must not be forced into church history");
+assert.equal(readEventFocus()?.id, "kingdom-splits");
+assert.equal(consumeEventFocus()?.id, "kingdom-splits");
+assert.equal(readEventFocus(), null, "A completed jump cannot replay on a later mount");
+requestEventFocus("great-schism");
+assert.equal(new URL(href).searchParams.get("timelineAct"), "after-nt", "Tradition event jumps preserve their existing default");
 console.log("Reading workflow checks passed: complete filtered forest, nearby/whole-tree generations, standalone names, navigation and return context.");

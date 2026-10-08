@@ -36,7 +36,14 @@ export function refCoversChapter(r: ScriptureRef, chapter: number): boolean {
 // the "adversary_of" relationship-type bug happened: a seed script wrote a
 // value the app's type union didn't know about, and it silently fell back to
 // a raw label + gray color instead of failing loudly.
-export function validatePersonFields(body: { gender?: string; testament?: string }): string | null {
+export function validatePersonFields(body: Partial<Person>): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "Enter valid person details.";
+  for (const key of ["name", "alsoKnownAs", "birthYear", "deathYear", "description"] as const) {
+    const value = body[key];
+    if (value !== undefined && (typeof value !== "string" || value.length > (key === "description" ? 20000 : 500))) return `Invalid ${key}.`;
+  }
+  if (body.name !== undefined && !body.name.trim()) return "Enter a name.";
+  if (body.tags !== undefined && (!Array.isArray(body.tags) || body.tags.length > 50 || !body.tags.every(t => typeof t === "string" && t.length <= 100))) return "Enter valid tags.";
   if (body.gender !== undefined && !(GENDERS as readonly string[]).includes(body.gender)) {
     return `Invalid gender: ${body.gender}`;
   }
@@ -72,7 +79,6 @@ export function personFromDb(r: any): Person {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function personToDb(p: Person): unknown[] {
   return [
     p.id, p.name, p.alsoKnownAs ?? "", p.gender ?? "unknown",

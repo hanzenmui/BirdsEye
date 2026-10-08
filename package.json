@@ -48,6 +48,8 @@
     "seed:missing-figures": "npx tsx scripts/seed-missing-figures.ts",
     "sync:prod": "npx tsx scripts/sync-to-prod.ts",
     "verify:reference-search": "npx tsx scripts/verify-reference-search.ts",
+    "verify:owner": "npx tsx scripts/verify-owner-protection.ts && npx tsx scripts/verify-owner-protection.ts --libsql",
+    "verify:chapter-study": "npx tsx scripts/verify-chapter-study.ts",
     "verify:reading-workflow": "npx tsx scripts/verify-reading-workflow.ts",
     "verify:timeline": "npx tsx scripts/verify-timeline.ts",
     "verify:layout": "npx tsx scripts/verify-timeline-layout.ts",
@@ -56,7 +58,8 @@
   "dependencies": {
     "@libsql/client": "^0.17.3",
     "better-sqlite3": "^12.10.0",
-    "next": "16.2.6",
+    "iron-session": "^8.0.4",
+    "next": "16.4.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -68,7 +71,7 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.4.0",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.3",
     "typescript": "^5"

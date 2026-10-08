@@ -1,5 +1,6 @@
 "use client";
 import { navigate } from "@/hooks/useQueryState";
+import type { TimelineActId } from "./timeline-acts";
 
 // Cross-section navigation that doesn't fit ordinary React prop-drilling:
 // Explorer keeps every section mounted and toggles visibility with a CSS
@@ -37,13 +38,13 @@ function read(key: string): FocusRequest | null {
 // Ask the timeline to scroll to and highlight a specific historical event —
 // used when a tradition split's causing event is clicked from the
 // Traditions tree. Forces the vertical story (the only orientation with a
-// scroll-to mechanism) and the After New Testament act (every tradition
-// split event lives there), then fires the focus request itself.
-export function requestEventFocus(eventId: string) {
-  navigate({ timelineOrientation: "vertical", timelineAct: "after-nt" }, true);
+// scroll-to mechanism). Tradition callers default to After NT; chapter callers
+// can choose the full timeline so Bible-era events are not filtered out.
+export function requestEventFocus(eventId: string, act: TimelineActId = "after-nt") {
+  navigate({ timelineOrientation: "vertical", timelineAct: act }, true);
   window.localStorage.setItem(ORIENTATION_STORAGE_KEY, "vertical");
   window.dispatchEvent(new Event(ORIENTATION_CHANGE_EVENT));
-  window.localStorage.setItem(ACT_STORAGE_KEY, "after-nt");
+  window.localStorage.setItem(ACT_STORAGE_KEY, act);
   window.dispatchEvent(new Event(ACT_CHANGE_EVENT));
   request(EVENT_FOCUS_KEY, EVENT_FOCUS_CHANGE, eventId);
 }
@@ -52,6 +53,11 @@ export function subscribeEventFocus(onChange: () => void) {
   return () => window.removeEventListener(EVENT_FOCUS_CHANGE, onChange);
 }
 export function readEventFocus(): FocusRequest | null { return read(EVENT_FOCUS_KEY); }
+export function consumeEventFocus(): FocusRequest | null {
+  const focus = readEventFocus();
+  window.localStorage.removeItem(EVENT_FOCUS_KEY);
+  return focus;
+}
 
 // Ask the Traditions tree to open on and highlight a specific tradition —
 // used when a person's profile names the tradition they founded.

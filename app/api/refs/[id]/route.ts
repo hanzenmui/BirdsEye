@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { apiHandler } from "@/lib/auth";
+import { ownerApiHandler } from "@/lib/auth";
+import { archiveRecord } from "@/lib/recovery";
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return apiHandler(async () => {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return ownerApiHandler(req, async () => {
     const { id } = await params;
-    await getDb().run("DELETE FROM scripture_refs WHERE id = $1", [id]);
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, recoveryId: await archiveRecord("reference", id) });
   });
 }

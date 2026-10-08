@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getReadyDb } from "@/lib/db";
 import { apiHandler } from "@/lib/auth";
 import { personFromDb, historicalEventFromDb, prophecyLinkFromDb, scriptureRefFromDb } from "@/lib/mappers";
 
 export async function GET() {
   return apiHandler(async () => {
-    const db = getDb();
+    const db = await getReadyDb();
     const [people, events, links, eventRefs, personBookRows] = await Promise.all([
       db.query("SELECT * FROM people WHERE timeline_start_bc IS NOT NULL ORDER BY timeline_start_bc DESC"),
       // rowid breaks ties within a year, which is the only ordering four

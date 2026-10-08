@@ -1,5 +1,69 @@
 @import "tailwindcss";
 
+/* Chapter study: the roster stays first; connections and dates are supporting
+   reading material, with anchor links rather than another hidden panel. */
+.chapter-study-nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 20px; border-bottom: 1px solid var(--border2); padding-bottom: 12px; }
+.chapter-study-nav a { color: var(--accent-hover); font-weight: 750; font-size: 14px; text-underline-offset: 5px; min-height: 44px; display: inline-flex; align-items: center; }
+.chapter-roster-heading { margin-bottom: 14px; scroll-margin-top: 18px; }
+.chapter-roster-heading h3, .chapter-study-heading h3 { font: 650 23px/1.3 var(--font); color: var(--text2); }
+.chapter-roster-heading p, .chapter-study-heading p { margin-top: 6px; font-size: 14px; color: var(--text); max-width: 70ch; }
+.chapter-study { margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--border2); }
+.chapter-study-heading { margin-bottom: 18px; }
+.chapter-study-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.chapter-family, .chapter-history { min-width: 0; }
+.chapter-panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.chapter-study h4 { font: 650 19px/1.35 var(--font); color: var(--text2); scroll-margin-top: 18px; }
+.chapter-study h5 { font: 750 15px/1.4 var(--ui-font); margin-top: 22px; margin-bottom: 10px; color: var(--text2); }
+.chapter-help { color: var(--text); font: 400 14px/1.6 var(--ui-font); margin: 8px 0; max-width: 70ch; }
+.chapter-map-scroll { overflow: auto; max-height: 440px; margin-top: 14px; border: 1px solid var(--border2); border-radius: 12px; background: var(--bg2); }
+.chapter-map-scroll svg { display: block; max-width: none; }
+.chapter-map-node { cursor: pointer; }
+.chapter-map-node rect { fill: var(--bg2); stroke: var(--accent); stroke-width: 1.5; }
+.chapter-map-node.context-node rect { stroke-dasharray: 5 3; }
+.chapter-map-node text { fill: var(--text2); font: 650 14px var(--ui-font); }
+.chapter-map-node:hover rect, .chapter-map-node:focus rect { fill: var(--accent-dim); stroke-width: 3; }
+.chapter-spouse-line { stroke: #a33754; stroke-dasharray: 6 4; }
+.chapter-extended-line { stroke: #70566d; stroke-dasharray: 2 4; }
+.chapter-map-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; color: var(--text); font-size: 12px; line-height: 1.6; }
+.chapter-connections { margin-top: 16px; border-top: 1px solid var(--border); }
+.chapter-connections summary { cursor: pointer; padding: 14px 0; color: var(--text2); font-size: 14px; font-weight: 750; min-height: 44px; }
+.chapter-connections ul, .chapter-other-connections { list-style: none; }
+.chapter-connections li { display: flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.chapter-connections button, .chapter-other-connections button { color: var(--accent-hover); font-weight: 750; text-align: left; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; }
+.chapter-connections small { flex-basis: 100%; font-size: 13px; line-height: 1.6; color: var(--text); }
+.chapter-book-period { border-left: 3px solid var(--gold-deep); padding-left: 15px; margin-top: 14px; }
+.chapter-book-period > span { display: block; font: 650 13px/1.55 var(--ui-font); color: var(--text); }
+.chapter-book-period > strong { display: block; font: 600 24px/1.4 var(--font); color: var(--text2); margin-top: 5px; }
+.chapter-book-period p, .chapter-events p { font: 400 14px/1.65 var(--ui-font); color: var(--text); margin-top: 8px; }
+.chapter-events { list-style: none; padding-left: 16px; border-left: 1px solid var(--border2); }
+.chapter-events li { position: relative; padding: 0 0 24px; }
+.chapter-events li::before { content: ""; position: absolute; width: 9px; height: 9px; left: -21px; top: 8px; background: var(--accent); border-radius: 50%; }
+.chapter-event-date { display: block; font: 750 13px/1.5 var(--ui-font); color: var(--accent-hover); }
+.chapter-event-title { display: block; text-align: left; min-height: 44px; font: 650 18px/1.4 var(--font); color: var(--text2); text-decoration: underline; text-underline-offset: 4px; }
+.chapter-event-refs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.chapter-event-refs a { color: var(--accent-hover); font-weight: 650; font-size: 13px; min-height: 44px; display: inline-flex; align-items: center; }
+@media (min-width: 1200px) { .chapter-study-columns { grid-template-columns: minmax(0, 1.3fr) minmax(270px, 1fr); gap: 28px; } .chapter-history { padding-left: 24px; border-left: 1px solid var(--border2); } }
+
+.sidebar-owner { display: flex; align-items: center; gap: 10px; min-height: 48px; flex-shrink: 0; padding: 10px 20px; border: 0; border-top: 1px solid var(--sb-border); background: transparent; color: var(--sb-text); font: 650 13px var(--ui-font); text-align: left; cursor: pointer; }
+.sidebar-owner:hover, .sidebar-owner:focus-visible { background: var(--sb-active); color: var(--sb-active-text); }
+.sidebar-owner.signed-in { color: var(--sb-active-icon); }
+.owner-tools h3 { font: 650 21px/1.35 var(--font); color: var(--text2); }
+.owner-tools p { font-size: 14px; line-height: 1.65; margin: 8px 0 16px; max-width: 65ch; }
+.owner-tools .owner-help { color: var(--text3); font-size: 13px; }
+.owner-tools .owner-error { background: var(--danger-bg); padding: 12px; border-radius: 8px; color: var(--danger); }
+.owner-notice { background: var(--accent-dim); padding: 12px; border-radius: 8px; color: var(--accent-hover); }
+.owner-session-row, .owner-recovery-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.owner-session-row { margin-bottom: 20px; font-size: 14px; font-weight: 750; color: var(--accent-hover); }
+.owner-session-row i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; background: var(--accent); }
+.owner-backup { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border2); }
+.owner-recovery ul { list-style: none; }
+.owner-recovery li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.owner-recovery li > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.owner-recovery li strong { display: block; font-size: 15px; color: var(--text2); }
+.owner-recovery li span { display: block; font-size: 13px; margin-top: 3px; color: var(--text3); }
+.owner-empty { padding: 16px; border: 1px dashed var(--border2); border-radius: 8px; }
+@media (max-width: 768px) { .chapter-study h4 { font-size: 19px; } .owner-tools input { font-size: 16px; } .owner-tools .btn { min-height: 44px; } }
+
 .reading-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); background: rgba(251,248,239,.76); }
 .reading-bar:empty { display: none; }
 .app-section .people-layout .detail-pane { height: 100%; min-height: 0; }
@@ -1158,7 +1222,9 @@ select.form-input { cursor: pointer; }
 .tlv-axis-dot { width: 12px; height: 12px; border: 3px solid var(--bg2); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .tlv-axis-point.event .tlv-axis-dot { width: 15px; height: 15px; border-radius: 3px; background: var(--tlv-gold); box-shadow: 0 0 0 2px var(--tlv-gold); transform: rotate(45deg); }
 .tlv-axis-year { margin-top: 8px; padding: 4px 7px; border-radius: 999px; background: var(--bg); color: var(--text3); font: 700 12px/1 var(--mono); white-space: nowrap; }
-.tlv-card { --tlv-accent: var(--accent); grid-row: 1; position: relative; z-index: 2; min-width: 0; padding: 15px 17px 14px; border: 1px solid var(--border); border-top: 3px solid var(--tlv-accent); border-radius: 12px; background: var(--tlv-paper); box-shadow: 0 3px 12px rgba(38,54,50,.055); content-visibility: auto; contain-intrinsic-size: auto 220px; transition: transform 150ms var(--ease), box-shadow 150ms, border-color 150ms; }
+/* Exact card heights keep event jumps, zoom, and prophecy curves stable.
+   Placeholder heights for off-screen cards made destinations move on scroll. */
+.tlv-card { --tlv-accent: var(--accent); grid-row: 1; position: relative; z-index: 2; min-width: 0; padding: 15px 17px 14px; border: 1px solid var(--border); border-top: 3px solid var(--tlv-accent); border-radius: 12px; background: var(--tlv-paper); box-shadow: 0 3px 12px rgba(38,54,50,.055); transition: transform 150ms var(--ease), box-shadow 150ms, border-color 150ms; }
 .tlv-card:hover { transform: translateY(-2px); box-shadow: 0 9px 24px rgba(38,54,50,.10); }
 .tlv-card.left { grid-column: 1; margin-right: 2px; }
 .tlv-card.right { grid-column: 3; margin-left: 2px; }

@@ -7,6 +7,7 @@ import { FamilyTree } from "./FamilyTree";
 import { navigate, useQueryState } from "@/hooks/useQueryState";
 import { TraditionTree } from "./TraditionTree";
 import { subscribeTraditionFocus, readTraditionFocus, type FocusRequest } from "@/lib/nav-bus";
+import { refCoversChapter } from "@/lib/mappers";
 
 interface Props {
   people: Person[];
@@ -24,7 +25,8 @@ type Step1 = "all" | "families" | "books" | "traditions" | "cults";
 export function TreeCategoryPicker({ people, relationships, refs, traditions, traditionEdges, traditionPeople, onSelect, onOpenEvent }: Props) {
   const [step1, setStep1] = useQueryState<Step1 | null>("treeCategory", null);
   const [familyKey, setFamilyKey] = useQueryState<string | null>("family", null);
-  const [bookName, setBookName] = useQueryState<string | null>("treeBook", null);
+  const [bookName] = useQueryState<string | null>("treeBook", null);
+  const [treeChapter] = useQueryState<string>("treeChapter", "");
   const [focusPerson] = useQueryState<string | null>("treePerson", null);
   const [traditionFocus, setTraditionFocus] = useState<FocusRequest | null>(null);
 
@@ -145,15 +147,16 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
 
   // A book has been picked — same idea, scoped to that book's cast.
   if (bookName) {
-    const memberIds = new Set(refs.filter(r => r.book === bookName).map(r => r.personId));
+    const chapter = /^\d+$/.test(treeChapter) && Number(treeChapter) > 0 ? Number(treeChapter) : null;
+    const memberIds = new Set(refs.filter(r => r.book === bookName && (chapter === null || refCoversChapter(r, chapter))).map(r => r.personId));
     return (
       <FamilyTree
-        key={`book:${bookName}`}
+        key={`book:${bookName}:${chapter ?? "all"}`}
         people={people}
         relationships={relationships}
         refs={refs}
         onSelect={onSelect}
-        scope={{ label: bookName, memberIds, onBack: () => setBookName(null) }}
+        scope={{ label: `${bookName}${chapter ? ` ${chapter}` : ""}`, memberIds, onBack: () => navigate({ treeBook: null, treeChapter: null }) }}
       />
     );
   }
@@ -214,7 +217,7 @@ export function TreeCategoryPicker({ people, relationships, refs, traditions, tr
                       type="button"
                       key={b.name}
                       className="tree-book-card"
-                      onClick={() => setBookName(b.name)}
+                      onClick={() => navigate({ treeBook: b.name, treeChapter: null })}
                       disabled={count === 0}
                     >
                       <span>{b.name}</span>

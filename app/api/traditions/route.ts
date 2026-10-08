@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getReadyDb } from "@/lib/db";
 import { apiHandler } from "@/lib/auth";
 import { traditionFromDb, traditionEdgeFromDb, traditionPersonFromDb } from "@/lib/mappers";
 
@@ -8,7 +8,7 @@ import { traditionFromDb, traditionEdgeFromDb, traditionPersonFromDb } from "@/l
 // picker group. See docs/superpowers/specs/2026-09-11-church-history-design.md.
 export async function GET() {
   return apiHandler(async () => {
-    const db = getDb();
+    const db = await getReadyDb();
     const [traditions, edges, people] = await Promise.all([
       db.query("SELECT * FROM traditions ORDER BY start_year DESC"),
       db.query("SELECT * FROM tradition_edges ORDER BY year DESC"),

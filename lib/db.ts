@@ -3,15 +3,24 @@ import { schema, MIGRATIONS } from "./schema";
 
 type Params = (string | number | boolean | null)[];
 
-interface DbClient {
+export interface DbExecutor {
   query<T = Record<string, unknown>>(sql: string, params?: Params): Promise<T[]>;
   run(sql: string, params?: Params): Promise<void>;
+}
+
+interface DbClient extends DbExecutor {
   batch(statements: { sql: string; params?: Params }[]): Promise<void>;
+  transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T>;
   init(): Promise<void>;
 }
 
-function toPositional(sql: string) {
-  return sql.replace(/\$\d+/g, "?");
+function bind(sql: string, params: Params) {
+  const args: Params = [];
+  const query = sql.replace(/\$(\d+)/g, (_, index: string) => {
+    args.push(params[Number(index) - 1]);
+    return "?";
+  });
+  return { sql: query, args: args.length ? args : params };
 }
 
 function addedColumn(sql: string) {
@@ -33,20 +42,52 @@ function makeLocalDb(path: string): DbClient {
   const Database = require("better-sqlite3");
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
-  return {
+  // Keep unrelated requests out of an interactive SQLite transaction, including
+  // reads: otherwise one request could observe another's uncommitted changes.
+  let queue = Promise.resolve();
+  function serialized<T>(fn: () => Promise<T>): Promise<T> {
+    const result = queue.then(fn);
+    queue = result.then(() => undefined, () => undefined);
+    return result;
+  }
+  const executor: DbExecutor = {
     async query<T>(sql: string, params: Params = []) {
-      return db.prepare(toPositional(sql)).all(params) as T[];
+      const bound = bind(sql, params);
+      return db.prepare(bound.sql).all(bound.args) as T[];
     },
     async run(sql: string, params: Params = []) {
-      db.prepare(toPositional(sql)).run(params);
+      const bound = bind(sql, params);
+      db.prepare(bound.sql).run(bound.args);
+    },
+  };
+  return {
+    async query<T>(sql: string, params: Params = []) {
+      return serialized(() => executor.query<T>(sql, params));
+    },
+    async run(sql: string, params: Params = []) {
+      return serialized(() => executor.run(sql, params));
     },
     async batch(statements) {
       const tx = db.transaction(() => {
         for (const { sql, params = [] } of statements) {
-          db.prepare(toPositional(sql)).run(params);
+          const bound = bind(sql, params);
+          db.prepare(bound.sql).run(bound.args);
         }
       });
-      tx();
+      await serialized(async () => { tx(); });
+    },
+    async transaction<T>(fn: (tx: DbExecutor) => Promise<T>) {
+      return serialized(async () => {
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          const result = await fn(executor);
+          db.exec("COMMIT");
+          return result;
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
+      });
     },
     async init() {
       for (const s of schema) db.exec(s);
@@ -69,14 +110,32 @@ function makeTursoDb(): DbClient {
   });
   return {
     async query<T>(sql: string, params: Params = []) {
-      const res = await client.execute({ sql, args: params });
+      const res = await client.execute(bind(sql, params));
       return res.rows as unknown as T[];
     },
     async run(sql: string, params: Params = []) {
-      await client.execute({ sql, args: params });
+      await client.execute(bind(sql, params));
     },
     async batch(statements) {
-      await client.batch(statements.map(s => ({ sql: s.sql, args: s.params ?? [] })));
+      await client.batch(statements.map(s => bind(s.sql, s.params ?? [])), "write");
+    },
+    async transaction<T>(fn: (tx: DbExecutor) => Promise<T>) {
+      const tx = await client.transaction("write");
+      try {
+        const result = await fn({
+          async query<R>(sql: string, params: Params = []) {
+            const res = await tx.execute(bind(sql, params));
+            return res.rows as unknown as R[];
+          },
+          async run(sql: string, params: Params = []) {
+            await tx.execute(bind(sql, params));
+          },
+        });
+        await tx.commit();
+        return result;
+      } finally {
+        tx.close();
+      }
     },
     async init() {
       for (const s of schema) await client.execute(s);
@@ -103,7 +162,14 @@ export function getDb(): DbClient {
     shared.__birdseyeDb = useTurso
       ? makeTursoDb()
       : makeLocalDb(process.env.SQLITE_PATH ?? "./data/birdseye.db");
-    shared.__birdseyeDbInit = shared.__birdseyeDb.init().catch(console.error);
+    shared.__birdseyeDbInit = shared.__birdseyeDb.init();
+    void shared.__birdseyeDbInit.catch(console.error);
   }
   return shared.__birdseyeDb;
+}
+
+export async function getReadyDb(): Promise<DbClient> {
+  const db = getDb();
+  await shared.__birdseyeDbInit;
+  return db;
 }

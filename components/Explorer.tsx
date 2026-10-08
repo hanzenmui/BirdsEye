@@ -14,6 +14,10 @@ import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } fro
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
 import { InterfaceState, LoadingState } from "./InterfaceState";
+import { useOwner } from "@/hooks/useOwner";
+import { OwnerTools } from "./OwnerTools";
+import { ChapterStudy } from "./ChapterStudy";
+import { notifyDataChanged } from "@/lib/data-events";
 
 // A scripture reference that opens the passage on Bible Gateway. stopPropagation
 // matters because these sit inside cards and rows that are themselves clickable —
@@ -236,7 +240,7 @@ function PersonIndexCard({ person, index, referenceCount, referenceLabels = [], 
         {person.description ? <span className="person-card-desc">{person.description}</span> : null}
         <span className="person-card-footer">
           <TestamentBadge testament={person.testament} />
-          {spanOnly ? <span className="badge badge-span">in the wider passage</span> : null}
+          {spanOnly ? <span className="badge badge-span">Broader passage</span> : null}
           {visibleRefs.length > 0 ? (
             <>
               {visibleRefs.map((label, refIndex) => <span key={`${label}-${refIndex}`} className="person-card-reference">{label}</span>)}
@@ -585,9 +589,9 @@ function DeletePersonModal({ person, onConfirm, onClose }: { person: Person; onC
   return (
     <ModalFrame
       id="delete-person"
-      eyebrow="Permanent change"
+      eyebrow="Recoverable change"
       title={`Delete ${person.name}?`}
-      description="This also removes every relationship and scripture reference attached to this person. This cannot be undone."
+      description="This also removes the attached references and connections. Restore them together from Owner tools → Recently deleted."
       onClose={onClose}
       tone="danger"
     >
@@ -610,6 +614,7 @@ function DeletePersonModal({ person, onConfirm, onClose }: { person: Person; onC
 
 // ── Detail Pane ───────────────────────────────────────────────────────────────
 interface DetailPaneProps {
+  canEdit: boolean;
   person: Person;
   relationships: Relationship[];
   refs: ScriptureRef[];
@@ -625,7 +630,7 @@ interface DetailPaneProps {
   onDeleteRel: (id: string) => void;
   onDelete: () => void;
 }
-function DetailPane({ person, relationships, refs, traditions, traditionPeople, onNavigate, onOpenTradition, onClose, onEdit, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
+function DetailPane({ canEdit, person, relationships, refs, traditions, traditionPeople, onNavigate, onOpenTradition, onClose, onEdit, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDelete }: DetailPaneProps) {
   const personTraditions = useMemo(() => {
     const traditionsById = new Map(traditions.map(t => [t.id, t]));
     return traditionPeople
@@ -661,10 +666,10 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
           </div>
         </div>
         <div className="detail-pane-actions">
-          <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Edit person">
+          {canEdit && <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Edit person">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit
-          </button>
+          </button>}
           <button className="close-btn" onClick={onClose} aria-label="Close profile">×</button>
         </div>
         {(childCount > 0 || siblingCount > 0 || spouseCount > 0 || personRefs.length > 0) ? (
@@ -712,7 +717,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div className="detail-section-title" style={{ marginBottom: 0 }}>Relationships</div>
-            <button className="btn btn-ghost btn-sm" onClick={onAddRel}>+ Add</button>
+            {canEdit && <button className="btn btn-ghost btn-sm" onClick={onAddRel}>+ Add</button>}
           </div>
           {personRels.length === 0 ? (
             <div className="detail-empty">No relationships recorded.</div>
@@ -728,9 +733,9 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
                   <span className="rel-type-label">{label}</span>
                   <button type="button" className="rel-person-name" onClick={() => onNavigate(otherId)}>{otherName}</button>
                   {r.notes && <span style={{ fontSize: 12.5, color: "var(--text3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.notes}</span>}
-                  <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRel(r.id)} aria-label={`Remove ${label.toLowerCase()} relationship with ${otherName}`} title="Remove relationship" style={{ marginLeft: "auto", flexShrink: 0, color: "var(--danger)" }}>
+                  {canEdit && <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRel(r.id)} aria-label={`Remove ${label.toLowerCase()} relationship with ${otherName}`} title="Remove relationship" style={{ marginLeft: "auto", flexShrink: 0, color: "var(--danger)" }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-                  </button>
+                  </button>}
                 </div>
               );
             })
@@ -741,7 +746,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div className="detail-section-title" style={{ marginBottom: 0 }}>Scripture References ({personRefs.length})</div>
-            <button className="btn btn-ghost btn-sm" onClick={onAddRef}>+ Add</button>
+            {canEdit && <button className="btn btn-ghost btn-sm" onClick={onAddRef}>+ Add</button>}
           </div>
           {personRefs.length === 0 ? (
             <div className="detail-empty">No references recorded.</div>
@@ -752,18 +757,18 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
                   <RefLink refItem={r} className="ref-location ref-location-link" />
                   {r.note && <div className="ref-note">{r.note}</div>}
                 </div>
-                <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRef(r.id)} aria-label={`Remove scripture reference ${formatRef(r)}`} title="Remove reference" style={{ flexShrink: 0, color: "var(--danger)" }}>
+                {canEdit && <button type="button" className="btn btn-icon btn-ghost btn-sm" onClick={() => onDeleteRef(r.id)} aria-label={`Remove scripture reference ${formatRef(r)}`} title="Remove reference" style={{ flexShrink: 0, color: "var(--danger)" }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                </button>
+                </button>}
               </div>
             ))
           )}
         </div>
 
         {/* Danger zone */}
-        <div className="detail-danger-zone">
+        {canEdit && <div className="detail-danger-zone">
           <button className="btn btn-danger btn-sm" onClick={onDelete}>Delete {person.name}</button>
-        </div>
+        </div>}
       </div>
     </aside>
   );
@@ -771,6 +776,7 @@ function DetailPane({ person, relationships, refs, traditions, traditionPeople, 
 
 // ── People Section ────────────────────────────────────────────────────────────
 interface PeopleSectionProps {
+  canEdit: boolean;
   people: Person[];
   relationships: Relationship[];
   refs: ScriptureRef[];
@@ -787,7 +793,7 @@ interface PeopleSectionProps {
   onDeleteRel: (id: string) => void;
   onDeletePerson: (id: string) => void;
 }
-function PeopleSection({ people, relationships, refs, traditions, traditionPeople, selectedId, onSelect, onOpenTradition, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
+function PeopleSection({ canEdit, people, relationships, refs, traditions, traditionPeople, selectedId, onSelect, onOpenTradition, onAddPerson, onEditPerson, onAddRef, onDeleteRef, onAddRel, onDeleteRel, onDeletePerson }: PeopleSectionProps) {
   const [query, setQuery] = useQueryState<string>("peopleQuery", "", true);
   const [filter, setFilter] = useQueryState<"all" | "OT" | "NT" | "both" | "CH">("peopleTestament", "all");
 
@@ -876,7 +882,7 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
               </button>
             ))}
           </div>
-          <button className="people-toolbar-add btn btn-primary btn-sm" onClick={onAddPerson}>+ Add Person</button>
+          {canEdit && <button className="people-toolbar-add btn btn-primary btn-sm" onClick={onAddPerson}>+ Add Person</button>}
         </div>
 
         {/* Grid */}
@@ -894,8 +900,8 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
             <InterfaceState
               kind="people"
               title={query ? "No people match that search" : "No people recorded yet"}
-              description={query ? "Try a shorter name, a role such as prophet, or a scripture reference." : "Add the first person to begin building the index."}
-              action={!query ? <button type="button" className="btn btn-primary" onClick={onAddPerson}>Add a person</button> : undefined}
+              description={query ? "Try a shorter name, a role such as prophet, or a scripture reference." : "No records are available yet. Try another book or check back later."}
+              action={!query && canEdit ? <button type="button" className="btn btn-primary" onClick={onAddPerson}>Add a person</button> : undefined}
             />
           ) : (
             <div className="people-grid">
@@ -917,6 +923,7 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
       {/* Detail pane */}
       {selected && (
         <DetailPane
+          canEdit={canEdit}
           person={selected}
           relationships={relationships}
           refs={refs}
@@ -940,10 +947,11 @@ function PeopleSection({ people, relationships, refs, traditions, traditionPeopl
 // ── Books Section ─────────────────────────────────────────────────────────────
 interface BooksSectionProps {
   people: Person[];
+  relationships: Relationship[];
   refs: ScriptureRef[];
   onSelect: (id: string) => void;
 }
-function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
+function BooksSection({ people, relationships, refs, onSelect }: BooksSectionProps) {
   const [activeBook, setActiveBook] = useQueryState<string | null>("book", null);
   const [chapter, setChapter] = useQueryState<string>("chapter", "");
   const activeChapter = /^\d+$/.test(chapter) && Number(chapter) > 0 ? Number(chapter) : null;
@@ -1103,14 +1111,14 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 <TestamentBadge testament={activeBookMeta?.testament ?? "OT"} />
               </div>
               <p>{activeBookMeta?.summary}</p>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "tree", treeCategory: "books", treeBook: activeBook, family: null, treePerson: null, treeFilter: null })}>View this book’s family tree</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "tree", treeCategory: "books", treeBook: activeBook, treeChapter: activeChapter ? String(activeChapter) : null, family: null, treePerson: null, treeFilter: null })}>{activeChapter ? "View this passage’s family tree" : "View this book’s family tree"}</button>
               <div className="book-detail-count">
                 <strong>{bookPeople.length}</strong> {bookPeople.length === 1 ? "person" : "people"}
                 {activeChapter !== null ? ` in ${activeBook} ${activeChapter}` : " recorded in this book"}
               </div>
             </div>
 
-            {chapters.length > 1 && (
+            {chapters.length > 0 && (
               <div className="chapter-picker">
                 <span className="chapter-picker-label">Chapter</span>
                 <button className={`chapter-chip${activeChapter === null ? " active" : ""}`}
@@ -1133,6 +1141,10 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 compact
               />
             )}
+            {activeChapter !== null && <nav className="chapter-study-nav" aria-label="In this chapter">
+              <a href="#chapter-people">People ({bookPeople.length})</a><a href="#chapter-family-title">Family connections</a><a href="#chapter-history-title">Historical context</a>
+            </nav>}
+            {activeChapter !== null && <div className="chapter-roster-heading" id="chapter-people"><h3>People in {activeBook} {activeChapter}</h3><p>References that start here appear first. “Broader passage” names come from ranges covering this chapter—not confirmed verse-by-verse mentions.</p></div>}
             <div className="people-grid book-people-grid">
               {bookPeople.map(({ person: p, spanOnly }, i) => (
                 <PersonIndexCard
@@ -1146,6 +1158,7 @@ function BooksSection({ people, refs, onSelect }: BooksSectionProps) {
                 />
               ))}
             </div>
+            {activeChapter !== null && <ChapterStudy key={`${activeBook}:${activeChapter}`} book={activeBook} chapter={activeChapter} people={people} relationships={relationships} refs={refs} onSelect={onSelect} />}
           </>
         )}
       </div>
@@ -1319,6 +1332,8 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
 
 // ── Explorer (main orchestrator) ──────────────────────────────────────────────
 export function Explorer() {
+  const { owner: canEdit, configured: ownerConfigured, error: ownerError, reload: reloadOwner } = useOwner();
+  const [showOwnerTools, setShowOwnerTools] = useState(false);
   const { people, loading: loadingPeople, error: peopleError, reload: reloadPeople, addPerson, updatePerson, deletePerson } = usePeople();
   const { relationships, loading: loadingRelationships, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
   const { refs, loading: loadingRefs, error: refsError, reload: reloadRefs, addRef, deleteRef } = useRefs();
@@ -1383,7 +1398,7 @@ export function Explorer() {
       reloadTraditions();
       setSelectedId(null);
       setDeletePersonFor(null);
-      showToast("Person deleted");
+      showToast("Person removed. Restore from Owner tools if needed.");
     } catch { showToast("Could not delete this person. Please retry.", "error"); }
   }, [deletePerson, reloadRelationships, reloadRefs, reloadTraditions, setSelectedId]);
 
@@ -1434,6 +1449,10 @@ export function Explorer() {
               <span>People, lineages, and history</span>
             </div>
           </div>
+          <button type="button" className={`sidebar-owner${canEdit ? " signed-in" : ""}`} onClick={() => { setShowOwnerTools(true); closeSidebar(); }}>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <span>{canEdit ? "Owner editing is on" : "Owner tools"}</span>
+          </button>
         </nav>
 
         {/* Backdrop */}
@@ -1447,6 +1466,7 @@ export function Explorer() {
             <LoadingState label="Opening the people index…" />
           ) : !peopleError && !refsError && !relationshipsError && (
             <PeopleSection
+              canEdit={canEdit}
               people={people}
               relationships={relationships}
               refs={refs}
@@ -1470,7 +1490,7 @@ export function Explorer() {
         <section className={`app-section${section === "books" ? " active" : ""}`} aria-labelledby="books-section-title">
           {readingBar}
           <SectionHeader eyebrow="Scripture index" title="By Book" titleId="books-section-title" subtitle="All 66 books, organized by chapter and person" onMenu={toggleSidebar} />
-          {loadingPeople || loadingRefs ? <LoadingState label="Opening the scripture index…" /> : !peopleError && !refsError && <BooksSection people={people} refs={refs} onSelect={selectPerson} />}
+          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Opening the scripture index…" /> : !peopleError && !refsError && !relationshipsError && <BooksSection people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />}
         </section>
 
         {/* Tree section */}
@@ -1514,20 +1534,25 @@ export function Explorer() {
       <div id="toast-wrap" className="toast-wrap" role="status" aria-live="polite" />
 
       {/* Modals */}
-      {showAddPerson && (
+      {showOwnerTools && <ModalFrame id="owner-tools" eyebrow="Library care" title="Owner tools" description="Reading is open to everyone. Only the owner can change the library." onClose={() => setShowOwnerTools(false)}>
+        <OwnerTools key={String(canEdit)} owner={canEdit} configured={ownerConfigured} sessionError={ownerError} onSessionChange={reloadOwner} onRestored={() => {
+          reloadPeople(); reloadRefs(); reloadRelationships(); reloadTraditions(); notifyDataChanged();
+        }} />
+      </ModalFrame>}
+      {canEdit && showAddPerson && (
         <PersonModal
           onSave={async p => { await addPerson(p); showToast(`${p.name} added`); }}
           onClose={() => setShowAddPerson(false)}
         />
       )}
-      {editPersonFor && (
+      {canEdit && editPersonFor && (
         <PersonModal
           initial={editPersonFor}
           onSave={async p => { await updatePerson(editPersonFor.id, p); showToast(`${p.name} updated`); }}
           onClose={() => setEditPersonFor(null)}
         />
       )}
-      {addRefFor && (
+      {canEdit && addRefFor && (
         <AddRefModal
           personId={addRefFor.id}
           personName={addRefFor.name}
@@ -1535,7 +1560,7 @@ export function Explorer() {
           onClose={() => setAddRefFor(null)}
         />
       )}
-      {addRelFor && (
+      {canEdit && addRelFor && (
         <AddRelModal
           focalPerson={addRelFor}
           people={people}
@@ -1543,7 +1568,7 @@ export function Explorer() {
           onClose={() => setAddRelFor(null)}
         />
       )}
-      {deletePersonFor && (
+      {canEdit && deletePersonFor && (
         <DeletePersonModal
           person={deletePersonFor}
           onConfirm={() => handleDeletePerson(deletePersonFor.id)}

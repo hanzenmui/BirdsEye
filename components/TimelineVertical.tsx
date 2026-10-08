@@ -9,7 +9,7 @@ import type { HistoricalEvent, Person, ProphecyLink, Tradition, TraditionEdge } 
 import { TIMELINE_PERIODS as ALL_ERAS, type TimelinePeriod as Era } from "@/lib/timeline-periods";
 import { formatYear, formatYearSpan } from "@/lib/timeline-layout";
 import { yearInAct, TIMELINE_ACTS, type TimelineAct } from "@/lib/timeline-acts";
-import { subscribeEventFocus, readEventFocus } from "@/lib/nav-bus";
+import { subscribeEventFocus, consumeEventFocus } from "@/lib/nav-bus";
 import { TimelineFilters, TIMELINE_BOOKS } from "./TimelineFilters";
 import { InterfaceState, LoadingState } from "./InterfaceState";
 
@@ -339,17 +339,19 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   }, [measureLinks]);
 
   useEffect(() => {
-    if (!pendingScrollKey) return;
+    if (!pendingScrollKey || !active || loading || !naturalHeight) return;
     const frame = window.requestAnimationFrame(() => {
       const element = document.getElementById(`tlv-${pendingScrollKey}`);
       if (!element) return;
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-      window.setTimeout(() => element.focus({ preventScroll: true }), 350);
+      // Cross-section jumps can change the whole story's height. An instant
+      // jump after layout avoids a smooth animation targeting the old layout.
+      element.scrollIntoView({ behavior: "instant", block: "center" });
+      element.focus({ preventScroll: true });
       setFocusedKey(pendingScrollKey);
       setPendingScrollKey(null);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [pendingScrollKey, visibleEvents, visiblePeople]);
+  }, [pendingScrollKey, visibleEvents, visiblePeople, active, loading, naturalHeight]);
 
   const toggleBook = (book: string) => setCheckedBooks(previous => {
     const next = new Set(previous);
@@ -390,15 +392,22 @@ export function TimelineVertical({ onSelectPerson, onOpenTradition, traditions, 
   // actual DOM lookup to the effect below, which re-runs against
   // visibleEvents/visiblePeople and so naturally waits for the act change
   // to land first.
-  useEffect(() => subscribeEventFocus(() => {
-    const focus = readEventFocus();
-    if (!focus) return;
-    setEraId("");
-    setQuery("");
-    setCheckedBooks(new Set(TIMELINE_BOOKS));
-    setShowEventsLayer(true);
-    setPendingScrollKey(`event-${focus.id}`);
-  }), [setQuery, setCheckedBooks, setShowEventsLayer, setEraId]);
+  useEffect(() => {
+    const handle = () => {
+      const focus = consumeEventFocus();
+      if (!focus) return;
+      setEraId("");
+      setQuery("");
+      setCheckedBooks(new Set(TIMELINE_BOOKS));
+      setShowEventsLayer(true);
+      setPendingScrollKey(`event-${focus.id}`);
+    };
+    const unsubscribe = subscribeEventFocus(handle);
+    // Switching from horizontal mounts this view after the original event.
+    // Consume the stored request once, rather than losing it or replaying it.
+    const frame = window.requestAnimationFrame(handle);
+    return () => { unsubscribe(); window.cancelAnimationFrame(frame); };
+  }, [setQuery, setCheckedBooks, setShowEventsLayer, setEraId]);
 
   const resetFilters = () => {
     setCheckedBooks(new Set(TIMELINE_BOOKS));
