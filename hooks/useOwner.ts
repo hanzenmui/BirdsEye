@@ -1,32 +1,28 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-
-async function readOwnerSession() {
-  const response = await fetch("/api/owner/session", { cache: "no-store" });
-  if (!response.ok) throw new Error();
-  return response.json();
-}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadLatestOwnerStatus } from "@/lib/owner-status";
 
 export function useOwner() {
   const [owner, setOwner] = useState(false);
   const [configured, setConfigured] = useState(true);
   const [error, setError] = useState("");
-  const reload = useCallback(async () => {
-    try {
-      const session = await readOwnerSession();
+  const requestVersion = useRef(0);
+  const reload = useCallback(() => loadLatestOwnerStatus(requestVersion,
+    session => {
       setOwner(session.owner === true); setConfigured(session.configured === true); setError("");
-    } catch { setOwner(false); setError("Could not check owner access. Check your connection and retry."); }
-  }, []);
+    },
+    () => { setOwner(false); setError("Could not check owner access. Check your connection and retry."); },
+  ), []);
   useEffect(() => {
-    let active = true;
-    readOwnerSession().then(session => {
-      if (active) { setOwner(session.owner === true); setConfigured(session.configured === true); setError(""); }
-    }).catch(() => { if (active) { setOwner(false); setError("Could not check owner access. Check your connection and retry."); } });
+    void reload();
     window.addEventListener("focus", reload);
     window.addEventListener("birdseye-owner-expired", reload);
     const timer = window.setInterval(reload, 60000);
+    const version = requestVersion;
     return () => {
-      active = false;
+      // Ignore every outstanding response after cleanup, including focus and
+      // polling requests. Also handles Strict Mode's cleanup/remount cycle.
+      version.current++;
       window.removeEventListener("focus", reload);
       window.removeEventListener("birdseye-owner-expired", reload);
       window.clearInterval(timer);

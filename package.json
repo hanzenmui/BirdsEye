@@ -49,6 +49,7 @@
     "sync:prod": "npx tsx scripts/sync-to-prod.ts",
     "verify:reference-search": "npx tsx scripts/verify-reference-search.ts",
     "verify:owner": "npx tsx scripts/verify-owner-protection.ts && npx tsx scripts/verify-owner-protection.ts --libsql",
+    "verify:owner-status": "npx tsx scripts/verify-owner-status.ts",
     "verify:library-request": "npx tsx scripts/verify-library-request.ts",
     "verify:relationship-names": "npx tsx scripts/verify-relationship-names.ts",
     "verify:chapter-study": "npx tsx scripts/verify-chapter-study.ts",

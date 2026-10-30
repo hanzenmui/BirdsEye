@@ -1,5 +1,20 @@
 # Birdseye improvements
 
+## 2026-10-30 - Stop old owner checks from reversing sign-in or sign-out
+
+- Changed: Initial, focus, polling, and explicit owner-status checks share one
+  request version. Late results and errors from older checks are ignored, as
+  are responses after cleanup. Malformed current replies disable editing.
+- Benefit: Prevents a slow background reply from hiding editing after sign-in
+  or showing it again after sign-out. Passcodes, session duration, and server
+  authorization are unchanged; a current failed check still fails closed.
+- Checked: New controlled-response tests cover out-of-order sign-in/out, stale
+  errors, current errors, malformed replies, and cleanup/remount. Both isolated
+  owner/database checks, targeted lint, and production build passed. Local
+  desktop sign-in and 375px sign-out checks confirmed editing controls change
+  correctly while reading stays open, with no console errors. Tests used dummy
+  credentials and disposable data; production deployment was not checked.
+
 ## 2026-10-30 - Keep connection names current after renaming
 
 - Changed: Connection labels use the current people index rather than the old
