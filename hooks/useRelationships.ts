@@ -1,5 +1,6 @@
 "use client";
 import { notifyDataChanged } from "@/lib/data-events";
+import { libraryRequest } from "@/lib/library-request";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Relationship } from "@/lib/types";
 
@@ -46,24 +47,20 @@ export function useRelationships() {
   }, []);
 
   const addRelationship = useCallback(async (payload: Omit<Relationship, "id" | "createdAt">) => {
-    const res = await fetch("/api/relationships", {
+    const res = await libraryRequest("/api/relationships", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Could not save your change. Please retry.");
-    if (res.ok) {
-      const created: Relationship = await res.json();
-      setRelationships(prev => [created, ...prev]);
-      notifyDataChanged();
-      return created;
-    }
+    const created: Relationship = await res.json();
+    setRelationships(prev => [created, ...prev]);
+    notifyDataChanged();
+    return created;
   }, []);
 
   const deleteRelationship = useCallback(async (id: string) => {
-    const res = await fetch(`/api/relationships/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Could not save your change. Please retry.");
-    if (res.ok) setRelationships(prev => prev.filter(r => r.id !== id));
+    await libraryRequest(`/api/relationships/${id}`, { method: "DELETE" });
+    setRelationships(prev => prev.filter(r => r.id !== id));
     notifyDataChanged();
   }, []);
 

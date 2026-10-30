@@ -1,5 +1,20 @@
 # Birdseye improvements
 
+## 2026-10-30 - Explain failed saves without clearing the form
+
+- Changed: Person, scripture-reference, and relationship forms show the server's
+  explanation beside Save, including duplicate connections and invalid ranges.
+  Person length errors state the limit. Failed removals use the same safe error
+  handling. Unexpected server details are hidden; writes are not auto-retried.
+- Benefit: Fixes silent person-save failures and vague retry notices. Typed
+  descriptions and notes stay in the open form so entries can be corrected.
+- Checked: New library-request regression checks, both isolated owner/database
+  checks, reading-workflow checks, targeted lint, and production build passed.
+  Desktop and 375px browser checks covered rejected person creation/editing,
+  duplicate relationships, invalid references, retained text, and corrected
+  successful saves. Only disposable test records changed. This is not draft
+  storage across navigation/sign-out; production deployment was not checked.
+
 ## 2026-10-30 - Patch known security warnings
 
 - Changed: Updated Next.js and its matching lint tools from 16.4.0 to 16.4.3,

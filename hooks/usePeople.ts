@@ -1,5 +1,6 @@
 "use client";
 import { notifyDataChanged } from "@/lib/data-events";
+import { libraryRequest } from "@/lib/library-request";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Person } from "@/lib/types";
 
@@ -46,12 +47,11 @@ export function usePeople() {
   }, []);
 
   const addPerson = useCallback(async (payload: Omit<Person, "id" | "createdAt">) => {
-    const res = await fetch("/api/people", {
+    const res = await libraryRequest("/api/people", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(await res.text());
     const created: Person = await res.json();
     setPeople(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     notifyDataChanged();
@@ -59,12 +59,11 @@ export function usePeople() {
   }, []);
 
   const updatePerson = useCallback(async (id: string, patch: Partial<Person>) => {
-    const res = await fetch(`/api/people/${id}`, {
+    const res = await libraryRequest(`/api/people/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    if (!res.ok) throw new Error(await res.text());
     const updated: Person = await res.json();
     setPeople(prev => prev.map(p => p.id === id ? updated : p));
     notifyDataChanged();
@@ -72,9 +71,8 @@ export function usePeople() {
   }, []);
 
   const deletePerson = useCallback(async (id: string) => {
-    const res = await fetch(`/api/people/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Could not save your change. Please retry.");
-    if (res.ok) setPeople(prev => prev.filter(p => p.id !== id));
+    await libraryRequest(`/api/people/${id}`, { method: "DELETE" });
+    setPeople(prev => prev.filter(p => p.id !== id));
     notifyDataChanged();
   }, []);
 

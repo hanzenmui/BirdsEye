@@ -1,5 +1,6 @@
 "use client";
 import { notifyDataChanged } from "@/lib/data-events";
+import { libraryRequest } from "@/lib/library-request";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { ScriptureRef } from "@/lib/types";
 
@@ -46,24 +47,20 @@ export function useRefs() {
   }, []);
 
   const addRef = useCallback(async (payload: Omit<ScriptureRef, "id" | "createdAt">) => {
-    const res = await fetch("/api/refs", {
+    const res = await libraryRequest("/api/refs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Could not save your change. Please retry.");
-    if (res.ok) {
-      const created: ScriptureRef = await res.json();
-      setRefs(prev => [...prev, created]);
-      notifyDataChanged();
-      return created;
-    }
+    const created: ScriptureRef = await res.json();
+    setRefs(prev => [...prev, created]);
+    notifyDataChanged();
+    return created;
   }, []);
 
   const deleteRef = useCallback(async (id: string) => {
-    const res = await fetch(`/api/refs/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Could not save your change. Please retry.");
-    if (res.ok) setRefs(prev => prev.filter(r => r.id !== id));
+    await libraryRequest(`/api/refs/${id}`, { method: "DELETE" });
+    setRefs(prev => prev.filter(r => r.id !== id));
     notifyDataChanged();
   }, []);
 

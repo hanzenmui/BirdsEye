@@ -38,9 +38,13 @@ export function refCoversChapter(r: ScriptureRef, chapter: number): boolean {
 // a raw label + gray color instead of failing loudly.
 export function validatePersonFields(body: Partial<Person>): string | null {
   if (!body || typeof body !== "object" || Array.isArray(body)) return "Enter valid person details.";
+  const labels = { name: "name", alsoKnownAs: "aliases", birthYear: "birth year", deathYear: "death year", description: "description" };
   for (const key of ["name", "alsoKnownAs", "birthYear", "deathYear", "description"] as const) {
     const value = body[key];
-    if (value !== undefined && (typeof value !== "string" || value.length > (key === "description" ? 20000 : 500))) return `Invalid ${key}.`;
+    if (value === undefined) continue;
+    if (typeof value !== "string") return `Enter valid text for the ${labels[key]}.`;
+    const limit = key === "description" ? 20000 : 500;
+    if (value.length > limit) return `Keep the ${labels[key]} to ${limit.toLocaleString("en-US")} characters or fewer.`;
   }
   if (body.name !== undefined && !body.name.trim()) return "Enter a name.";
   if (body.tags !== undefined && (!Array.isArray(body.tags) || body.tags.length > 50 || !body.tags.every(t => typeof t === "string" && t.length <= 100))) return "Enter valid tags.";

@@ -18,6 +18,7 @@ import { useOwner } from "@/hooks/useOwner";
 import { OwnerTools } from "./OwnerTools";
 import { ChapterStudy } from "./ChapterStudy";
 import { notifyDataChanged } from "@/lib/data-events";
+import { libraryErrorMessage } from "@/lib/library-request";
 
 // A scripture reference that opens the passage on Bible Gateway. stopPropagation
 // matters because these sit inside cards and rows that are themselves clickable —
@@ -276,6 +277,7 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
   } : { ...EMPTY });
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const isEdit = !!initial;
 
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -289,8 +291,9 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (saving || !form.name.trim()) return;
     setSaving(true);
+    setSaveError("");
     try {
       // Timeline fields aren't editable in this modal (that's a later task) —
       // preserve them on edit, default to empty/null on create so this stays
@@ -304,8 +307,8 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
         dateConfidence: initial?.dateConfidence ?? "firm",
       });
       onClose();
-    } catch {
-      // onSave threw — stay open so the user can retry
+    } catch (error) {
+      setSaveError(libraryErrorMessage(error, "Person was not saved. Please retry."));
     } finally {
       setSaving(false);
     }
@@ -377,7 +380,8 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
               </div>
             </div>
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer form-save-footer">
+            {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Add person"}</button>
           </div>
@@ -395,6 +399,7 @@ interface AddRefProps {
 }
 function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [form, setForm] = useState({ book: "Genesis", chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1, note: "" });
   // Mirrors chapterEnd/verseEnd to chapterStart/verseStart until the user
   // explicitly edits an End field — without this, a quick single-verse entry
@@ -421,10 +426,11 @@ function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
     // scripts, not this modal.
     if (saving) return;
     setSaving(true);
+    setSaveError("");
     try {
       await onSave({ ...form, personId, eventId: null });
       onClose();
-    } catch { showToast("Reference was not saved. Please retry.", "error"); }
+    } catch (error) { setSaveError(libraryErrorMessage(error, "Reference was not saved. Please retry.")); }
     finally { setSaving(false); }
   };
 
@@ -469,7 +475,8 @@ function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
               </div>
             </div>
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer form-save-footer">
+            {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add reference"}</button>
           </div>
@@ -493,6 +500,7 @@ const INVERSE_TYPES: Partial<Record<RelationshipType, RelationshipType>> = {
 
 function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [type, setType] = useState<RelationshipType>("parent_of");
   const [personBId, setPersonBId] = useState("");
   const [notes, setNotes] = useState("");
@@ -509,6 +517,7 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
     if (!personBId || !personB) return;
     if (saving) return;
     setSaving(true);
+    setSaveError("");
     try {
       const flip = type in INVERSE_TYPES;
       const canonicalType = INVERSE_TYPES[type] ?? type;
@@ -521,7 +530,7 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
         notes,
       });
       onClose();
-    } catch { showToast("Relationship was not saved. Please retry.", "error"); }
+    } catch (error) { setSaveError(libraryErrorMessage(error, "Relationship was not saved. Please retry.")); }
     finally { setSaving(false); }
   };
 
@@ -564,7 +573,8 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
               </div>
             </div>
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer form-save-footer">
+            {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId || saving}>{saving ? "Saving…" : "Add relationship"}</button>
           </div>
@@ -1399,7 +1409,7 @@ export function Explorer() {
       setSelectedId(null);
       setDeletePersonFor(null);
       showToast("Person removed. Restore from Owner tools if needed.");
-    } catch { showToast("Could not delete this person. Please retry.", "error"); }
+    } catch (error) { showToast(libraryErrorMessage(error, "Could not delete this person. Please retry."), "error"); }
   }, [deletePerson, reloadRelationships, reloadRefs, reloadTraditions, setSelectedId]);
 
   const closeSidebar = () => {
@@ -1478,9 +1488,9 @@ export function Explorer() {
               onAddPerson={() => setShowAddPerson(true)}
               onEditPerson={p => setEditPersonFor(p)}
               onAddRef={p => setAddRefFor(p)}
-              onDeleteRef={async id => { try { await deleteRef(id); showToast("Reference removed"); } catch { showToast("Could not remove reference. Please retry.", "error"); } }}
+              onDeleteRef={async id => { try { await deleteRef(id); showToast("Reference removed"); } catch (error) { showToast(libraryErrorMessage(error, "Could not remove reference. Please retry."), "error"); } }}
               onAddRel={p => setAddRelFor(p)}
-              onDeleteRel={async id => { try { await deleteRelationship(id); showToast("Relationship removed"); } catch { showToast("Could not remove relationship. Please retry.", "error"); } }}
+              onDeleteRel={async id => { try { await deleteRelationship(id); showToast("Relationship removed"); } catch (error) { showToast(libraryErrorMessage(error, "Could not remove relationship. Please retry."), "error"); } }}
               onDeletePerson={id => setDeletePersonFor(people.find(person => person.id === id) ?? null)}
             />
           )}
