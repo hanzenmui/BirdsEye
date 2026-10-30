@@ -10,7 +10,7 @@ import { useTraditions } from "@/hooks/useTraditions";
 import { requestEventFocus, requestTraditionFocus } from "@/lib/nav-bus";
 import type { Person, Relationship, ScriptureRef, RelationshipType, Tradition, TraditionPerson } from "@/lib/types";
 import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATIONSHIP_COLORS } from "@/lib/types";
-import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery } from "@/lib/mappers";
+import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery, withCurrentRelationshipNames } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
 import { InterfaceState, LoadingState } from "./InterfaceState";
@@ -1345,7 +1345,8 @@ export function Explorer() {
   const { owner: canEdit, configured: ownerConfigured, error: ownerError, reload: reloadOwner } = useOwner();
   const [showOwnerTools, setShowOwnerTools] = useState(false);
   const { people, loading: loadingPeople, error: peopleError, reload: reloadPeople, addPerson, updatePerson, deletePerson } = usePeople();
-  const { relationships, loading: loadingRelationships, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
+  const { relationships: loadedRelationships, loading: loadingRelationships, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
+  const relationships = useMemo(() => withCurrentRelationshipNames(loadedRelationships, people), [loadedRelationships, people]);
   const { refs, loading: loadingRefs, error: refsError, reload: reloadRefs, addRef, deleteRef } = useRefs();
   const { traditions, traditionEdges, traditionPeople, error: traditionsError, reload: reloadTraditions } = useTraditions();
 

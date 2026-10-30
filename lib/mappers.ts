@@ -62,6 +62,22 @@ export function validateRelationshipType(type: string): string | null {
   return null;
 }
 
+// Names on relationship records are a saved display snapshot. After a person
+// is renamed, use the current people index everywhere that consumes these
+// links, without another request or a second mutable copy of the library.
+export function withCurrentRelationshipNames(
+  relationships: readonly Relationship[],
+  people: readonly Pick<Person, "id" | "name">[],
+): Relationship[] {
+  const names = new Map(people.map(person => [person.id, person.name]));
+  return relationships.map(relationship => {
+    const personAName = names.get(relationship.personAId) ?? relationship.personAName;
+    const personBName = names.get(relationship.personBId) ?? relationship.personBName;
+    return personAName === relationship.personAName && personBName === relationship.personBName
+      ? relationship : { ...relationship, personAName, personBName };
+  });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function personFromDb(r: any): Person {
   return {

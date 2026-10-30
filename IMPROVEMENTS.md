@@ -1,5 +1,20 @@
 # Birdseye improvements
 
+## 2026-10-30 - Keep connection names current after renaming
+
+- Changed: Connection labels use the current people index rather than the old
+  names saved on relationship records. People profiles and family-tree details
+  update immediately after a successful rename, without another loading step.
+- Benefit: Fixes a reproduced case where a renamed parent still appeared under
+  the old name in the child's connections until refreshing. IDs, relationships,
+  ordering, and notes stay unchanged; unloaded people keep the saved fallback.
+- Checked: New relationship-name checks cover both ends, repeated names,
+  fallbacks, Unicode, and immutable records. Library-request, reading-workflow,
+  chapter-study checks, targeted lint, and production build passed. Local
+  desktop and 375px tests verified parent and child renames in profiles and
+  family-tree details without refreshing; no console errors. Only disposable
+  records changed. Live data and production deployment were not checked.
+
 ## 2026-10-30 - Explain failed saves without clearing the form
 
 - Changed: Person, scripture-reference, and relationship forms show the server's
