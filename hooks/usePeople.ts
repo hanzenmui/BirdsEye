@@ -8,11 +8,13 @@ import type { Person } from "@/lib/types";
 export function usePeople() {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
   const refresh = useCallback(() => loadLibraryCollection<Person>({
-    url: "/api/people", version: genRef, onLoaded: setPeople,
+    url: "/api/people", version: genRef,
+    onLoaded: items => { setPeople(items); setHasLoaded(true); },
     onError: setError, onSettled: () => setLoading(false),
     errorMessage: "Could not load people. Check your connection and retry.",
   }), []);
@@ -62,5 +64,5 @@ export function usePeople() {
     notifyDataChanged();
   }, [refresh]);
 
-  return { people, loading, error, reload: load, addPerson, updatePerson, deletePerson };
+  return { people, loading, hasLoaded, error, reload: load, addPerson, updatePerson, deletePerson };
 }

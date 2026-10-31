@@ -1,5 +1,24 @@
 # Birdseye improvements
 
+## 2026-10-31 - Keep loaded reading views open when refresh fails
+
+- Changed: People, books, family maps, and Insights keep their loaded content
+  mounted during refreshes, failures, and retries. A warning explains that the
+  loaded records are still available; a pending retry shows update progress.
+  Successfully loaded empty collections count as ready. Initial failures still
+  show an error rather than a misleading empty library.
+- Benefit: Fixes a reproduced case where a successful save followed by a failed
+  refresh hid the entire people list and search. Existing searches, profiles,
+  and maps stay usable while checking the connection. This keeps the current
+  page's data in memory; it does not add permanent offline storage.
+- Checked: New view/readiness tests, existing delayed-response tests, reading
+  workflow, chapter study, both isolated owner/database checks, targeted lint,
+  and production build passed. A local test proxy reproduced the original bug
+  and verified failed refreshes, delayed retries, retained search/profile state,
+  recovery, and initial-load failure/retry. Desktop and 375px checks covered
+  loaded people, books, family maps, and Insights, with no JavaScript errors.
+  All writes used disposable test records; production was not checked.
+
 ## 2026-10-31 - Keep slow loading replies from undoing saved changes
 
 - Changed: People, scripture references, and connections share guarded loading

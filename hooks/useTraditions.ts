@@ -12,6 +12,7 @@ async function fetchTraditions(
   gen: number,
   genRef: { current: number },
   setData: (d: TraditionsData) => void,
+  setHasLoaded: (loaded: boolean) => void,
   setLoading: (l: boolean) => void,
   setError: (message: string | null) => void,
 ) {
@@ -23,7 +24,7 @@ async function fetchTraditions(
       return;
     }
     const data = await res.json();
-    if (gen === genRef.current) { setData(data); setLoading(false); }
+    if (gen === genRef.current) { setData(data); setHasLoaded(true); setLoading(false); }
   } catch (e) {
     console.error("Failed to load traditions:", e);
     if (gen === genRef.current) { setLoading(false); setError("Could not load traditions. Check your connection and retry."); }
@@ -33,6 +34,7 @@ async function fetchTraditions(
 export function useTraditions() {
   const [data, setData] = useState<TraditionsData>({ traditions: [], edges: [], people: [] });
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
@@ -40,15 +42,15 @@ export function useTraditions() {
     setLoading(true);
     setError(null);
     const gen = ++genRef.current;
-    fetchTraditions(gen, genRef, setData, setLoading, setError);
+    fetchTraditions(gen, genRef, setData, setHasLoaded, setLoading, setError);
   }, []);
 
   useEffect(() => {
     const gen = ++genRef.current;
-    void fetchTraditions(gen, genRef, setData, setLoading, setError);
+    void fetchTraditions(gen, genRef, setData, setHasLoaded, setLoading, setError);
     const generation = genRef;
     return () => { generation.current++; };
   }, []);
 
-  return { traditions: data.traditions, traditionEdges: data.edges, traditionPeople: data.people, loading, error, reload: load };
+  return { traditions: data.traditions, traditionEdges: data.edges, traditionPeople: data.people, loading, hasLoaded, error, reload: load };
 }

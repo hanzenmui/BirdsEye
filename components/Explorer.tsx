@@ -13,7 +13,7 @@ import { BIBLE_BOOKS, RELATIONSHIP_LABELS, RELATIONSHIP_INVERSE_LABELS, RELATION
 import { formatRef, bibleGatewayUrl, refCoversChapter, parseReferenceQuery, withCurrentRelationshipNames } from "@/lib/mappers";
 import { TreeCategoryPicker } from "./TreeCategoryPicker";
 import { Timeline } from "./Timeline";
-import { InterfaceState, LoadingState } from "./InterfaceState";
+import { InterfaceState, LibraryContent } from "./InterfaceState";
 import { useOwner } from "@/hooks/useOwner";
 import { OwnerTools } from "./OwnerTools";
 import { ChapterStudy } from "./ChapterStudy";
@@ -1344,11 +1344,15 @@ function StatsSection({ people, refs, relationships, onNavigate }: StatsSectionP
 export function Explorer() {
   const { owner: canEdit, configured: ownerConfigured, error: ownerError, reload: reloadOwner } = useOwner();
   const [showOwnerTools, setShowOwnerTools] = useState(false);
-  const { people, loading: loadingPeople, error: peopleError, reload: reloadPeople, addPerson, updatePerson, deletePerson } = usePeople();
-  const { relationships: loadedRelationships, loading: loadingRelationships, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
+  const { people, loading: loadingPeople, hasLoaded: peopleReady, error: peopleError, reload: reloadPeople, addPerson, updatePerson, deletePerson } = usePeople();
+  const { relationships: loadedRelationships, loading: loadingRelationships, hasLoaded: relationshipsReady, error: relationshipsError, reload: reloadRelationships, addRelationship, deleteRelationship } = useRelationships();
   const relationships = useMemo(() => withCurrentRelationshipNames(loadedRelationships, people), [loadedRelationships, people]);
-  const { refs, loading: loadingRefs, error: refsError, reload: reloadRefs, addRef, deleteRef } = useRefs();
-  const { traditions, traditionEdges, traditionPeople, error: traditionsError, reload: reloadTraditions } = useTraditions();
+  const { refs, loading: loadingRefs, hasLoaded: refsReady, error: refsError, reload: reloadRefs, addRef, deleteRef } = useRefs();
+  const { traditions, traditionEdges, traditionPeople, loading: loadingTraditions, hasLoaded: traditionsReady, error: traditionsError, reload: reloadTraditions } = useTraditions();
+  const libraryReady = peopleReady && refsReady && relationshipsReady;
+  const libraryLoading = loadingPeople || loadingRefs || loadingRelationships;
+  const treeReady = libraryReady && traditionsReady;
+  const treeLoading = libraryLoading || loadingTraditions;
 
   const [rawSection, setSection] = useQueryState<Section>("section", "books");
   const section = NAV.some(item => item.key === rawSection) ? rawSection : "books";
@@ -1418,7 +1422,8 @@ export function Explorer() {
     if (window.matchMedia("(max-width: 768px)").matches) setSidebarCollapsed(false);
   };
   const readingBar = <div className="reading-bar">
-    {loadError && <LoadError message={loadError} onRetry={retry} />}
+    {loadError && <LoadError message={loadError} onRetry={retry} retainedContent={section === "tree" ? treeReady : libraryReady} />}
+    {!loadError && (section === "tree" ? treeReady && treeLoading : libraryReady && libraryLoading) && <span role="status">Checking for updates…</span>}
     {readingBook && section !== "books" && <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: "books", person: null })}>← Back to {readingBook}{readingChapter ? ` ${readingChapter}` : ""}</button>}
     {section === "people" && selectedId && <>
       {!readingBook && <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate({ section: NAV.some(n => n.key === returnSection) ? returnSection : "books", person: null })}>← Back to {returnSection === "tree" ? "family tree" : returnSection === "timeline" ? "timeline" : "books"}</button>}
@@ -1449,7 +1454,7 @@ export function Explorer() {
                   <path d={n.icon} />
                 </svg>
                 <span className="sidebar-item-label">{n.label}</span>
-                {n.key === "people" && <span className="sidebar-badge">{loadingPeople ? "—" : people.length}</span>}
+                {n.key === "people" && <span className="sidebar-badge">{!peopleReady ? "—" : people.length}</span>}
               </button>
             ))}
           </div>
@@ -1472,10 +1477,8 @@ export function Explorer() {
         {/* People section */}
         <section className={`app-section${section === "people" ? " active" : ""}`} aria-labelledby="people-section-title">
           {readingBar}
-          <SectionHeader eyebrow="Bible people" title="People" titleId="people-section-title" subtitle={loadingPeople ? "Opening the people index…" : `${people.length} ${people.length === 1 ? "person" : "people"}, from Genesis through the early church`} onMenu={toggleSidebar} />
-          {loadingPeople || loadingRefs || loadingRelationships ? (
-            <LoadingState label="Opening the people index…" />
-          ) : !peopleError && !refsError && !relationshipsError && (
+          <SectionHeader eyebrow="Bible people" title="People" titleId="people-section-title" subtitle={!peopleReady ? "Opening the people index…" : `${people.length} ${people.length === 1 ? "person" : "people"}, from Genesis through the early church`} onMenu={toggleSidebar} />
+          <LibraryContent ready={libraryReady} loading={libraryLoading} label="Opening the people index…">
             <PeopleSection
               canEdit={canEdit}
               people={people}
@@ -1494,30 +1497,34 @@ export function Explorer() {
               onDeleteRel={async id => { try { await deleteRelationship(id); showToast("Relationship removed"); } catch (error) { showToast(libraryErrorMessage(error, "Could not remove relationship. Please retry."), "error"); } }}
               onDeletePerson={id => setDeletePersonFor(people.find(person => person.id === id) ?? null)}
             />
-          )}
+          </LibraryContent>
         </section>
 
         {/* Books section */}
         <section className={`app-section${section === "books" ? " active" : ""}`} aria-labelledby="books-section-title">
           {readingBar}
           <SectionHeader eyebrow="Scripture index" title="By Book" titleId="books-section-title" subtitle="All 66 books, organized by chapter and person" onMenu={toggleSidebar} />
-          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Opening the scripture index…" /> : !peopleError && !refsError && !relationshipsError && <BooksSection people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />}
+          <LibraryContent ready={libraryReady} loading={libraryLoading} label="Opening the scripture index…">
+            <BooksSection people={people} relationships={relationships} refs={refs} onSelect={selectPerson} />
+          </LibraryContent>
         </section>
 
         {/* Tree section */}
         <section className={`app-section${section === "tree" ? " active" : ""}`} aria-labelledby="tree-section-title">
           {readingBar}
           <SectionHeader eyebrow="Lineage atlas" title="Family Tree" titleId="tree-section-title" subtitle="Trace families, books, and the line from Adam to Jesus" onMenu={toggleSidebar} />
-          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Drawing the lineage map…" /> : !loadError && <TreeCategoryPicker
-            people={people}
-            relationships={relationships}
-            refs={refs}
-            traditions={traditions}
-            traditionEdges={traditionEdges}
-            traditionPeople={traditionPeople}
-            onSelect={selectPerson}
-            onOpenEvent={navigateToEvent}
-          />}
+          <LibraryContent ready={treeReady} loading={treeLoading} label="Drawing the lineage map…">
+            <TreeCategoryPicker
+              people={people}
+              relationships={relationships}
+              refs={refs}
+              traditions={traditions}
+              traditionEdges={traditionEdges}
+              traditionPeople={traditionPeople}
+              onSelect={selectPerson}
+              onOpenEvent={navigateToEvent}
+            />
+          </LibraryContent>
         </section>
 
         {/* Timeline section */}
@@ -1537,7 +1544,9 @@ export function Explorer() {
         <section className={`app-section${section === "stats" ? " active" : ""}`} aria-labelledby="insights-section-title">
           {readingBar}
           <SectionHeader eyebrow="Collection overview" title="Insights" titleId="insights-section-title" subtitle="See who appears most, who connects most, and how the books are covered" onMenu={toggleSidebar} />
-          {loadingPeople || loadingRefs || loadingRelationships ? <LoadingState label="Reading the collection…" /> : !peopleError && !refsError && !relationshipsError && <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />}
+          <LibraryContent ready={libraryReady} loading={libraryLoading} label="Reading the collection…">
+            <StatsSection people={people} refs={refs} relationships={relationships} onNavigate={selectPerson} />
+          </LibraryContent>
         </section>
       </div>
 

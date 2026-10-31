@@ -77,3 +77,15 @@ export function LoadingState({ label = "Opening the archive…" }: { label?: str
     </div>
   );
 }
+
+// Once a complete snapshot exists, keep the same view mounted during retries
+// and refresh failures so searches, open profiles, and map positions survive.
+export function LibraryContent({ ready, loading, label, children }: {
+  ready: boolean;
+  loading: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  if (ready) return children;
+  return loading ? <LoadingState label={label} /> : null;
+}

@@ -8,11 +8,13 @@ import type { ScriptureRef } from "@/lib/types";
 export function useRefs() {
   const [refs, setRefs] = useState<ScriptureRef[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
   const refresh = useCallback(() => loadLibraryCollection<ScriptureRef>({
-    url: "/api/refs", version: genRef, onLoaded: setRefs,
+    url: "/api/refs", version: genRef,
+    onLoaded: items => { setRefs(items); setHasLoaded(true); },
     onError: setError, onSettled: () => setLoading(false),
     errorMessage: "Could not load refs. Check your connection and retry.",
   }), []);
@@ -49,5 +51,5 @@ export function useRefs() {
     notifyDataChanged();
   }, [refresh]);
 
-  return { refs, loading, error, reload: load, addRef, deleteRef };
+  return { refs, loading, hasLoaded, error, reload: load, addRef, deleteRef };
 }

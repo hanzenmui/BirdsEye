@@ -8,11 +8,13 @@ import type { Relationship } from "@/lib/types";
 export function useRelationships() {
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
   const refresh = useCallback(() => loadLibraryCollection<Relationship>({
-    url: "/api/relationships", version: genRef, onLoaded: setRelationships,
+    url: "/api/relationships", version: genRef,
+    onLoaded: items => { setRelationships(items); setHasLoaded(true); },
     onError: setError, onSettled: () => setLoading(false),
     errorMessage: "Could not load relationships. Check your connection and retry.",
   }), []);
@@ -49,5 +51,5 @@ export function useRelationships() {
     notifyDataChanged();
   }, [refresh]);
 
-  return { relationships, loading, error, reload: load, addRelationship, deleteRelationship };
+  return { relationships, loading, hasLoaded, error, reload: load, addRelationship, deleteRelationship };
 }
