@@ -1,30 +1,9 @@
 "use client";
 import { notifyDataChanged } from "@/lib/data-events";
 import { libraryRequest } from "@/lib/library-request";
+import { loadLibraryCollection } from "@/lib/library-collection";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Person } from "@/lib/types";
-
-async function fetchPeople(
-  gen: number,
-  genRef: { current: number },
-  setPeople: (p: Person[]) => void,
-  setLoading: (l: boolean) => void,
-  setError: (message: string | null) => void,
-) {
-  try {
-    const res = await fetch("/api/people");
-    if (!res.ok) {
-      console.error("Failed to load people:", res.status);
-      if (gen === genRef.current) { setLoading(false); setError("Could not load people. Check your connection and retry."); }
-      return;
-    }
-    const data = await res.json();
-    if (gen === genRef.current) { setPeople(data); setLoading(false); }
-  } catch (e) {
-    console.error("Failed to load people:", e);
-    if (gen === genRef.current) { setLoading(false); setError("Could not load people. Check your connection and retry."); }
-  }
-}
 
 export function usePeople() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -32,19 +11,23 @@ export function usePeople() {
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
+  const refresh = useCallback(() => loadLibraryCollection<Person>({
+    url: "/api/people", version: genRef, onLoaded: setPeople,
+    onError: setError, onSettled: () => setLoading(false),
+    errorMessage: "Could not load people. Check your connection and retry.",
+  }), []);
+
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    const gen = ++genRef.current;
-    fetchPeople(gen, genRef, setPeople, setLoading, setError);
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
-    const gen = ++genRef.current;
-    void fetchPeople(gen, genRef, setPeople, setLoading, setError);
+    void refresh();
     const generation = genRef;
     return () => { generation.current++; };
-  }, []);
+  }, [refresh]);
 
   const addPerson = useCallback(async (payload: Omit<Person, "id" | "createdAt">) => {
     const res = await libraryRequest("/api/people", {
@@ -54,9 +37,10 @@ export function usePeople() {
     });
     const created: Person = await res.json();
     setPeople(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    void refresh();
     notifyDataChanged();
     return created;
-  }, []);
+  }, [refresh]);
 
   const updatePerson = useCallback(async (id: string, patch: Partial<Person>) => {
     const res = await libraryRequest(`/api/people/${id}`, {
@@ -66,15 +50,17 @@ export function usePeople() {
     });
     const updated: Person = await res.json();
     setPeople(prev => prev.map(p => p.id === id ? updated : p));
+    void refresh();
     notifyDataChanged();
     return updated;
-  }, []);
+  }, [refresh]);
 
   const deletePerson = useCallback(async (id: string) => {
     await libraryRequest(`/api/people/${id}`, { method: "DELETE" });
     setPeople(prev => prev.filter(p => p.id !== id));
+    void refresh();
     notifyDataChanged();
-  }, []);
+  }, [refresh]);
 
   return { people, loading, error, reload: load, addPerson, updatePerson, deletePerson };
 }

@@ -1,5 +1,23 @@
 # Birdseye improvements
 
+## 2026-10-31 - Keep slow loading replies from undoing saved changes
+
+- Changed: People, scripture references, and connections share guarded loading
+  logic. Each confirmed save/removal updates the screen immediately and starts
+  a fresh, uncached read; older loading results and errors are ignored. Failed
+  refreshes retain the saved data in memory and use the existing Retry notice.
+- Benefit: Fixes a reproduced case where a delayed pre-save snapshot replaced
+  a newly saved change. Fresh reads also reconcile restored records instead of
+  keeping an incomplete local list. Writes are never automatically repeated.
+- Checked: Reproduced the bug in all three original loading functions. New
+  controlled-response checks cover additions, edits, removals, complete-list
+  reconciliation, stale errors, current failures/retry, slow JSON parsing, and
+  cleanup. Request-error, relationship-name, reading-workflow, chapter-study,
+  both isolated owner/database checks, targeted lint, and production build
+  passed. Local desktop/375px checks covered person creation/rename/removal,
+  reference and connection addition/removal, with no browser errors. Only
+  disposable test data changed; production deployment was not checked.
+
 ## 2026-10-30 - Stop old owner checks from reversing sign-in or sign-out
 
 - Changed: Initial, focus, polling, and explicit owner-status checks share one

@@ -1,30 +1,9 @@
 "use client";
 import { notifyDataChanged } from "@/lib/data-events";
 import { libraryRequest } from "@/lib/library-request";
+import { loadLibraryCollection } from "@/lib/library-collection";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Relationship } from "@/lib/types";
-
-async function fetchRelationships(
-  gen: number,
-  genRef: { current: number },
-  setRelationships: (r: Relationship[]) => void,
-  setLoading: (l: boolean) => void,
-  setError: (message: string | null) => void,
-) {
-  try {
-    const res = await fetch("/api/relationships");
-    if (!res.ok) {
-      console.error("Failed to load relationships:", res.status);
-      if (gen === genRef.current) { setLoading(false); setError("Could not load relationships. Check your connection and retry."); }
-      return;
-    }
-    const data = await res.json();
-    if (gen === genRef.current) { setRelationships(data); setLoading(false); }
-  } catch (e) {
-    console.error("Failed to load relationships:", e);
-    if (gen === genRef.current) { setLoading(false); setError("Could not load relationships. Check your connection and retry."); }
-  }
-}
 
 export function useRelationships() {
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -32,19 +11,23 @@ export function useRelationships() {
   const [error, setError] = useState<string | null>(null);
   const genRef = useRef(0);
 
+  const refresh = useCallback(() => loadLibraryCollection<Relationship>({
+    url: "/api/relationships", version: genRef, onLoaded: setRelationships,
+    onError: setError, onSettled: () => setLoading(false),
+    errorMessage: "Could not load relationships. Check your connection and retry.",
+  }), []);
+
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    const gen = ++genRef.current;
-    fetchRelationships(gen, genRef, setRelationships, setLoading, setError);
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
-    const gen = ++genRef.current;
-    void fetchRelationships(gen, genRef, setRelationships, setLoading, setError);
+    void refresh();
     const generation = genRef;
     return () => { generation.current++; };
-  }, []);
+  }, [refresh]);
 
   const addRelationship = useCallback(async (payload: Omit<Relationship, "id" | "createdAt">) => {
     const res = await libraryRequest("/api/relationships", {
@@ -54,15 +37,17 @@ export function useRelationships() {
     });
     const created: Relationship = await res.json();
     setRelationships(prev => [created, ...prev]);
+    void refresh();
     notifyDataChanged();
     return created;
-  }, []);
+  }, [refresh]);
 
   const deleteRelationship = useCallback(async (id: string) => {
     await libraryRequest(`/api/relationships/${id}`, { method: "DELETE" });
     setRelationships(prev => prev.filter(r => r.id !== id));
+    void refresh();
     notifyDataChanged();
-  }, []);
+  }, [refresh]);
 
   return { relationships, loading, error, reload: load, addRelationship, deleteRelationship };
 }

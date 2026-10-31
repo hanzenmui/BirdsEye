@@ -51,6 +51,7 @@
     "verify:owner": "npx tsx scripts/verify-owner-protection.ts && npx tsx scripts/verify-owner-protection.ts --libsql",
     "verify:owner-status": "npx tsx scripts/verify-owner-status.ts",
     "verify:library-request": "npx tsx scripts/verify-library-request.ts",
+    "verify:library-collection": "npx tsx scripts/verify-library-collection.ts",
     "verify:relationship-names": "npx tsx scripts/verify-relationship-names.ts",
     "verify:chapter-study": "npx tsx scripts/verify-chapter-study.ts",
     "verify:reading-workflow": "npx tsx scripts/verify-reading-workflow.ts",
