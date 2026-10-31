@@ -493,6 +493,9 @@ select.form-input { cursor: pointer; }
 .modal-footer .btn { min-height: 40px; }
 .form-save-footer { flex-wrap: wrap; }
 .form-save-error { flex-basis: 100%; margin: 0 0 4px; padding: 10px 12px; border-radius: 8px; background: var(--danger-bg); color: var(--danger); font: 600 14px/1.5 var(--ui-font); overflow-wrap: anywhere; }
+.draft-close-notice { flex-basis: 100%; min-width: 0; padding: 13px; border: 1px solid var(--border2); border-radius: 10px; background: var(--bg2); color: var(--text2); font: 600 14px/1.45 var(--ui-font); }
+.draft-close-notice p { margin: 3px 0 12px; color: var(--text3); font-weight: 400; }
+.draft-close-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .close-btn { width: 40px; height: 40px; display: inline-grid; place-items: center; background: transparent; border: 1px solid transparent; color: var(--text3); cursor: pointer; font-size: 24px; line-height: 1; padding: 0; border-radius: 50%; transition: background 120ms, border-color 120ms, color 120ms; }
 .modal-header > .close-btn { position: absolute; top: 18px; right: 18px; }
 .close-btn:hover { background: var(--bg3); color: var(--text2); }

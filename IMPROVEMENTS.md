@@ -1,5 +1,23 @@
 # Birdseye improvements
 
+## 2026-10-31 - Protect unfinished forms from accidental dismissal
+
+- Changed: Closing an edited person, reference, or connection form now offers
+  Keep editing or Discard changes. Escape, the close button, Cancel, and outside
+  taps share the safeguard. Unchanged/reverted forms close normally; unadded tag
+  text is protected too. Keep editing restores focus. Close/Cancel are disabled
+  during saving, and Escape cannot interrupt an in-progress save.
+- Benefit: Fixes a reproduced case where Escape instantly discarded a typed
+  description. Successful saves still close normally. This protects ordinary
+  form dismissal; it does not store drafts across reloads or sign-out.
+- Checked: Targeted lint, production build, request-error/view checks, and both
+  isolated owner/database checks passed. Desktop/375px browser checks covered
+  unchanged/reverted forms, tags, all dismissal paths, retained person/reference/
+  connection notes, rejected saves, corrected saves, and focus restoration.
+  A local-only proxy delayed a save response to verify busy controls and normal
+  completion. No JavaScript errors. All writes used disposable local records;
+  live data and production deployment were not changed or checked.
+
 ## 2026-10-31 - Keep loaded reading views open when refresh fails
 
 - Changed: People, books, family maps, and Insights keep their loaded content

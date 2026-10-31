@@ -19,6 +19,8 @@ import { OwnerTools } from "./OwnerTools";
 import { ChapterStudy } from "./ChapterStudy";
 import { notifyDataChanged } from "@/lib/data-events";
 import { libraryErrorMessage } from "@/lib/library-request";
+import { useDraftClose } from "@/hooks/useDraftClose";
+import { DraftCloseNotice } from "./DraftCloseNotice";
 
 // A scripture reference that opens the passage on Bible Gateway. stopPropagation
 // matters because these sit inside cards and rows that are themselves clickable —
@@ -116,9 +118,10 @@ interface ModalFrameProps {
   onClose: () => void;
   children: React.ReactNode;
   tone?: "default" | "danger";
+  busy?: boolean;
 }
 
-function ModalFrame({ id, eyebrow, title, description, onClose, children, tone = "default" }: ModalFrameProps) {
+function ModalFrame({ id, eyebrow, title, description, onClose, children, tone = "default", busy = false }: ModalFrameProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
 
@@ -179,7 +182,7 @@ function ModalFrame({ id, eyebrow, title, description, onClose, children, tone =
             <h2 className="modal-title" id={`${id}-title`}>{title}</h2>
             <p className="modal-subtitle" id={`${id}-description`}>{description}</p>
           </div>
-          <button type="button" className="close-btn" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
         </div>
         {children}
       </div>
@@ -275,10 +278,12 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
     description: initial.description,
     tags: [...initial.tags],
   } : { ...EMPTY });
+  const [initialForm] = useState(form);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const isEdit = !!initial;
+  const close = useDraftClose(JSON.stringify(form) !== JSON.stringify(initialForm) || tagInput !== "", saving, onClose);
 
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }));
@@ -320,7 +325,8 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
       eyebrow="Person record"
       title={isEdit ? `Edit ${initial!.name}` : "Add a person"}
       description="Create a clear, searchable record. Approximate dates are welcome."
-      onClose={onClose}
+      onClose={close.requestClose}
+      busy={saving}
     >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
@@ -382,7 +388,8 @@ function PersonModal({ initial, onSave, onClose }: PersonModalProps) {
           </div>
           <div className="modal-footer form-save-footer">
             {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+            {close.confirming && <DraftCloseNotice onKeepEditing={close.keepEditing} onDiscard={close.discard} saving={saving} />}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={close.requestClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : isEdit ? "Save changes" : "Add person"}</button>
           </div>
         </form>
@@ -401,6 +408,8 @@ function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [form, setForm] = useState({ book: "Genesis", chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 1, note: "" });
+  const [initialForm] = useState(form);
+  const close = useDraftClose(JSON.stringify(form) !== JSON.stringify(initialForm), saving, onClose);
   // Mirrors chapterEnd/verseEnd to chapterStart/verseStart until the user
   // explicitly edits an End field — without this, a quick single-verse entry
   // (only filling "From") silently saves a backwards range since End defaults
@@ -440,7 +449,8 @@ function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
       eyebrow="Scripture index"
       title="Add a scripture reference"
       description={`Connect ${personName} to the exact passage where they appear.`}
-      onClose={onClose}
+      onClose={close.requestClose}
+      busy={saving}
     >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
@@ -477,7 +487,8 @@ function AddRefModal({ personId, personName, onSave, onClose }: AddRefProps) {
           </div>
           <div className="modal-footer form-save-footer">
             {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+            {close.confirming && <DraftCloseNotice onKeepEditing={close.keepEditing} onDiscard={close.discard} saving={saving} />}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={close.requestClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving…" : "Add reference"}</button>
           </div>
         </form>
@@ -504,6 +515,7 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
   const [type, setType] = useState<RelationshipType>("parent_of");
   const [personBId, setPersonBId] = useState("");
   const [notes, setNotes] = useState("");
+  const close = useDraftClose(type !== "parent_of" || personBId !== "" || notes !== "", saving, onClose);
 
   const others = people.filter(p => p.id !== focalPerson.id);
   const personB = people.find(p => p.id === personBId);
@@ -540,7 +552,8 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
       eyebrow="Relationship map"
       title="Add a relationship"
       description={`Show how ${focalPerson.name} connects to someone else in the archive.`}
-      onClose={onClose}
+      onClose={close.requestClose}
+      busy={saving}
     >
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
@@ -575,7 +588,8 @@ function AddRelModal({ focalPerson, people, onSave, onClose }: AddRelProps) {
           </div>
           <div className="modal-footer form-save-footer">
             {saveError && <p className="form-save-error" role="alert">{saveError}</p>}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+            {close.confirming && <DraftCloseNotice onKeepEditing={close.keepEditing} onDiscard={close.discard} saving={saving} />}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={close.requestClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-sm" disabled={!personBId || saving}>{saving ? "Saving…" : "Add relationship"}</button>
           </div>
         </form>
